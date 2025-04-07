@@ -8,6 +8,8 @@ interface SpaceType {
   squareFootage: string;
   units: string;
   phase: string;
+  efficiencyFactor: string;
+  floorAllocation: Record<number, string>;
 }
 
 interface UnitMix {
@@ -33,7 +35,15 @@ export const usePropertyState = () => {
   
   // Space Types
   const [spaceTypes, setSpaceTypes] = useState<SpaceType[]>([
-    { id: "space-1", type: "", squareFootage: "", units: "", phase: "" }
+    { 
+      id: "space-1", 
+      type: "", 
+      squareFootage: "", 
+      units: "", 
+      phase: "",
+      efficiencyFactor: "100",
+      floorAllocation: {}
+    }
   ]);
   
   // Unit Mix
@@ -57,7 +67,15 @@ export const usePropertyState = () => {
     setTotalLandArea(storedTotalLandArea);
     
     const storedSpaceTypes = loadFromLocalStorage(STORAGE_KEYS.SPACE_TYPES, [
-      { id: "space-1", type: "", squareFootage: "", units: "", phase: "" }
+      { 
+        id: "space-1", 
+        type: "", 
+        squareFootage: "", 
+        units: "", 
+        phase: "",
+        efficiencyFactor: "100",
+        floorAllocation: {}
+      }
     ]);
     setSpaceTypes(storedSpaceTypes);
     
@@ -114,7 +132,15 @@ export const usePropertyState = () => {
     const newId = `space-${spaceTypes.length + 1}`;
     setSpaceTypes([
       ...spaceTypes,
-      { id: newId, type: "", squareFootage: "", units: "", phase: "" }
+      { 
+        id: newId, 
+        type: "", 
+        squareFootage: "", 
+        units: "", 
+        phase: "",
+        efficiencyFactor: "100",
+        floorAllocation: {}
+      }
     ]);
   };
 
@@ -135,6 +161,29 @@ export const usePropertyState = () => {
       spaceTypes.map(space => 
         space.id === id ? { ...space, [field]: value } : space
       )
+    );
+  };
+
+  const updateSpaceTypeFloorAllocation = (id: string, floor: number, value: string) => {
+    // Validate the percentage value
+    if (value !== "") {
+      const numValue = Number(value);
+      if (isNaN(numValue) || numValue < 0 || numValue > 100) return;
+    }
+    
+    setSpaceTypes(
+      spaceTypes.map(space => {
+        if (space.id === id) {
+          return { 
+            ...space, 
+            floorAllocation: { 
+              ...space.floorAllocation, 
+              [floor]: value 
+            } 
+          };
+        }
+        return space;
+      })
     );
   };
 
@@ -172,7 +221,15 @@ export const usePropertyState = () => {
     setProjectLocation("");
     setProjectType("");
     setTotalLandArea("");
-    setSpaceTypes([{ id: "space-1", type: "", squareFootage: "", units: "", phase: "" }]);
+    setSpaceTypes([{ 
+      id: "space-1", 
+      type: "", 
+      squareFootage: "", 
+      units: "", 
+      phase: "",
+      efficiencyFactor: "100",
+      floorAllocation: {} 
+    }]);
     setUnitMixes([{ id: "unit-1", type: "Studio", count: "", squareFootage: "" }]);
   }, []);
 
@@ -188,6 +245,7 @@ export const usePropertyState = () => {
     addSpaceType,
     removeSpaceType,
     updateSpaceType,
+    updateSpaceTypeFloorAllocation,
     
     // Unit Mix
     unitMixes,

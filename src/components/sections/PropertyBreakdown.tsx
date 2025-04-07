@@ -158,7 +158,7 @@ const PropertyBreakdown = () => {
                 efficiencyFactor={space.efficiencyFactor}
                 floorAllocation={space.floorAllocation}
                 onUpdate={(id, field, value) => {
-                  updateSpaceType(id, field, value);
+                  updateSpaceType(id, field as keyof typeof space, value);
                 }}
                 onUpdateFloorAllocation={(id, floor, value) => {
                   updateSpaceTypeFloorAllocation(id, floor, value);

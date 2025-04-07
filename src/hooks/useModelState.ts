@@ -26,15 +26,15 @@ export const useModelState = () => {
   // Reset all data in localStorage
   const resetAllData = useCallback(() => {
     clearAllModelData();
-    // Reset all state objects
-    propertyState.resetAllData && propertyState.resetAllData();
-    developmentCostsState.resetAllData && developmentCostsState.resetAllData();
-    timelineState.resetAllData && timelineState.resetAllData();
-    expensesState.resetAllData && expensesState.resetAllData();
-    revenueState.resetAllData && revenueState.resetAllData();
-    financingState.resetAllData && financingState.resetAllData();
-    dispositionState.resetAllData && dispositionState.resetAllData();
-    sensitivityState.resetAllData && sensitivityState.resetAllData();
+    // Reset all state objects that have resetAllData method
+    if (propertyState.resetAllData) propertyState.resetAllData();
+    if (developmentCostsState.resetAllData) developmentCostsState.resetAllData();
+    if (timelineState.resetAllData) timelineState.resetAllData();
+    if (expensesState.resetAllData) expensesState.resetAllData();
+    if (revenueState.resetAllData) revenueState.resetAllData();
+    if (financingState.resetAllData) financingState.resetAllData();
+    if (dispositionState.resetAllData) dispositionState.resetAllData();
+    if (sensitivityState.resetAllData) sensitivityState.resetAllData();
     
     setSaveStatus('reset');
   }, [
