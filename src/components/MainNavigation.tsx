@@ -1,13 +1,10 @@
 
 import React from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import {
   NavigationMenu,
-  NavigationMenuContent,
+  NavigationMenuList,
   NavigationMenuItem,
   NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -78,8 +75,8 @@ export type ActiveTabProps = {
 
 const MainNavigation = ({ activeTab, setActiveTab }: ActiveTabProps) => {
   return (
-    <NavigationMenu className="max-w-full w-full justify-start overflow-x-auto py-2">
-      <NavigationMenuList className="flex space-x-2 px-4">
+    <NavigationMenu className="max-w-full w-full justify-center overflow-x-auto py-2">
+      <NavigationMenuList className="flex w-full justify-between px-4">
         {sections.map((section) => (
           <NavigationMenuItem key={section.value}>
             <TooltipProvider>
@@ -88,7 +85,7 @@ const MainNavigation = ({ activeTab, setActiveTab }: ActiveTabProps) => {
                   <NavigationMenuLink
                     className={cn(
                       navigationMenuTriggerStyle(),
-                      "flex items-center px-4 py-2 text-sm font-medium",
+                      "flex items-center justify-center min-w-[110px] h-10 px-3 py-2 text-sm font-medium whitespace-nowrap",
                       activeTab === section.value 
                         ? "bg-blue-100 text-blue-700" 
                         : "hover:bg-blue-50"
