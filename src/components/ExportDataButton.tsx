@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { DownloadIcon } from "lucide-react";
+import { FileJson, FileCsv, Download } from "lucide-react";
 import { useExportData } from "@/hooks/useExportData";
 
 type ExportFormat = "json" | "csv" | "excel";
@@ -8,9 +8,10 @@ type ExportFormat = "json" | "csv" | "excel";
 interface ExportDataButtonProps {
   format: ExportFormat;
   className?: string;
+  showLabel?: boolean;
 }
 
-const ExportDataButton = ({ format, className }: ExportDataButtonProps) => {
+const ExportDataButton = ({ format, className, showLabel = true }: ExportDataButtonProps) => {
   const { exportAsJson, exportAsCsv, exportAsExcel } = useExportData();
   
   const handleExport = () => {
@@ -32,6 +33,17 @@ const ExportDataButton = ({ format, className }: ExportDataButtonProps) => {
     csv: "CSV",
     excel: "Excel"
   };
+
+  const renderIcon = () => {
+    switch (format) {
+      case "json":
+        return <FileJson className="h-4 w-4" />;
+      case "csv":
+        return <FileCsv className="h-4 w-4" />;
+      case "excel":
+        return <Download className="h-4 w-4" />;
+    }
+  };
   
   return (
     <Button 
@@ -39,9 +51,10 @@ const ExportDataButton = ({ format, className }: ExportDataButtonProps) => {
       variant="outline" 
       className={className}
       size="sm"
+      title={`Export full model as ${formatLabel[format]}`}
     >
-      <DownloadIcon className="mr-2 h-4 w-4" />
-      Export as {formatLabel[format]}
+      {renderIcon()}
+      {showLabel && <span className="ml-2">Export {formatLabel[format]}</span>}
     </Button>
   );
 };

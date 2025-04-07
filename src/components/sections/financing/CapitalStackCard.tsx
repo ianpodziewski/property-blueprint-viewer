@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useModelState } from "@/hooks/useModelState";
-import ExportDataButton from "@/components/ExportDataButton";
 
 const CapitalStackCard = () => {
   const { financing, handleNumberChange } = useModelState();
@@ -24,15 +23,9 @@ const CapitalStackCard = () => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Capital Stack</CardTitle>
-          <CardDescription>Define your project's capital structure</CardDescription>
-        </div>
-        <div className="flex space-x-2">
-          <ExportDataButton format="csv" />
-          <ExportDataButton format="json" />
-        </div>
+      <CardHeader>
+        <CardTitle>Capital Stack</CardTitle>
+        <CardDescription>Define your project's capital structure</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
