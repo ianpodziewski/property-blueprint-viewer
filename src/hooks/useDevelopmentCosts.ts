@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 
 interface CustomCost {
@@ -50,6 +51,23 @@ export const useDevelopmentCosts = () => {
     { id: "other-cost-1", name: "", amount: "", metric: "psf" }
   ]);
   
+  // Input handlers
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
+    setter(e.target.value);
+  };
+  
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
+    const value = e.target.value;
+    // Allow empty string or valid non-negative numbers
+    if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
+      setter(value);
+    }
+  };
+  
+  const handleSelectChange = (value: string, setter: (value: string) => void) => {
+    setter(value);
+  };
+  
   const addCustomCost = (category: string) => {
     switch (category) {
       case "land":
@@ -84,6 +102,12 @@ export const useDevelopmentCosts = () => {
   };
   
   const updateCustomCost = (category: string, id: string, field: keyof CustomCost, value: string) => {
+    // Validate amount field if being updated
+    if (field === "amount" && value !== "") {
+      const numValue = Number(value);
+      if (isNaN(numValue) || numValue < 0) return;
+    }
+    
     switch (category) {
       case "land":
         setLandCustomCosts(
@@ -179,6 +203,11 @@ export const useDevelopmentCosts = () => {
     // Functions
     addCustomCost,
     updateCustomCost,
-    removeCustomCost
+    removeCustomCost,
+    
+    // Event handlers
+    handleTextChange,
+    handleNumberChange,
+    handleSelectChange
   };
 };

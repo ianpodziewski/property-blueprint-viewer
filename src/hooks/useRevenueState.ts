@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 
 interface ResidentialUnit {
@@ -67,12 +68,61 @@ export const useRevenueState = () => {
   const [amenityFeesPerYear, setAmenityFeesPerYear] = useState<string>("");
   const [retailPercentageRent, setRetailPercentageRent] = useState<string>("");
   
+  // Input handlers
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
+    setter(e.target.value);
+  };
+  
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
+    const value = e.target.value;
+    // Allow empty string or valid non-negative numbers
+    if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
+      setter(value);
+    }
+  };
+  
+  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
+    const value = e.target.value;
+    // Allow empty string or valid percentages (0-100)
+    if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 100)) {
+      setter(value);
+    }
+  };
+  
+  const handleSelectChange = (value: string, setter: (value: string) => void) => {
+    setter(value);
+  };
+  
+  const handleBooleanChange = (value: boolean, setter: (value: boolean) => void) => {
+    setter(value);
+  };
+  
   const updateResidentialUnit = (id: string, field: keyof ResidentialUnit, value: string) => {
+    // Validate number fields
+    if ((field === "count" || field === "rent" || field === "squareFootage") && value !== "") {
+      const numValue = Number(value);
+      if (isNaN(numValue) || numValue < 0) return;
+    }
+    
     setResidentialUnits(
       residentialUnits.map(unit => 
         unit.id === id ? { ...unit, [field]: value } : unit
       )
     );
+  };
+  
+  const addResidentialUnit = () => {
+    const newId = `unit-${residentialUnits.length + 1}`;
+    setResidentialUnits([
+      ...residentialUnits,
+      { id: newId, type: "", count: "", rent: "", squareFootage: "" }
+    ]);
+  };
+  
+  const removeResidentialUnit = (id: string) => {
+    if (residentialUnits.length > 1) {
+      setResidentialUnits(residentialUnits.filter(unit => unit.id !== id));
+    }
   };
   
   return {
@@ -87,6 +137,8 @@ export const useRevenueState = () => {
     
     // Residential Income
     residentialUnits,
+    addResidentialUnit,
+    removeResidentialUnit,
     updateResidentialUnit,
     
     // Commercial Income
@@ -129,6 +181,13 @@ export const useRevenueState = () => {
     laundryIncomePerYear, setLaundryIncomePerYear,
     lateFeeIncomePerYear, setLateFeeIncomePerYear,
     amenityFeesPerYear, setAmenityFeesPerYear,
-    retailPercentageRent, setRetailPercentageRent
+    retailPercentageRent, setRetailPercentageRent,
+    
+    // Event handlers
+    handleTextChange,
+    handleNumberChange,
+    handlePercentageChange,
+    handleSelectChange,
+    handleBooleanChange
   };
 };

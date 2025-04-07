@@ -23,7 +23,11 @@ const DebtFinancing = ({ loanType, setLoanType }: DebtFinancingProps) => {
       <CardContent className="space-y-6">
         <div className="space-y-3">
           <Label>Loan Type</Label>
-          <RadioGroup defaultValue="both" className="flex space-x-4" onValueChange={(value) => setLoanType(value as "construction" | "permanent" | "both")}>
+          <RadioGroup 
+            value={loanType} 
+            className="flex space-x-4" 
+            onValueChange={(value) => setLoanType(value as "construction" | "permanent" | "both")}
+          >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="construction" id="construction" />
               <Label htmlFor="construction">Construction Only</Label>
