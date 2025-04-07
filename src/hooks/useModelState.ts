@@ -1,4 +1,5 @@
 
+import { useState, useCallback } from "react";
 import { usePropertyState } from "./usePropertyState";
 import { useDevelopmentCosts } from "./useDevelopmentCosts";
 import { useDevelopmentTimeline } from "./useDevelopmentTimeline";
@@ -7,9 +8,12 @@ import { useRevenueState } from "./useRevenueState";
 import { useFinancingState } from "./useFinancingState";
 import { useDispositionState } from "./useDispositionState";
 import { useSensitivityState } from "./useSensitivityState";
+import { clearAllModelData } from "./useLocalStoragePersistence";
 
 // This is a master hook that combines all the section hooks
 export const useModelState = () => {
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'error' | 'reset' | null>(null);
+  
   const propertyState = usePropertyState();
   const developmentCostsState = useDevelopmentCosts();
   const timelineState = useDevelopmentTimeline();
@@ -19,12 +23,37 @@ export const useModelState = () => {
   const dispositionState = useDispositionState();
   const sensitivityState = useSensitivityState();
   
+  // Reset all data in localStorage
+  const resetAllData = useCallback(() => {
+    clearAllModelData();
+    // Reset all state objects
+    propertyState.resetAllData && propertyState.resetAllData();
+    developmentCostsState.resetAllData && developmentCostsState.resetAllData();
+    timelineState.resetAllData && timelineState.resetAllData();
+    expensesState.resetAllData && expensesState.resetAllData();
+    revenueState.resetAllData && revenueState.resetAllData();
+    financingState.resetAllData && financingState.resetAllData();
+    dispositionState.resetAllData && dispositionState.resetAllData();
+    sensitivityState.resetAllData && sensitivityState.resetAllData();
+    
+    setSaveStatus('reset');
+  }, [
+    propertyState, developmentCostsState, timelineState, expensesState, 
+    revenueState, financingState, dispositionState, sensitivityState
+  ]);
+  
+  // Clear save status notification
+  const clearSaveStatus = useCallback(() => {
+    setSaveStatus(null);
+  }, []);
+
   // Master handlers
   const handleTextChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, 
     setter: (value: string) => void
   ) => {
     setter(e.target.value);
+    setSaveStatus('saved');
   };
   
   const handleNumberChange = (
@@ -37,10 +66,12 @@ export const useModelState = () => {
     // Allow empty string or valid numbers within range
     if (value === '') {
       setter(value);
+      setSaveStatus('saved');
     } else {
       const numValue = Number(value);
       if (!isNaN(numValue) && numValue >= min && (max === undefined || numValue <= max)) {
         setter(value);
+        setSaveStatus('saved');
       }
     }
   };
@@ -57,6 +88,7 @@ export const useModelState = () => {
     setter: (value: string) => void
   ) => {
     setter(value);
+    setSaveStatus('saved');
   };
   
   const handleBooleanChange = (
@@ -64,6 +96,7 @@ export const useModelState = () => {
     setter: (value: boolean) => void
   ) => {
     setter(value);
+    setSaveStatus('saved');
   };
   
   const handleDateChange = (
@@ -71,6 +104,7 @@ export const useModelState = () => {
     setter: (date: Date | undefined) => void
   ) => {
     setter(date);
+    setSaveStatus('saved');
   };
   
   return {
@@ -89,6 +123,11 @@ export const useModelState = () => {
     handlePercentageChange,
     handleSelectChange,
     handleBooleanChange,
-    handleDateChange
+    handleDateChange,
+    
+    // Data persistence
+    saveStatus,
+    clearSaveStatus,
+    resetAllData
   };
 };

@@ -1,5 +1,6 @@
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { saveToLocalStorage, loadFromLocalStorage } from "./useLocalStoragePersistence";
 
 interface SpaceType {
   id: string;
@@ -15,6 +16,13 @@ interface UnitMix {
   count: string;
   squareFootage: string;
 }
+
+const STORAGE_KEYS = {
+  PROJECT_INFO: "realEstateModel_projectInfo",
+  SPACE_TYPES: "realEstateModel_spaceTypes",
+  UNIT_MIX: "realEstateModel_unitMix",
+  TOTAL_LAND_AREA: "realEstateModel_totalLandArea"
+};
 
 export const usePropertyState = () => {
   // Project Information
@@ -32,6 +40,56 @@ export const usePropertyState = () => {
   const [unitMixes, setUnitMixes] = useState<UnitMix[]>([
     { id: "unit-1", type: "Studio", count: "", squareFootage: "" }
   ]);
+  
+  // Load data from localStorage on component mount
+  useEffect(() => {
+    const storedProjectInfo = loadFromLocalStorage(STORAGE_KEYS.PROJECT_INFO, {
+      projectName: "",
+      projectLocation: "",
+      projectType: ""
+    });
+    
+    setProjectName(storedProjectInfo.projectName);
+    setProjectLocation(storedProjectInfo.projectLocation);
+    setProjectType(storedProjectInfo.projectType);
+    
+    const storedTotalLandArea = loadFromLocalStorage(STORAGE_KEYS.TOTAL_LAND_AREA, "");
+    setTotalLandArea(storedTotalLandArea);
+    
+    const storedSpaceTypes = loadFromLocalStorage(STORAGE_KEYS.SPACE_TYPES, [
+      { id: "space-1", type: "", squareFootage: "", units: "", phase: "" }
+    ]);
+    setSpaceTypes(storedSpaceTypes);
+    
+    const storedUnitMix = loadFromLocalStorage(STORAGE_KEYS.UNIT_MIX, [
+      { id: "unit-1", type: "Studio", count: "", squareFootage: "" }
+    ]);
+    setUnitMixes(storedUnitMix);
+  }, []);
+  
+  // Save project info to localStorage whenever it changes
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.PROJECT_INFO, {
+      projectName,
+      projectLocation,
+      projectType
+    });
+  }, [projectName, projectLocation, projectType]);
+  
+  // Save total land area to localStorage whenever it changes
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.TOTAL_LAND_AREA, totalLandArea);
+  }, [totalLandArea]);
+  
+  // Save space types to localStorage whenever they change
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.SPACE_TYPES, spaceTypes);
+  }, [spaceTypes]);
+  
+  // Save unit mix to localStorage whenever it changes
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.UNIT_MIX, unitMixes);
+  }, [unitMixes]);
   
   // Text field handlers
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
@@ -107,6 +165,16 @@ export const usePropertyState = () => {
       )
     );
   };
+  
+  // Reset all data
+  const resetAllData = useCallback(() => {
+    setProjectName("");
+    setProjectLocation("");
+    setProjectType("");
+    setTotalLandArea("");
+    setSpaceTypes([{ id: "space-1", type: "", squareFootage: "", units: "", phase: "" }]);
+    setUnitMixes([{ id: "unit-1", type: "Studio", count: "", squareFootage: "" }]);
+  }, []);
 
   return {
     // Project Information
@@ -130,6 +198,9 @@ export const usePropertyState = () => {
     // Event handlers
     handleTextChange,
     handleNumberChange,
-    handleSelectChange
+    handleSelectChange,
+    
+    // Data persistence
+    resetAllData
   };
 };

@@ -1,5 +1,6 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { saveToLocalStorage, loadFromLocalStorage } from "./useLocalStoragePersistence";
 
 interface SpaceType {
   id: string;
@@ -23,6 +24,13 @@ interface Issue {
   message: string;
   severity: 'warning' | 'error';
 }
+
+const STORAGE_KEYS = {
+  PROJECT_INFO: "realEstateModel_extendedProjectInfo",
+  BUILDING_PARAMS: "realEstateModel_buildingParams",
+  SPACE_TYPES: "realEstateModel_extendedSpaceTypes",
+  UNIT_MIX: "realEstateModel_extendedUnitMix"
+};
 
 export const useExtendedPropertyState = () => {
   // Project Information
@@ -71,6 +79,78 @@ export const useExtendedPropertyState = () => {
     "hotel": "#8B5CF6",       // purple
     "amenities": "#EC4899",   // pink
   };
+  
+  // Load data from localStorage on component mount
+  useEffect(() => {
+    const storedProjectInfo = loadFromLocalStorage(STORAGE_KEYS.PROJECT_INFO, {
+      projectName: "",
+      projectLocation: "",
+      projectType: ""
+    });
+    
+    setProjectName(storedProjectInfo.projectName);
+    setProjectLocation(storedProjectInfo.projectLocation);
+    setProjectType(storedProjectInfo.projectType);
+    
+    const storedBuildingParams = loadFromLocalStorage(STORAGE_KEYS.BUILDING_PARAMS, {
+      farAllowance: "1.5",
+      totalLandArea: "0",
+      buildingFootprint: "0",
+      numberOfFloors: "1"
+    });
+    
+    setFarAllowance(storedBuildingParams.farAllowance);
+    setTotalLandArea(storedBuildingParams.totalLandArea);
+    setBuildingFootprint(storedBuildingParams.buildingFootprint);
+    setNumberOfFloors(storedBuildingParams.numberOfFloors);
+    
+    const storedSpaceTypes = loadFromLocalStorage(STORAGE_KEYS.SPACE_TYPES, [
+      { 
+        id: "space-1", 
+        type: "", 
+        squareFootage: "0", 
+        units: "", 
+        phase: "phase1",
+        efficiencyFactor: "85",
+        floorAllocation: { 1: "100" }
+      }
+    ]);
+    setSpaceTypes(storedSpaceTypes);
+    
+    const storedUnitMix = loadFromLocalStorage(STORAGE_KEYS.UNIT_MIX, [
+      { id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }
+    ]);
+    setUnitMixes(storedUnitMix);
+  }, []);
+  
+  // Save project info to localStorage whenever it changes
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.PROJECT_INFO, {
+      projectName,
+      projectLocation,
+      projectType
+    });
+  }, [projectName, projectLocation, projectType]);
+  
+  // Save building parameters to localStorage whenever they change
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.BUILDING_PARAMS, {
+      farAllowance,
+      totalLandArea,
+      buildingFootprint,
+      numberOfFloors
+    });
+  }, [farAllowance, totalLandArea, buildingFootprint, numberOfFloors]);
+  
+  // Save space types to localStorage whenever they change
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.SPACE_TYPES, spaceTypes);
+  }, [spaceTypes]);
+  
+  // Save unit mix to localStorage whenever it changes
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.UNIT_MIX, unitMixes);
+  }, [unitMixes]);
   
   // Calculate total buildable area
   useEffect(() => {
@@ -336,6 +416,27 @@ export const useExtendedPropertyState = () => {
       )
     );
   };
+  
+  // Reset all data
+  const resetAllData = useCallback(() => {
+    setProjectName("");
+    setProjectLocation("");
+    setProjectType("");
+    setFarAllowance("1.5");
+    setTotalLandArea("0");
+    setBuildingFootprint("0");
+    setNumberOfFloors("1");
+    setSpaceTypes([{ 
+      id: "space-1", 
+      type: "", 
+      squareFootage: "0", 
+      units: "", 
+      phase: "phase1",
+      efficiencyFactor: "85",
+      floorAllocation: { 1: "100" }
+    }]);
+    setUnitMixes([{ id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }]);
+  }, []);
 
   return {
     // Project Information
@@ -372,6 +473,9 @@ export const useExtendedPropertyState = () => {
     spaceTypeColors,
     
     // Issues
-    issues
+    issues,
+    
+    // Data persistence
+    resetAllData
   };
 };

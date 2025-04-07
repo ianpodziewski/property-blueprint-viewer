@@ -11,6 +11,7 @@ import FloorStackingDiagram from "@/components/property/FloorStackingDiagram";
 import BuildingMassingVisualization from "@/components/property/BuildingMassingVisualization";
 import SpaceSummaryDashboard from "@/components/property/SpaceSummaryDashboard";
 import PhasingTimeline from "@/components/property/PhasingTimeline";
+import { useModelState } from "@/hooks/useModelState";
 
 const PropertyBreakdown = () => {
   const {
@@ -50,6 +51,9 @@ const PropertyBreakdown = () => {
     // Issues
     issues
   } = useExtendedPropertyState();
+  
+  // Get common handlers from the model state to ensure persistence
+  const { handleTextChange, handleNumberChange } = useModelState();
 
   // Generate data for visualizations
   const floorsData = generateFloorsData();
@@ -75,7 +79,7 @@ const PropertyBreakdown = () => {
               id="project-name" 
               placeholder="Enter project name" 
               value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
+              onChange={(e) => handleTextChange(e, setProjectName)}
             />
           </div>
           <div className="space-y-2">
@@ -84,7 +88,7 @@ const PropertyBreakdown = () => {
               id="location" 
               placeholder="City, State" 
               value={projectLocation}
-              onChange={(e) => setProjectLocation(e.target.value)}
+              onChange={(e) => handleTextChange(e, setProjectLocation)}
             />
           </div>
           <div className="space-y-2">
@@ -93,7 +97,7 @@ const PropertyBreakdown = () => {
               id="project-type" 
               placeholder="Mixed-use, Residential, etc." 
               value={projectType}
-              onChange={(e) => setProjectType(e.target.value)}
+              onChange={(e) => handleTextChange(e, setProjectType)}
             />
           </div>
         </CardContent>
@@ -102,13 +106,21 @@ const PropertyBreakdown = () => {
       {/* Building Parameters Section */}
       <BuildingParameters
         farAllowance={farAllowance}
-        setFarAllowance={setFarAllowance}
+        setFarAllowance={(value) => {
+          setFarAllowance(value);
+        }}
         totalLandArea={totalLandArea}
-        setTotalLandArea={setTotalLandArea}
+        setTotalLandArea={(value) => {
+          setTotalLandArea(value);
+        }}
         buildingFootprint={buildingFootprint}
-        setBuildingFootprint={setBuildingFootprint}
+        setBuildingFootprint={(value) => {
+          setBuildingFootprint(value);
+        }}
         numberOfFloors={numberOfFloors}
-        setNumberOfFloors={setNumberOfFloors}
+        setNumberOfFloors={(value) => {
+          setNumberOfFloors(value);
+        }}
         totalBuildableArea={totalBuildableArea}
         actualFar={actualFar}
       />
@@ -145,8 +157,12 @@ const PropertyBreakdown = () => {
                 phase={space.phase}
                 efficiencyFactor={space.efficiencyFactor}
                 floorAllocation={space.floorAllocation}
-                onUpdate={updateSpaceType}
-                onUpdateFloorAllocation={updateSpaceTypeFloorAllocation}
+                onUpdate={(id, field, value) => {
+                  updateSpaceType(id, field, value);
+                }}
+                onUpdateFloorAllocation={(id, floor, value) => {
+                  updateSpaceTypeFloorAllocation(id, floor, value);
+                }}
                 onRemove={removeSpaceType}
                 availableFloors={parseInt(numberOfFloors) || 1}
               />
