@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 
 interface ExpenseCategory {
@@ -44,7 +45,7 @@ export const useExpensesState = () => {
     }
   };
   
-  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) {
+  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
     const value = e.target.value;
     // Allow empty string or valid percentages (0-100)
     if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 100)) {
