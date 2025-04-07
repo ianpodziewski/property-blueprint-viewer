@@ -1,80 +1,61 @@
 
-import { useState } from "react";
+import { Button } from "@/components/ui/card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { PlusCircle, Trash2 } from "lucide-react";
-
-interface SpaceType {
-  id: string;
-  type: string;
-  squareFootage: string;
-  units: string;
-  phase: string;
-}
-
-interface UnitMix {
-  id: string;
-  type: string;
-  count: string;
-  squareFootage: string;
-}
+import { PlusCircle } from "lucide-react";
+import { useExtendedPropertyState } from "@/hooks/useExtendedPropertyState";
+import BuildingParameters from "@/components/property/BuildingParameters";
+import EnhancedSpaceTypeInput from "@/components/property/EnhancedSpaceTypeInput";
+import FloorStackingDiagram from "@/components/property/FloorStackingDiagram";
+import BuildingMassingVisualization from "@/components/property/BuildingMassingVisualization";
+import SpaceSummaryDashboard from "@/components/property/SpaceSummaryDashboard";
+import PhasingTimeline from "@/components/property/PhasingTimeline";
 
 const PropertyBreakdown = () => {
-  const [spaceTypes, setSpaceTypes] = useState<SpaceType[]>([
-    { id: "space-1", type: "", squareFootage: "", units: "", phase: "" }
-  ]);
+  const {
+    // Project Information
+    projectName, setProjectName,
+    projectLocation, setProjectLocation,
+    projectType, setProjectType,
+    
+    // Building Parameters
+    farAllowance, setFarAllowance,
+    totalLandArea, setTotalLandArea,
+    buildingFootprint, setBuildingFootprint,
+    numberOfFloors, setNumberOfFloors,
+    totalBuildableArea,
+    actualFar,
+    totalAllocatedArea,
+    
+    // Space Types
+    spaceTypes, 
+    addSpaceType,
+    removeSpaceType,
+    updateSpaceType,
+    updateSpaceTypeFloorAllocation,
+    
+    // Unit Mix
+    unitMixes,
+    addUnitMix,
+    removeUnitMix,
+    updateUnitMix,
+    
+    // Visualization data
+    generateFloorsData,
+    generateSpaceBreakdown,
+    generatePhasesData,
+    spaceTypeColors,
+    
+    // Issues
+    issues
+  } = useExtendedPropertyState();
 
-  const [unitMixes, setUnitMixes] = useState<UnitMix[]>([
-    { id: "unit-1", type: "Studio", count: "", squareFootage: "" }
-  ]);
-
-  const addSpaceType = () => {
-    const newId = `space-${spaceTypes.length + 1}`;
-    setSpaceTypes([
-      ...spaceTypes,
-      { id: newId, type: "", squareFootage: "", units: "", phase: "" }
-    ]);
-  };
-
-  const removeSpaceType = (id: string) => {
-    if (spaceTypes.length > 1) {
-      setSpaceTypes(spaceTypes.filter(space => space.id !== id));
-    }
-  };
-
-  const updateSpaceType = (id: string, field: keyof SpaceType, value: string) => {
-    setSpaceTypes(
-      spaceTypes.map(space => 
-        space.id === id ? { ...space, [field]: value } : space
-      )
-    );
-  };
-
-  const addUnitMix = () => {
-    const newId = `unit-${unitMixes.length + 1}`;
-    setUnitMixes([
-      ...unitMixes,
-      { id: newId, type: "", count: "", squareFootage: "" }
-    ]);
-  };
-
-  const removeUnitMix = (id: string) => {
-    if (unitMixes.length > 1) {
-      setUnitMixes(unitMixes.filter(unit => unit.id !== id));
-    }
-  };
-
-  const updateUnitMix = (id: string, field: keyof UnitMix, value: string) => {
-    setUnitMixes(
-      unitMixes.map(unit => 
-        unit.id === id ? { ...unit, [field]: value } : unit
-      )
-    );
-  };
-
+  // Generate data for visualizations
+  const floorsData = generateFloorsData();
+  const spaceBreakdown = generateSpaceBreakdown();
+  const phasesData = generatePhasesData();
+  
   return (
     <div className="space-y-6">
       <div>
@@ -90,107 +71,85 @@ const PropertyBreakdown = () => {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="project-name">Project Name</Label>
-            <Input id="project-name" placeholder="Enter project name" />
+            <Input 
+              id="project-name" 
+              placeholder="Enter project name" 
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
-            <Input id="location" placeholder="City, State" />
+            <Input 
+              id="location" 
+              placeholder="City, State" 
+              value={projectLocation}
+              onChange={(e) => setProjectLocation(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="project-type">Project Type</Label>
-            <Input id="project-type" placeholder="Mixed-use, Residential, etc." />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="total-area">Total Land Area (sq ft)</Label>
-            <Input id="total-area" placeholder="0" type="number" />
+            <Input 
+              id="project-type" 
+              placeholder="Mixed-use, Residential, etc." 
+              value={projectType}
+              onChange={(e) => setProjectType(e.target.value)}
+            />
           </div>
         </CardContent>
       </Card>
       
+      {/* Building Parameters Section */}
+      <BuildingParameters
+        farAllowance={farAllowance}
+        setFarAllowance={setFarAllowance}
+        totalLandArea={totalLandArea}
+        setTotalLandArea={setTotalLandArea}
+        buildingFootprint={buildingFootprint}
+        setBuildingFootprint={setBuildingFootprint}
+        numberOfFloors={numberOfFloors}
+        setNumberOfFloors={setNumberOfFloors}
+        totalBuildableArea={totalBuildableArea}
+        actualFar={actualFar}
+      />
+      
+      {/* Visualizations Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <BuildingMassingVisualization 
+          buildingFootprint={parseFloat(buildingFootprint) || 0}
+          numberOfFloors={parseInt(numberOfFloors) || 0}
+          spaceBreakdown={spaceBreakdown}
+        />
+        
+        <FloorStackingDiagram 
+          floors={floorsData}
+          spaceTypeColors={spaceTypeColors}
+        />
+      </div>
+      
+      {/* Space Types Section */}
       <Card>
         <CardHeader>
           <CardTitle>Space Types</CardTitle>
-          <CardDescription>Define the different space types in your development</CardDescription>
+          <CardDescription>Define the different space types in your development and their floor allocation</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {spaceTypes.map((space, index) => (
-              <div 
-                key={space.id} 
-                className="grid grid-cols-1 md:grid-cols-5 gap-4 pb-6 border-b border-gray-200 last:border-0"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor={`space-type-${space.id}`}>Space Type</Label>
-                  <Select 
-                    onValueChange={(value) => updateSpaceType(space.id, "type", value)}
-                    value={space.type}
-                  >
-                    <SelectTrigger id={`space-type-${space.id}`}>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="residential">Residential</SelectItem>
-                      <SelectItem value="office">Office</SelectItem>
-                      <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="parking">Parking</SelectItem>
-                      <SelectItem value="hotel">Hotel</SelectItem>
-                      <SelectItem value="amenities">Amenities</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor={`square-footage-${space.id}`}>Square Footage</Label>
-                  <Input 
-                    id={`square-footage-${space.id}`} 
-                    placeholder="0" 
-                    type="number" 
-                    value={space.squareFootage}
-                    onChange={(e) => updateSpaceType(space.id, "squareFootage", e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor={`units-${space.id}`}>Number of Units (optional)</Label>
-                  <Input 
-                    id={`units-${space.id}`} 
-                    placeholder="0" 
-                    type="number"
-                    value={space.units}
-                    onChange={(e) => updateSpaceType(space.id, "units", e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor={`phase-${space.id}`}>Phasing</Label>
-                  <Select 
-                    onValueChange={(value) => updateSpaceType(space.id, "phase", value)}
-                    value={space.phase}
-                  >
-                    <SelectTrigger id={`phase-${space.id}`}>
-                      <SelectValue placeholder="Select phase" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="phase1">Phase 1</SelectItem>
-                      <SelectItem value="phase2">Phase 2</SelectItem>
-                      <SelectItem value="phase3">Phase 3</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-end justify-end">
-                  {spaceTypes.length > 1 && (
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => removeSpaceType(space.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
+          <div className="space-y-4">
+            {spaceTypes.map((space) => (
+              <EnhancedSpaceTypeInput 
+                key={space.id}
+                id={space.id}
+                type={space.type}
+                squareFootage={space.squareFootage}
+                units={space.units}
+                phase={space.phase}
+                efficiencyFactor={space.efficiencyFactor}
+                floorAllocation={space.floorAllocation}
+                onUpdate={updateSpaceType}
+                onUpdateFloorAllocation={updateSpaceTypeFloorAllocation}
+                onRemove={removeSpaceType}
+                availableFloors={parseInt(numberOfFloors) || 1}
+              />
             ))}
             
             <div className="pt-2">
@@ -207,6 +166,22 @@ const PropertyBreakdown = () => {
         </CardContent>
       </Card>
       
+      {/* Space Summary and Phasing */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SpaceSummaryDashboard
+          totalBuildableArea={totalBuildableArea}
+          totalAllocatedArea={totalAllocatedArea}
+          spaceBreakdown={spaceBreakdown}
+          issues={issues}
+        />
+        
+        <PhasingTimeline 
+          phases={phasesData}
+          spaceTypeColors={spaceTypeColors}
+        />
+      </div>
+      
+      {/* Unit Mix Section */}
       <Card>
         <CardHeader>
           <CardTitle>Unit Mix</CardTitle>
@@ -214,28 +189,25 @@ const PropertyBreakdown = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {unitMixes.map((unit, index) => (
+            {unitMixes.map((unit) => (
               <div 
                 key={unit.id} 
                 className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-6 border-b border-gray-200 last:border-0"
               >
                 <div className="space-y-2">
                   <Label htmlFor={`unit-type-${unit.id}`}>Unit Type</Label>
-                  <Select 
-                    onValueChange={(value) => updateUnitMix(unit.id, "type", value)}
+                  <select 
+                    id={`unit-type-${unit.id}`}
                     value={unit.type}
+                    onChange={(e) => updateUnitMix(unit.id, "type", e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2"
                   >
-                    <SelectTrigger id={`unit-type-${unit.id}`}>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Studio">Studio</SelectItem>
-                      <SelectItem value="1-bed">1 Bedroom</SelectItem>
-                      <SelectItem value="2-bed">2 Bedroom</SelectItem>
-                      <SelectItem value="3-bed">3 Bedroom</SelectItem>
-                      <SelectItem value="penthouse">Penthouse</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <option value="Studio">Studio</option>
+                    <option value="1-bed">1 Bedroom</option>
+                    <option value="2-bed">2 Bedroom</option>
+                    <option value="3-bed">3 Bedroom</option>
+                    <option value="penthouse">Penthouse</option>
+                  </select>
                 </div>
                 
                 <div className="space-y-2">
@@ -263,12 +235,12 @@ const PropertyBreakdown = () => {
                 <div className="flex items-end justify-end">
                   {unitMixes.length > 1 && (
                     <Button 
+                      type="button" 
                       variant="outline" 
-                      size="icon"
                       onClick={() => removeUnitMix(unit.id)}
                       className="text-red-500 hover:text-red-700"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      Remove
                     </Button>
                   )}
                 </div>
