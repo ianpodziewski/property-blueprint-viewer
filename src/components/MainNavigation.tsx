@@ -10,7 +10,6 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { BookOpen, BarChart3, Building2, CalendarDays, DollarSign, FileText, LineChart, Percent, Workflow } from "lucide-react";
-import ExportDataButton from "@/components/ExportDataButton";
 
 const sections = [
   {
@@ -105,10 +104,6 @@ const MainNavigation = ({ activeTab, setActiveTab }: ActiveTabProps) => {
               </TooltipProvider>
             </NavigationMenuItem>
           ))}
-        </div>
-        <div className="flex items-center gap-2 ml-4">
-          <ExportDataButton format="csv" />
-          <ExportDataButton format="json" />
         </div>
       </NavigationMenuList>
     </NavigationMenu>
