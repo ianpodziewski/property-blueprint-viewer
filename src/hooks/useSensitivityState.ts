@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 export const useSensitivityState = () => {
   // Sensitivity Variables
@@ -65,6 +64,30 @@ export const useSensitivityState = () => {
     setTargetIrrThreshold(values);
   };
   
+  // Reset all data
+  const resetAllData = useCallback(() => {
+    // Sensitivity Variables
+    setSensitivityVariable1("exit-cap");
+    setVariable1MinRange("");
+    setVariable1MaxRange("");
+    setSensitivityVariable2("rent-growth");
+    setVariable2MinRange("");
+    setVariable2MaxRange("");
+    setOutputMetric("equity-irr");
+    
+    // Scenario Analysis
+    setBaseScenarioRentGrowth("");
+    setBaseScenarioExitCap("");
+    setUpsideScenarioRentGrowth("");
+    setUpsideScenarioExitCap("");
+    setDownsideScenarioRentGrowth("");
+    setDownsideScenarioExitCap("");
+    
+    // Monte Carlo Simulation
+    setMonteCarloSimulationRuns("");
+    setTargetIrrThreshold([15]);
+  }, []);
+  
   return {
     // Sensitivity Variables
     sensitivityVariable1, setSensitivityVariable1,
@@ -93,6 +116,9 @@ export const useSensitivityState = () => {
     handlePercentageChange,
     handleRangeChange,
     handleSelectChange,
-    handleSliderChange
+    handleSliderChange,
+    
+    // Data persistence
+    resetAllData
   };
 };

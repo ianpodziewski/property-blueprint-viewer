@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 interface CustomCost {
   id: string;
@@ -58,7 +57,6 @@ export const useDevelopmentCosts = () => {
   
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
     const value = e.target.value;
-    // Allow empty string or valid non-negative numbers
     if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
       setter(value);
     }
@@ -102,7 +100,6 @@ export const useDevelopmentCosts = () => {
   };
   
   const updateCustomCost = (category: string, id: string, field: keyof CustomCost, value: string) => {
-    // Validate amount field if being updated
     if (field === "amount" && value !== "") {
       const numValue = Number(value);
       if (isNaN(numValue) || numValue < 0) return;
@@ -164,7 +161,39 @@ export const useDevelopmentCosts = () => {
         break;
     }
   };
-  
+
+  const resetAllData = useCallback(() => {
+    setPurchasePrice("");
+    setPurchasePriceMetric("psf");
+    setClosingCosts("");
+    setClosingCostsMetric("psf");
+    setLandCustomCosts([{ id: "land-cost-1", name: "", amount: "", metric: "psf" }]);
+    
+    setShellCost("");
+    setShellCostMetric("psf");
+    setTenantImprovementCost("");
+    setTenantImprovementMetric("psf");
+    setSustainabilityCosts("");
+    setSustainabilityMetric("psf");
+    setLeedCertificationCost("");
+    setSolarPanelsCost("");
+    setSiteWorkCost("");
+    setContingencyPercentage("");
+    setHardCustomCosts([{ id: "hard-cost-1", name: "", amount: "", metric: "psf" }]);
+    
+    setArchitectureCost("");
+    setPermitFees("");
+    setLegalFees("");
+    setMarketingCost("");
+    setDeveloperFee("");
+    setConstructionPropertyTaxes("");
+    setSoftCustomCosts([{ id: "soft-cost-1", name: "", amount: "", metric: "psf" }]);
+    
+    setFinancingFees("");
+    setInterestReserve("");
+    setOtherCustomCosts([{ id: "other-cost-1", name: "", amount: "", metric: "psf" }]);
+  }, []);
+
   return {
     // Land Costs
     purchasePrice, setPurchasePrice,
@@ -204,6 +233,7 @@ export const useDevelopmentCosts = () => {
     addCustomCost,
     updateCustomCost,
     removeCustomCost,
+    resetAllData,
     
     // Event handlers
     handleTextChange,

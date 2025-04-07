@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 interface ConstructionPhase {
   id: string;
@@ -135,6 +134,39 @@ export const useDevelopmentTimeline = () => {
     );
   };
   
+  const resetAllData = useCallback(() => {
+    // Project Schedule
+    setStartDate(undefined);
+    setCompletionDate(undefined);
+    
+    // Development Periods
+    setPreDevelopmentPeriod("");
+    setLeaseUpPeriod("");
+    setStabilizationPeriod("");
+    
+    // Construction Phases
+    setConstructionPhases([
+      { id: "phase-1", name: "Phase 1", startDate: undefined, endDate: undefined }
+    ]);
+    
+    // Cost Timing
+    setCostCategories([
+      { id: "cost-1", name: "Land Acquisition", startMonth: "", endMonth: "" },
+      { id: "cost-2", name: "Hard Costs", startMonth: "", endMonth: "" },
+      { id: "cost-3", name: "Soft Costs", startMonth: "", endMonth: "" }
+    ]);
+    
+    // Equity Contribution Timing
+    setEquityContributionType("upfront");
+    setEquityMilestones([
+      { id: "milestone-1", description: "Initial Investment", date: undefined, percentage: "25" }
+    ]);
+    
+    setPhasedStartMonth("");
+    setPhasedEndMonth("");
+    setDistributionPattern("even");
+  }, []);
+  
   return {
     // Project Schedule
     startDate, setStartDate,
@@ -170,6 +202,9 @@ export const useDevelopmentTimeline = () => {
     handleTextChange,
     handleNumberChange,
     handleSelectChange,
-    handleDateChange
+    handleDateChange,
+    
+    // Data persistence
+    resetAllData
   };
 };

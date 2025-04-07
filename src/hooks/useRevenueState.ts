@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 interface ResidentialUnit {
   id: string;
@@ -75,7 +74,6 @@ export const useRevenueState = () => {
   
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
     const value = e.target.value;
-    // Allow empty string or valid non-negative numbers
     if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
       setter(value);
     }
@@ -83,7 +81,6 @@ export const useRevenueState = () => {
   
   const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
     const value = e.target.value;
-    // Allow empty string or valid percentages (0-100)
     if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 100)) {
       setter(value);
     }
@@ -98,7 +95,6 @@ export const useRevenueState = () => {
   };
   
   const updateResidentialUnit = (id: string, field: keyof ResidentialUnit, value: string) => {
-    // Validate number fields
     if ((field === "count" || field === "rent" || field === "squareFootage") && value !== "") {
       const numValue = Number(value);
       if (isNaN(numValue) || numValue < 0) return;
@@ -125,8 +121,58 @@ export const useRevenueState = () => {
     }
   };
   
+  const resetAllData = useCallback(() => {
+    setAnnualRevenueGrowthRate("");
+    setStabilizedOccupancyRate("");
+    setBaseRent("");
+    setBaseRentUnit("psf");
+    setRentEscalationPercentage("");
+    setVacancyRate("");
+    setCollectionLossPercentage("");
+    
+    setResidentialUnits([
+      { id: "unit-1", type: "Studio", count: "", rent: "", squareFootage: "" },
+      { id: "unit-2", type: "One Bedroom", count: "", rent: "", squareFootage: "" },
+      { id: "unit-3", type: "Two Bedroom", count: "", rent: "", squareFootage: "" }
+    ]);
+    
+    setCommercialRentableArea("");
+    setCommercialRentPerSqFt("");
+    setCommercialLeaseTermYears("");
+    
+    setResidentialLeaseUpMonths("");
+    setCommercialLeaseUpMonths("");
+    setLeaseUpPattern("linear");
+    
+    setResidentialLeaseLength("12");
+    setCommercialLeaseLength("5");
+    setCommercialLeaseType("triple-net");
+    setRenewalProbability("70");
+    
+    setEnableSeasonalVariations(false);
+    setPeakSeasonMonths("Jun-Aug");
+    setPeakRentPremiumPercentage("");
+    setOffPeakDiscountPercentage("");
+    
+    setFreeRentResidentialMonths("");
+    setFreeRentCommercialMonths("");
+    setTenantImprovementAllowance("");
+    setLeasingCommissionPercentage("");
+    
+    setEnableMarketAdjustments(false);
+    setMarketGrowthScenario("base");
+    setMarketRentDeltaPercentage("");
+    setMarketRentAdjustmentTiming("immediate");
+    
+    setParkingIncomePerYear("");
+    setStorageIncomePerYear("");
+    setLaundryIncomePerYear("");
+    setLateFeeIncomePerYear("");
+    setAmenityFeesPerYear("");
+    setRetailPercentageRent("");
+  }, []);
+  
   return {
-    // General Revenue Assumptions
     annualRevenueGrowthRate, setAnnualRevenueGrowthRate,
     stabilizedOccupancyRate, setStabilizedOccupancyRate,
     baseRent, setBaseRent,
@@ -135,47 +181,39 @@ export const useRevenueState = () => {
     vacancyRate, setVacancyRate,
     collectionLossPercentage, setCollectionLossPercentage,
     
-    // Residential Income
     residentialUnits,
     addResidentialUnit,
     removeResidentialUnit,
     updateResidentialUnit,
     
-    // Commercial Income
     commercialRentableArea, setCommercialRentableArea,
     commercialRentPerSqFt, setCommercialRentPerSqFt,
     commercialLeaseTermYears, setCommercialLeaseTermYears,
     
-    // Lease-up Schedule
     residentialLeaseUpMonths, setResidentialLeaseUpMonths,
     commercialLeaseUpMonths, setCommercialLeaseUpMonths,
     leaseUpPattern, setLeaseUpPattern,
     
-    // Lease Terms
     residentialLeaseLength, setResidentialLeaseLength,
     commercialLeaseLength, setCommercialLeaseLength,
     commercialLeaseType, setCommercialLeaseType,
     renewalProbability, setRenewalProbability,
     
-    // Seasonal Variations
     enableSeasonalVariations, setEnableSeasonalVariations,
     peakSeasonMonths, setPeakSeasonMonths,
     peakRentPremiumPercentage, setPeakRentPremiumPercentage,
     offPeakDiscountPercentage, setOffPeakDiscountPercentage,
     
-    // Tenant Incentives
     freeRentResidentialMonths, setFreeRentResidentialMonths,
     freeRentCommercialMonths, setFreeRentCommercialMonths,
     tenantImprovementAllowance, setTenantImprovementAllowance,
     leasingCommissionPercentage, setLeasingCommissionPercentage,
     
-    // Market-Driven Rent Adjustments
     enableMarketAdjustments, setEnableMarketAdjustments,
     marketGrowthScenario, setMarketGrowthScenario,
     marketRentDeltaPercentage, setMarketRentDeltaPercentage,
     marketRentAdjustmentTiming, setMarketRentAdjustmentTiming,
     
-    // Other Income
     parkingIncomePerYear, setParkingIncomePerYear,
     storageIncomePerYear, setStorageIncomePerYear,
     laundryIncomePerYear, setLaundryIncomePerYear,
@@ -183,11 +221,12 @@ export const useRevenueState = () => {
     amenityFeesPerYear, setAmenityFeesPerYear,
     retailPercentageRent, setRetailPercentageRent,
     
-    // Event handlers
     handleTextChange,
     handleNumberChange,
     handlePercentageChange,
     handleSelectChange,
-    handleBooleanChange
+    handleBooleanChange,
+    
+    resetAllData
   };
 };

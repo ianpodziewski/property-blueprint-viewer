@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 interface ContributionScheduleItem {
   id: string;
@@ -93,7 +92,7 @@ export const useFinancingState = () => {
     }
   };
   
-  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
+  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) {
     const value = e.target.value;
     // Allow empty string or valid percentages (0-100)
     if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 100)) {
@@ -139,6 +138,78 @@ export const useFinancingState = () => {
       setContributionSchedule(contributionSchedule.filter(item => item.id !== id));
     }
   };
+  
+  const resetAllData = useCallback(() => {
+    // Loan Type
+    setLoanType("both");
+    
+    // Capital Stack
+    setTotalProjectCost("");
+    setDebtAmount("");
+    setEquityAmount("");
+    setLoanToCostRatio("");
+    setLoanToValueRatio("");
+    setDebtServiceCoverageRatio("");
+    
+    // Construction Loan
+    setConstructionLoanAmount("");
+    setConstructionInterestRate("");
+    setConstructionLoanTerm("");
+    setConstructionLoanFees("");
+    setConstructionDrawdownSchedule("monthly");
+    setConstructionInterestReserve("");
+    setConstructionRecourseType("full");
+    
+    // Permanent Loan
+    setPermanentLoanAmount("");
+    setPermanentInterestRate("");
+    setAmortizationYears("");
+    setPermanentLoanTerm("");
+    setPermanentLoanFees("");
+    setPrepaymentPenaltyType("none");
+    setInterestType("fixed");
+    setMinimumDscr("");
+    
+    // Additional Debt Terms
+    setDebtServiceReserve("");
+    setReserveDurationMonths("");
+    setAdditionalCovenants("");
+    
+    // Equity Structure
+    setGeneralPartnerPercentage("");
+    setLimitedPartnerPercentage("");
+    
+    // Preferred Return Structure
+    setPreferredReturnRate("");
+    setPreferredStructureType("cumulative");
+    setGpCatchupPercentage("");
+    setPreferredPaymentFrequency("quarterly");
+    
+    // Promote Structure
+    setTier1IrrThreshold("");
+    setTier1LpPercentage("");
+    setTier1GpPercentage("");
+    setTier2IrrThreshold("");
+    setTier2LpPercentage("");
+    setTier2GpPercentage("");
+    setTier3LpPercentage("");
+    setTier3GpPercentage("");
+    
+    // Equity Contribution Timing
+    setContributionMethod("upfront");
+    setInitialContributionPercentage("");
+    setCapitalCallNoticeDays("");
+    setContributionSchedule([
+      { id: "contrib-1", milestone: "Closing", amount: "", percentage: "" },
+      { id: "contrib-2", milestone: "Construction Start", amount: "", percentage: "" }
+    ]);
+    
+    // Additional Equity Terms
+    setMinimumInvestment("");
+    setTargetEquityMultiple("");
+    setTargetIrr("");
+    setTargetHoldPeriodYears("");
+  }, []);
   
   return {
     // Loan Type
@@ -217,6 +288,9 @@ export const useFinancingState = () => {
     handleNumberChange,
     handlePercentageChange,
     handleSelectChange,
-    handleLoanTypeChange
+    handleLoanTypeChange,
+    
+    // Data persistence
+    resetAllData
   };
 };

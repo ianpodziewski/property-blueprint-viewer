@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 export const useDispositionState = () => {
   // Exit Strategy
@@ -46,7 +45,7 @@ export const useDispositionState = () => {
     }
   };
   
-  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
+  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) {
     const value = e.target.value;
     // Allow empty string or valid percentages (0-100)
     if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 100)) {
@@ -61,6 +60,40 @@ export const useDispositionState = () => {
   const handleExitStrategyChange = (value: string) => {
     setExitStrategy(value);
   };
+  
+  // Reset all data
+  const resetAllData = useCallback(() => {
+    // Exit Strategy
+    setExitStrategy("sale");
+    setExitPeriodType("year");
+    setExitPeriod("");
+    setExitCapRate("");
+    setSalesCostsPercentage("");
+    setExpectedSalePrice("");
+    
+    // Refinance Scenario
+    setRefinanceYear("");
+    setRefinanceLoanToValue("");
+    setRefinanceInterestRate("");
+    setRefinanceAmortizationYears("");
+    setRefinanceTermYears("");
+    setRefinanceCostsPercentage("");
+    
+    // Tax Implications
+    setCapitalGainsTaxRate("");
+    setDepreciationRecaptureRate("");
+    setCostBasis("");
+    setAccumulatedDepreciation("");
+    setTaxPlanningNotes("");
+    
+    // Returns Analysis (read-only calculated fields)
+    setProjectIrr("");
+    setEquityIrr("");
+    setEquityMultiple("");
+    setNetPresentValue("");
+    setCashOnCash("");
+    setPaybackPeriod("");
+  }, []);
   
   return {
     // Exit Strategy
@@ -99,6 +132,9 @@ export const useDispositionState = () => {
     handleNumberChange,
     handlePercentageChange,
     handleSelectChange,
-    handleExitStrategyChange
+    handleExitStrategyChange,
+    
+    // Data persistence
+    resetAllData
   };
 };

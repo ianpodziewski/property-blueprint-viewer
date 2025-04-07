@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 interface ExpenseCategory {
   id: string;
@@ -45,7 +44,7 @@ export const useExpensesState = () => {
     }
   };
   
-  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
+  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) {
     const value = e.target.value;
     // Allow empty string or valid percentages (0-100)
     if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 100)) {
@@ -94,6 +93,32 @@ export const useExpensesState = () => {
     }
   };
   
+  // Reset all data
+  const resetAllData = useCallback(() => {
+    // General Operating Expenses
+    setExpenseGrowthRate("");
+    setOperatingExpenseRatio("");
+    setFixedExpensePercentage("");
+    setVariableExpensePercentage("");
+    
+    // Expense Categories
+    setExpenseCategories([
+      { id: "expense-1", name: "Property Management", amount: "", unit: "percentage" },
+      { id: "expense-2", name: "Repairs & Maintenance", amount: "", unit: "psf" },
+      { id: "expense-3", name: "Utilities", amount: "", unit: "psf" },
+      { id: "expense-4", name: "Property Taxes", amount: "", unit: "psf" },
+      { id: "expense-5", name: "Insurance", amount: "", unit: "psf" }
+    ]);
+    
+    // Reserves
+    setReplacementReserves("");
+    setReservesUnit("psf");
+    
+    // Expense Timing
+    setExpenseStartDate(undefined);
+    setExpensesBeforeStabilization("");
+  }, []);
+  
   return {
     // General Operating Expenses
     expenseGrowthRate, setExpenseGrowthRate,
@@ -120,6 +145,9 @@ export const useExpensesState = () => {
     handleNumberChange,
     handlePercentageChange,
     handleSelectChange,
-    handleDateChange
+    handleDateChange,
+    
+    // Data persistence
+    resetAllData
   };
 };
