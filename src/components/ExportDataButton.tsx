@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { FileJson, FileCsv, Download } from "lucide-react";
+import { FileJson, Files, Download } from "lucide-react";
 import { useExportData } from "@/hooks/useExportData";
 
 type ExportFormat = "json" | "csv" | "excel";
@@ -39,7 +39,7 @@ const ExportDataButton = ({ format, className, showLabel = true }: ExportDataBut
       case "json":
         return <FileJson className="h-4 w-4" />;
       case "csv":
-        return <FileCsv className="h-4 w-4" />;
+        return <Files className="h-4 w-4" />; // Changed from FileCsv to Files
       case "excel":
         return <Download className="h-4 w-4" />;
     }
