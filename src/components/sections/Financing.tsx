@@ -359,9 +359,9 @@ const Financing = () => {
                       Add Tier
                     </Button>
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           </Accordion>
           
           <Accordion type="single" collapsible className="w-full" defaultValue="funding">
@@ -431,9 +431,9 @@ const Financing = () => {
                       Add Contribution
                     </Button>
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           </Accordion>
           
           <Accordion type="single" collapsible className="w-full">
