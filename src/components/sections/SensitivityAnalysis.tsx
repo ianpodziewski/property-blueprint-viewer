@@ -141,7 +141,7 @@ const SensitivityAnalysis = () => {
             <Input id="simulation-runs" placeholder="1000" type="number" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="simulation-result">Probability of IRR > 15%</Label>
+            <Label htmlFor="simulation-result">Probability of IRR {'>'} 15%</Label>
             <Input id="simulation-result" placeholder="0%" disabled />
           </div>
         </CardContent>
