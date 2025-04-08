@@ -1,3 +1,4 @@
+
 import { useCallback } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
@@ -109,6 +110,7 @@ export const useExtendedPropertyState = () => {
     importFloorConfigurations: floorConfigurations.importFloorConfigurations,
     exportFloorConfigurations: floorConfigurations.exportFloorConfigurations,
     getFloorArea: floorConfigurations.getFloorArea,
+    updateFloorSpaces: floorConfigurations.updateFloorSpaces,
     
     issues: visualizationData.issues,
     spaceTypeColors: visualizationData.spaceTypeColors,
