@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { UnitAllocation } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
 import { useToast } from "@/hooks/use-toast";
@@ -24,14 +23,26 @@ export const useUnitAllocations = () => {
     return storedAllocations;
   });
 
-  // Save to localStorage when updated
+  // Track previous allocation state to prevent unnecessary updates
+  const [prevUnitAllocations, setPrevUnitAllocations] = useState<string>("");
+
+  // Save to localStorage when updated - with deep comparison to prevent loops
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, unitAllocations);
-    console.log("Saved unit allocations to localStorage:", unitAllocations);
+    // Create a string representation of the current allocations for comparison
+    const currentAllocations = JSON.stringify(unitAllocations);
     
-    // Dispatch an event to notify other components that allocations have changed
-    dispatchUnitAllocationChangedEvent();
-  }, [unitAllocations]);
+    // Only save if allocations have actually changed
+    if (currentAllocations !== prevUnitAllocations) {
+      saveToLocalStorage(STORAGE_KEY, unitAllocations);
+      console.log("Saved unit allocations to localStorage:", unitAllocations);
+      
+      // Update previous state reference
+      setPrevUnitAllocations(currentAllocations);
+      
+      // Dispatch an event to notify other components that allocations have changed
+      dispatchUnitAllocationChangedEvent();
+    }
+  }, [unitAllocations, prevUnitAllocations]);
 
   const addAllocation = useCallback((allocation: Omit<UnitAllocation, "id">) => {
     // Check if already exists, if so update it instead
@@ -186,9 +197,31 @@ export const useUnitAllocations = () => {
     }, 0);
   }, [unitAllocations]);
 
+  // Memoize allocation stats to prevent infinite calculation loops
+  const allocationStatsCache = useMemo(() => {
+    const cache = new Map<string, { totalAllocated: number, floorCount: number, floors: number[] }>();
+    
+    return {
+      get: (unitTypeId: string) => cache.get(unitTypeId),
+      set: (unitTypeId: string, stats: { totalAllocated: number, floorCount: number, floors: number[] }) => 
+        cache.set(unitTypeId, stats),
+      clear: () => cache.clear()
+    };
+  }, []);
+
+  // Clear the cache when allocations change
+  useEffect(() => {
+    allocationStatsCache.clear();
+  }, [unitAllocations, allocationStatsCache]);
+
   const calculateAllocationStats = useCallback((unitTypeId: string) => {
+    // First check if we have cached results
+    const cachedStats = allocationStatsCache.get(unitTypeId);
+    if (cachedStats) {
+      return cachedStats;
+    }
+    
     console.log(`Calculating allocation stats for unit type ${unitTypeId}`);
-    console.log(`Current unit allocations:`, unitAllocations);
     
     const allocations = unitAllocations.filter(a => a.unitTypeId === unitTypeId);
     console.log(`Found ${allocations.length} allocations for this unit type`);
@@ -204,12 +237,16 @@ export const useUnitAllocations = () => {
     const allocatedFloors = new Set(allocations.map(a => a.floorNumber));
     console.log(`Allocated on ${allocatedFloors.size} floors: ${Array.from(allocatedFloors).join(', ')}`);
     
-    return {
+    // Cache the results
+    const stats = {
       totalAllocated,
       floorCount: allocatedFloors.size,
       floors: Array.from(allocatedFloors)
     };
-  }, [unitAllocations]);
+    
+    allocationStatsCache.set(unitTypeId, stats);
+    return stats;
+  }, [unitAllocations, allocationStatsCache]);
 
   const suggestAllocations = useCallback((unitTypeId: string, targetCount: number, availableFloors: number[]) => {
     // Filter floors that already have this unit type

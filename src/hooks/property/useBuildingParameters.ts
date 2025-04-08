@@ -53,6 +53,9 @@ export const useBuildingParameters = (
   const [totalAboveGroundArea, setTotalAboveGroundArea] = useState<number>(0);
   const [totalBelowGroundArea, setTotalBelowGroundArea] = useState<number>(0);
   const [actualFar, setActualFar] = useState<number>(0);
+  
+  // Track if we're currently updating parameters to prevent infinite loops
+  const isUpdatingParams = useRef(false);
 
   // Save building parameters to localStorage with deep comparison to avoid unnecessary updates
   useEffect(() => {
@@ -61,6 +64,9 @@ export const useBuildingParameters = (
       isInitialized.current = true;
       return;
     }
+    
+    // Skip if we're currently in the middle of an update
+    if (isUpdatingParams.current) return;
     
     const params = {
       farAllowance,
@@ -144,15 +150,27 @@ export const useBuildingParameters = (
     return { aboveGround, belowGround, total: aboveGround + belowGround };
   }, [floorConfigurations, floorTemplates]);
 
-  // Update state based on memoized calculations
+  // Update state based on memoized calculations - with controlled updates
   useEffect(() => {
-    setTotalAboveGroundArea(buildingAreas.aboveGround);
-    setTotalBelowGroundArea(buildingAreas.belowGround);
-    setTotalBuildableArea(buildingAreas.total);
+    // Flag that we're updating to prevent loops
+    isUpdatingParams.current = true;
+    
+    // Use requestAnimationFrame to batch these updates
+    requestAnimationFrame(() => {
+      setTotalAboveGroundArea(buildingAreas.aboveGround);
+      setTotalBelowGroundArea(buildingAreas.belowGround);
+      setTotalBuildableArea(buildingAreas.total);
+      
+      // Reset update flag after updates are processed
+      isUpdatingParams.current = false;
+    });
   }, [buildingAreas]);
 
   // Calculate actual FAR with memoization to prevent needless recalculation
   useEffect(() => {
+    // Skip if we're currently updating other parameters
+    if (isUpdatingParams.current) return;
+    
     const landArea = parseFloat(totalLandArea) || 0;
     let newFar = 0;
 

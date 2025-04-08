@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
 import { useFloorTemplates } from "./property/useFloorTemplates";
@@ -8,11 +9,13 @@ import { useUnitMix } from "./property/useUnitMix";
 import { useUnitTypes } from "./property/useUnitTypes";
 import { useUnitAllocations } from "./property/useUnitAllocations";
 import { useVisualizationData } from "./property/useVisualizationData";
-import { SpaceDefinition, BuildingSystemsConfig, FloorConfiguration, FloorPlateTemplate } from "../types/propertyTypes";
 
 export const useExtendedPropertyState = () => {
   // Reference to prevent initialization loops
   const isMounted = useRef(false);
+  
+  // Track if update is in progress to prevent circular updates
+  const isUpdating = useRef(false);
   
   const projectInfo = useProjectInfo();
   const floorTemplates = useFloorTemplates();
@@ -41,18 +44,56 @@ export const useExtendedPropertyState = () => {
     floorTemplates: JSON.stringify(floorTemplates.floorTemplates)
   });
   
-  // Only update visualization data when inputs actually change
-  const shouldUpdateVisualization = 
-    JSON.stringify(spaceTypes.spaceTypes) !== lastVisualizationData.current.spaceTypes ||
-    buildingParams.actualFar !== lastVisualizationData.current.actualFar ||
-    buildingParams.farAllowance !== lastVisualizationData.current.farAllowance ||
-    buildingParams.totalBuildableArea !== lastVisualizationData.current.totalBuildableArea ||
-    spaceTypes.totalAllocatedArea !== lastVisualizationData.current.totalAllocatedArea ||
-    JSON.stringify(floorConfigurations.floorConfigurations) !== lastVisualizationData.current.floorConfigurations ||
-    JSON.stringify(floorTemplates.floorTemplates) !== lastVisualizationData.current.floorTemplates;
+  // Memoize the check for whether visualization needs to update
+  const shouldUpdateVisualization = useMemo(() => {
+    // Skip if an update is in progress
+    if (isUpdating.current) return false;
+    
+    const result = 
+      JSON.stringify(spaceTypes.spaceTypes) !== lastVisualizationData.current.spaceTypes ||
+      buildingParams.actualFar !== lastVisualizationData.current.actualFar ||
+      buildingParams.farAllowance !== lastVisualizationData.current.farAllowance ||
+      buildingParams.totalBuildableArea !== lastVisualizationData.current.totalBuildableArea ||
+      spaceTypes.totalAllocatedArea !== lastVisualizationData.current.totalAllocatedArea ||
+      JSON.stringify(floorConfigurations.floorConfigurations) !== lastVisualizationData.current.floorConfigurations ||
+      JSON.stringify(floorTemplates.floorTemplates) !== lastVisualizationData.current.floorTemplates;
+      
+    return result;
+  }, [
+    spaceTypes.spaceTypes, 
+    buildingParams.actualFar,
+    buildingParams.farAllowance,
+    buildingParams.totalBuildableArea,
+    spaceTypes.totalAllocatedArea,
+    floorConfigurations.floorConfigurations,
+    floorTemplates.floorTemplates
+  ]);
   
-  // Only get new visualization data when needed
-  const visualizationData = useVisualizationData(
+  // Only get new visualization data when needed - with memoization
+  const visualizationData = useMemo(() => {
+    if (!shouldUpdateVisualization) {
+      return useVisualizationData(
+        JSON.parse(lastVisualizationData.current.spaceTypes),
+        lastVisualizationData.current.actualFar,
+        lastVisualizationData.current.farAllowance,
+        lastVisualizationData.current.totalBuildableArea,
+        lastVisualizationData.current.totalAllocatedArea,
+        JSON.parse(lastVisualizationData.current.floorConfigurations),
+        JSON.parse(lastVisualizationData.current.floorTemplates)
+      );
+    }
+    
+    return useVisualizationData(
+      spaceTypes.spaceTypes,
+      buildingParams.actualFar,
+      buildingParams.farAllowance,
+      buildingParams.totalBuildableArea,
+      spaceTypes.totalAllocatedArea,
+      floorConfigurations.floorConfigurations,
+      floorTemplates.floorTemplates
+    );
+  }, [
+    shouldUpdateVisualization,
     spaceTypes.spaceTypes,
     buildingParams.actualFar,
     buildingParams.farAllowance,
@@ -60,20 +101,29 @@ export const useExtendedPropertyState = () => {
     spaceTypes.totalAllocatedArea,
     floorConfigurations.floorConfigurations,
     floorTemplates.floorTemplates
-  );
+  ]);
   
-  // Update reference when visualization data inputs change
-  if (shouldUpdateVisualization) {
-    lastVisualizationData.current = {
-      spaceTypes: JSON.stringify(spaceTypes.spaceTypes),
-      actualFar: buildingParams.actualFar,
-      farAllowance: buildingParams.farAllowance,
-      totalBuildableArea: buildingParams.totalBuildableArea,
-      totalAllocatedArea: spaceTypes.totalAllocatedArea,
-      floorConfigurations: JSON.stringify(floorConfigurations.floorConfigurations),
-      floorTemplates: JSON.stringify(floorTemplates.floorTemplates)
-    };
-  }
+  // Update reference when visualization data inputs change - with controlled updates
+  useEffect(() => {
+    if (shouldUpdateVisualization && !isUpdating.current) {
+      isUpdating.current = true;
+      
+      // Use setTimeout to ensure this happens outside the current render cycle
+      setTimeout(() => {
+        lastVisualizationData.current = {
+          spaceTypes: JSON.stringify(spaceTypes.spaceTypes),
+          actualFar: buildingParams.actualFar,
+          farAllowance: buildingParams.farAllowance,
+          totalBuildableArea: buildingParams.totalBuildableArea,
+          totalAllocatedArea: spaceTypes.totalAllocatedArea,
+          floorConfigurations: JSON.stringify(floorConfigurations.floorConfigurations),
+          floorTemplates: JSON.stringify(floorTemplates.floorTemplates)
+        };
+        
+        isUpdating.current = false;
+      }, 0);
+    }
+  }, [shouldUpdateVisualization, spaceTypes.spaceTypes, buildingParams, spaceTypes.totalAllocatedArea, floorConfigurations.floorConfigurations, floorTemplates.floorTemplates]);
   
   // Listen for template changes and update floor configurations - with protection
   useEffect(() => {

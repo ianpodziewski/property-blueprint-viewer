@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import MainNavigation from "./MainNavigation";
@@ -17,19 +18,37 @@ const ModelingTabs = () => {
   const [unitAllocationSaved, setUnitAllocationSaved] = useState(0);
   
   const handlersRegistered = useRef(false);
+  const eventTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Use debounced event handlers to prevent rapid re-renders
   const handleFloorConfigSave = useCallback(() => {
     console.log('Floor configuration save event detected');
-    window.requestAnimationFrame(() => {
+    
+    // Clear any existing timeout
+    if (eventTimeoutRef.current) {
+      clearTimeout(eventTimeoutRef.current);
+    }
+    
+    // Set a timeout to update the state after a delay
+    eventTimeoutRef.current = setTimeout(() => {
       setFloorConfigSaved(prev => prev + 1);
-    });
+      eventTimeoutRef.current = null;
+    }, 300); // 300ms debounce
   }, []);
   
   const handleUnitAllocationSave = useCallback(() => {
     console.log('Unit allocation save event detected');
-    window.requestAnimationFrame(() => {
+    
+    // Clear any existing timeout
+    if (eventTimeoutRef.current) {
+      clearTimeout(eventTimeoutRef.current);
+    }
+    
+    // Set a timeout to update the state after a delay
+    eventTimeoutRef.current = setTimeout(() => {
       setUnitAllocationSaved(prev => prev + 1);
-    });
+      eventTimeoutRef.current = null;
+    }, 300); // 300ms debounce
   }, []);
   
   useEffect(() => {
@@ -48,6 +67,11 @@ const ModelingTabs = () => {
     window.addEventListener('unitAllocationChanged', unitAllocationHandler);
     
     return () => {
+      // Clean up timeouts to prevent memory leaks
+      if (eventTimeoutRef.current) {
+        clearTimeout(eventTimeoutRef.current);
+      }
+      
       window.removeEventListener('floorConfigSaved', floorConfigHandler);
       window.removeEventListener('unitAllocationChanged', unitAllocationHandler);
     };
