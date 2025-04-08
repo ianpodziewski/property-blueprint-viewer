@@ -235,15 +235,16 @@ const VisualizationsRow = ({
   updateFloorConfiguration, 
   reorderFloor 
 }) => {
-  // Create adapter functions for compatibility
+  // Fix adapter functions to match the expected types
   const adaptedUpdateFloorConfig = useCallback((floorNumber: number, updates: Partial<FloorConfiguration>) => {
+    // Convert object updates to individual field updates
     Object.entries(updates).forEach(([key, value]) => {
-      updateFloorConfiguration(floorNumber, key as keyof FloorConfiguration, value as any);
+      updateFloorConfiguration(floorNumber, key as keyof FloorConfiguration, value);
     });
   }, [updateFloorConfiguration]);
 
   const adaptedReorderFloor = useCallback((fromIndex: number, toIndex: number) => {
-    // If toIndex is greater, we're moving down, otherwise up
+    // Convert from/to index to direction
     const direction = toIndex > fromIndex ? 'down' : 'up';
     reorderFloor(fromIndex, direction);
   }, [reorderFloor]);
@@ -446,13 +447,14 @@ const PropertyBreakdown = () => {
   
   // Create adapter functions for FloorConfigurationManager compatibility
   const adaptedUpdateFloorConfig = useCallback((index: number, updates: Partial<FloorConfiguration>) => {
+    // Convert object updates to individual field updates
     Object.entries(updates).forEach(([key, value]) => {
-      updateFloorConfiguration(index, key as keyof FloorConfiguration, value as any);
+      updateFloorConfiguration(index, key as keyof FloorConfiguration, value);
     });
   }, [updateFloorConfiguration]);
 
   const adaptedReorderFloor = useCallback((fromIndex: number, toIndex: number) => {
-    // If toIndex is greater, we're moving down, otherwise up
+    // Convert from/to index to direction
     const direction = toIndex > fromIndex ? 'down' : 'up';
     reorderFloor(fromIndex, direction);
   }, [reorderFloor]);

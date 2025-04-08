@@ -130,12 +130,14 @@ export const useExtendedPropertyState = () => {
     updateSpaceType: spaceTypes.updateSpaceType,
     updateSpaceTypeFloorAllocation: spaceTypes.updateSpaceTypeFloorAllocation,
     totalAllocatedArea: spaceTypes.totalAllocatedArea,
+    resetSpaceTypes: spaceTypes.resetSpaceTypes,
     
     // Unit Mix
     unitMixes: unitMix.unitMixes,
     addUnitMix: unitMix.addUnitMix,
     removeUnitMix: unitMix.removeUnitMix,
     updateUnitMix: unitMix.updateUnitMix,
+    resetUnitMix: unitMix.resetUnitMix,
     
     // Floor Templates
     floorTemplates: floorTemplates.floorTemplates,
