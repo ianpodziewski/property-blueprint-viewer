@@ -3,19 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useModelState } from "@/hooks/useModelState";
 import PreferredReturnStructure from "./PreferredReturnStructure";
 import PromoteStructure from "./PromoteStructure";
 import EquityContributionTiming from "./EquityContributionTiming";
 import AdditionalEquityTerms from "./AdditionalEquityTerms";
 
 const EquityStructure = () => {
-  const { financing, handlePercentageChange } = useModelState();
-  const { 
-    generalPartnerPercentage, setGeneralPartnerPercentage,
-    limitedPartnerPercentage, setLimitedPartnerPercentage
-  } = financing;
-
   return (
     <Card>
       <CardHeader>
@@ -26,23 +19,11 @@ const EquityStructure = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="gp-percentage">GP Percentage (%)</Label>
-            <Input 
-              id="gp-percentage" 
-              placeholder="0" 
-              type="number"
-              value={generalPartnerPercentage}
-              onChange={(e) => handlePercentageChange(e, setGeneralPartnerPercentage)}
-            />
+            <Input id="gp-percentage" placeholder="0" type="number" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="lp-percentage">LP Percentage (%)</Label>
-            <Input 
-              id="lp-percentage" 
-              placeholder="0" 
-              type="number"
-              value={limitedPartnerPercentage}
-              onChange={(e) => handlePercentageChange(e, setLimitedPartnerPercentage)}
-            />
+            <Input id="lp-percentage" placeholder="0" type="number" />
           </div>
         </div>
         
