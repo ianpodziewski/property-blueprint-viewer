@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,7 +35,6 @@ import {
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 
-// Define utility function to get badge color based on use type
 const getBadgeColorForUse = (useType: string): string => {
   switch (useType) {
     case "residential":
@@ -89,7 +87,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   updateFloorTemplate,
   removeFloorTemplate
 }) => {
-  // State for managing UI
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [allSelected, setAllSelected] = useState(false);
   const [addFloorDialogOpen, setAddFloorDialogOpen] = useState(false);
@@ -100,37 +97,31 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   const [floorEditorOpen, setFloorEditorOpen] = useState(false);
   const [currentFloor, setCurrentFloor] = useState<number | null>(null);
   
-  // New state for floor deletion confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [floorToDelete, setFloorToDelete] = useState<number | null>(null);
   
-  // State for add floor dialog
   const [floorCount, setFloorCount] = useState("1");
   const [isUnderground, setIsUnderground] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  // Fix: Update position type to include "specific"
   const [position, setPosition] = useState<"top" | "bottom" | "specific">("top");
   const [specificPosition, setSpecificPosition] = useState<string>("");
   const [numberingPattern, setNumberingPattern] = useState<"consecutive" | "skip">("consecutive");
   
-  // State for bulk edit dialog
   const [bulkEditField, setBulkEditField] = useState<keyof FloorConfiguration>("templateId");
   const [bulkEditValue, setBulkEditValue] = useState<string>("");
   
   const { toast } = useToast();
   
-  // Sort floor configurations with above ground floors first (descending) then underground floors (ascending)
   const sortedFloors = [...floorConfigurations].sort((a, b) => {
     if (a.isUnderground && b.isUnderground) {
-      return a.floorNumber - b.floorNumber;  // Sort underground floors ascending
+      return a.floorNumber - b.floorNumber;
     } else if (!a.isUnderground && !b.isUnderground) {
-      return b.floorNumber - a.floorNumber;  // Sort above ground floors descending
+      return b.floorNumber - a.floorNumber;
     } else {
-      return a.isUnderground ? 1 : -1;  // Above ground floors first
+      return a.isUnderground ? 1 : -1;
     }
   });
   
-  // Handler for row selection
   const handleRowSelection = useCallback((floorNumber: number) => {
     setSelectedRows(prev => {
       if (prev.includes(floorNumber)) {
@@ -141,7 +132,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     });
   }, []);
   
-  // Handler for select all rows
   const handleSelectAll = useCallback(() => {
     if (allSelected || selectedRows.length === floorConfigurations.length) {
       setSelectedRows([]);
@@ -152,13 +142,11 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     }
   }, [floorConfigurations, allSelected, selectedRows.length]);
   
-  // Reset selected rows when floor configurations change
   useEffect(() => {
     setSelectedRows([]);
     setAllSelected(false);
   }, [floorConfigurations.length]);
   
-  // Check if all rows are selected
   useEffect(() => {
     if (selectedRows.length === floorConfigurations.length) {
       setAllSelected(true);
@@ -167,7 +155,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     }
   }, [selectedRows, floorConfigurations.length]);
 
-  // Handler for adding floors
   const handleAddFloors = useCallback(() => {
     if (!floorCount || isNaN(parseInt(floorCount)) || parseInt(floorCount) <= 0) {
       toast({
@@ -181,7 +168,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     let positionValue: "top" | "bottom" | "specific" = position;
     let specificPositionValue: number | undefined = undefined;
     
-    // Fix: Update type comparison to properly check for specific position
     if (position === "specific" && specificPosition) {
       specificPositionValue = parseInt(specificPosition);
     }
@@ -197,7 +183,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     
     setAddFloorDialogOpen(false);
     
-    // Reset add floor dialog state
     setFloorCount("1");
     setIsUnderground(false);
     setSelectedTemplateId(null);
@@ -211,7 +196,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     });
   }, [addFloors, floorCount, isUnderground, selectedTemplateId, position, specificPosition, numberingPattern, toast]);
 
-  // Handler for bulk edit
   const handleBulkEdit = useCallback(() => {
     if (selectedRows.length === 0) {
       toast({
@@ -225,7 +209,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     bulkEditFloorConfigurations(selectedRows, bulkEditField, bulkEditValue);
     setBulkEditDialogOpen(false);
     
-    // Reset bulk edit dialog state
     setBulkEditField("templateId");
     setBulkEditValue("");
     
@@ -235,7 +218,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     });
   }, [selectedRows, bulkEditField, bulkEditValue, bulkEditFloorConfigurations, toast]);
   
-  // Handler for copy floor configuration
   const handleCopyFloorConfig = useCallback(() => {
     if (!selectedFloorForCopy) {
       toast({
@@ -258,7 +240,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     copyFloorConfiguration(selectedFloorForCopy, selectedRows);
     setCopyDialogOpen(false);
     
-    // Reset copy dialog state
     setSelectedFloorForCopy(null);
     
     toast({
@@ -267,19 +248,16 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     });
   }, [selectedFloorForCopy, selectedRows, copyFloorConfiguration, toast]);
   
-  // Handler for opening floor editor
   const handleEditFloor = useCallback((floorNumber: number) => {
     setCurrentFloor(floorNumber);
     setFloorEditorOpen(true);
   }, []);
   
-  // Handler for selecting a floor for deletion
   const handleDeleteClick = useCallback((floorNumber: number) => {
     setFloorToDelete(floorNumber);
     setDeleteDialogOpen(true);
   }, []);
   
-  // Handler for confirming floor deletion
   const handleDeleteFloor = useCallback(() => {
     if (floorToDelete === null) return;
     
@@ -293,7 +271,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     });
   }, [floorToDelete, removeFloors, toast]);
   
-  // Function to get template name by ID
   const getTemplateName = useCallback((templateId: string | null) => {
     if (!templateId) return "No template";
     const template = floorTemplates.find(t => t.id === templateId);
@@ -382,13 +359,10 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
             </TableHeader>
             <TableBody>
               {sortedFloors.map(floor => {
-                // Find associated template
                 const template = floorTemplates.find(t => t.id === floor.templateId);
-                // Calculate area based on template or custom value
                 const floorArea = floor.customSquareFootage && floor.customSquareFootage !== "" 
                   ? floor.customSquareFootage 
                   : template?.squareFootage || "0";
-                // Calculate total spaces defined for the floor
                 const spacesCount = floor.spaces?.length || 0;
                 
                 return (
@@ -525,7 +499,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         )}
       </CardContent>
       
-      {/* Add Floor Dialog */}
       <Dialog open={addFloorDialogOpen} onOpenChange={setAddFloorDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -554,7 +527,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                       checked={isUnderground}
                       onCheckedChange={(checked) => {
                         setIsUnderground(!!checked);
-                        // Reset position when changing floor type
                         setPosition(isUnderground ? "top" : "bottom");
                       }}
                     />
@@ -591,7 +563,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
             
             <div>
               <Label>Position</Label>
-              {/* Fix: Update TabsList to include "specific" as a valid value */}
               <Tabs 
                 value={position} 
                 onValueChange={(value) => setPosition(value as "top" | "bottom" | "specific")}
@@ -655,7 +626,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* Template Manager Dialog */}
       <FloorTemplateManager
         isOpen={addTemplateDialogOpen}
         onClose={() => setAddTemplateDialogOpen(false)}
@@ -665,7 +635,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         removeTemplate={removeFloorTemplate}
       />
       
-      {/* Copy Configuration Dialog */}
       <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -727,7 +696,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* Bulk Edit Dialog */}
       <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -835,13 +803,12 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* Floor Editor Dialog - Fix: Remove the 'open' prop */}
       {currentFloor !== null && (
         <Dialog open={floorEditorOpen} onOpenChange={setFloorEditorOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <FloorEditor
               floorNumber={currentFloor}
-              floorConfiguration={floorConfigurations.find(f => f.floorNumber === currentFloor)}
+              floorConfiguration={floorConfigurations.find(f => f.floorNumber === currentFloor) as FloorConfiguration}
               floorTemplates={floorTemplates}
               updateFloorConfiguration={updateFloorConfiguration}
               updateFloorSpaces={updateFloorSpaces}
@@ -850,7 +817,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </Dialog>
       )}
       
-      {/* Confirmation Dialog for Floor Deletion */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
