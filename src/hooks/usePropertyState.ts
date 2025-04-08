@@ -8,7 +8,6 @@ interface SpaceType {
   squareFootage: string;
   units: string;
   phase: string;
-  efficiencyFactor: string;
   floorAllocation: Record<number, string>;
 }
 
@@ -41,7 +40,6 @@ export const usePropertyState = () => {
       squareFootage: "", 
       units: "", 
       phase: "",
-      efficiencyFactor: "100",
       floorAllocation: {}
     }
   ]);
@@ -73,11 +71,21 @@ export const usePropertyState = () => {
         squareFootage: "", 
         units: "", 
         phase: "",
-        efficiencyFactor: "100",
         floorAllocation: {}
       }
     ]);
-    setSpaceTypes(storedSpaceTypes);
+    
+    // Migrate old data structure if needed
+    const migratedSpaceTypes = storedSpaceTypes.map(space => {
+      // If the old data has efficiencyFactor, create a new object without it
+      if ('efficiencyFactor' in space) {
+        const { efficiencyFactor, ...restSpace } = space as any;
+        return restSpace;
+      }
+      return space;
+    });
+    
+    setSpaceTypes(migratedSpaceTypes);
     
     const storedUnitMix = loadFromLocalStorage(STORAGE_KEYS.UNIT_MIX, [
       { id: "unit-1", type: "Studio", count: "", squareFootage: "" }
@@ -138,7 +146,6 @@ export const usePropertyState = () => {
         squareFootage: "", 
         units: "", 
         phase: "",
-        efficiencyFactor: "100",
         floorAllocation: {}
       }
     ]);
@@ -227,7 +234,6 @@ export const usePropertyState = () => {
       squareFootage: "", 
       units: "", 
       phase: "",
-      efficiencyFactor: "100",
       floorAllocation: {} 
     }]);
     setUnitMixes([{ id: "unit-1", type: "Studio", count: "", squareFootage: "" }]);

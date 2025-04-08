@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,10 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Save, X, Plus, Trash2, ChevronsUpDown } from "lucide-react";
+import { Save, X, Plus, Trash2, ChevronsUpDown, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import {
   FloorPlateTemplate,
@@ -129,8 +131,6 @@ const FloorEditor = ({
   };
 
   const grossArea = getGrossArea();
-  const efficiencyFactor = parseFloat(floorConfiguration.efficiencyFactor) || 0;
-  const netArea = grossArea * (efficiencyFactor / 100);
 
   const calculateSpaceAllocation = () => {
     const totalSpaceArea = currentSpaces.reduce((sum, space) => {
@@ -380,7 +380,7 @@ const FloorEditor = ({
 
           <Separator />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="floor-height">Floor-to-Floor Height (ft)</Label>
               <Input
@@ -399,37 +399,36 @@ const FloorEditor = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="efficiency">Efficiency Factor (%)</Label>
-              <Input
-                id="efficiency"
-                type="number"
-                placeholder="85"
-                value={floorConfiguration.efficiencyFactor}
-                onChange={(e) => {
-                  updateFloorConfiguration(
-                    floorNumber,
-                    "efficiencyFactor",
-                    e.target.value
-                  );
-                }}
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="core-pct">Core & Circulation (%)</Label>
-              <Input
-                id="core-pct"
-                type="number"
-                placeholder="15"
-                value={floorConfiguration.corePercentage}
-                onChange={(e) => {
-                  updateFloorConfiguration(
-                    floorNumber,
-                    "corePercentage",
-                    e.target.value
-                  );
-                }}
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center">
+                      <Input
+                        id="core-pct"
+                        type="number"
+                        placeholder="15"
+                        value={floorConfiguration.corePercentage}
+                        onChange={(e) => {
+                          updateFloorConfiguration(
+                            floorNumber,
+                            "corePercentage",
+                            e.target.value
+                          );
+                        }}
+                      />
+                      <AlertCircle className="ml-2 h-4 w-4 text-amber-500" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="w-80">
+                      This is an estimate of the percentage of the floor dedicated to core, 
+                      circulation, and non-rentable areas. For accurate space planning, use 
+                      the Space Planning tab to define all spaces explicitly.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
 
@@ -506,14 +505,10 @@ const FloorEditor = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 bg-gray-50 p-4 rounded-md">
+          <div className="grid grid-cols-2 gap-6 bg-gray-50 p-4 rounded-md">
             <div>
               <span className="text-sm text-gray-500">Gross Area</span>
               <p className="text-lg font-medium">{grossArea.toLocaleString()} sq ft</p>
-            </div>
-            <div>
-              <span className="text-sm text-gray-500">Net Usable Area</span>
-              <p className="text-lg font-medium">{netArea.toLocaleString()} sq ft</p>
             </div>
             <div>
               <span className="text-sm text-gray-500">Floor Height</span>
@@ -582,6 +577,12 @@ const FloorEditor = ({
                   <span>100%</span>
                 </div>
               </div>
+              
+              <div className="mt-3 text-xs text-amber-700 bg-amber-50 p-2 rounded">
+                <p className="font-medium">Important:</p>
+                <p>All floor area must be explicitly accounted for in the space planning table below. 
+                Make sure to include core areas, circulation space, mechanical rooms, and any other non-rentable areas.</p>
+              </div>
             </Card>
 
             <div className="border rounded-md">
@@ -612,6 +613,7 @@ const FloorEditor = ({
                             value={space.name} 
                             onChange={(e) => handleUpdateSpace(space.id, "name", e.target.value)}
                             className="text-left"
+                            placeholder="Enter name"
                           />
                         </TableCell>
                         <TableCell>
@@ -693,6 +695,7 @@ const FloorEditor = ({
                                   validateDimensionsAndArea(space.id);
                                 }
                               }}
+                              placeholder="0"
                             />
                             <span className="text-xs whitespace-nowrap">sq ft</span>
                           </div>
@@ -784,7 +787,8 @@ const FloorEditor = ({
           <div className="border border-dashed rounded-lg p-4 flex flex-col items-center justify-center h-64 bg-muted/20">
             <ChevronsUpDown className="h-8 w-8 text-gray-300 mb-2" />
             <p className="text-gray-500">Advanced space planning visualizations will be available in a future update.</p>
-            <p className="text-sm text-gray-400 mt-1">Use the table above to configure spaces in the meantime.</p>
+            <p className="text-sm text-gray-400 mt-1">Use the table above to configure all spaces on the floor.</p>
+            <p className="text-sm text-amber-600 font-medium mt-2">Remember to account for all floor area in your space plan.</p>
           </div>
         </TabsContent>
       </Tabs>

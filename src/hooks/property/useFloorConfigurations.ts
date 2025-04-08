@@ -25,7 +25,6 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
       templateId: "template-1",
       customSquareFootage: "",
       floorToFloorHeight: "12",
-      efficiencyFactor: "85",
       corePercentage: "15",
       primaryUse: "office",
       secondaryUse: null,
@@ -42,7 +41,6 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
         templateId: "template-1",
         customSquareFootage: "",
         floorToFloorHeight: "12",
-        efficiencyFactor: "85",
         corePercentage: "15",
         primaryUse: "office",
         secondaryUse: null,
@@ -51,7 +49,16 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
     ]);
     
     if (storedFloorConfigurations.length > 0) {
-      setFloorConfigurations(storedFloorConfigurations);
+      // Migrate stored data to remove efficiency factor if it exists
+      const migratedConfigs = storedFloorConfigurations.map(config => {
+        if ('efficiencyFactor' in config) {
+          const { efficiencyFactor, ...rest } = config as any;
+          return rest;
+        }
+        return config;
+      });
+      
+      setFloorConfigurations(migratedConfigs);
     }
   }, []);
 
@@ -98,7 +105,6 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
                 templateId: sourceFloor.templateId,
                 customSquareFootage: sourceFloor.customSquareFootage,
                 floorToFloorHeight: sourceFloor.floorToFloorHeight,
-                efficiencyFactor: sourceFloor.efficiencyFactor,
                 corePercentage: sourceFloor.corePercentage,
                 primaryUse: sourceFloor.primaryUse,
                 secondaryUse: sourceFloor.secondaryUse,
@@ -174,7 +180,6 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
         templateId: templateId,
         customSquareFootage: "",
         floorToFloorHeight: "12",
-        efficiencyFactor: "85",
         corePercentage: "15",
         primaryUse: isUnderground ? "parking" : "office",
         secondaryUse: null,
@@ -227,7 +232,6 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
           templateId: floorTemplates[0]?.id || null,
           customSquareFootage: "",
           floorToFloorHeight: "12",
-          efficiencyFactor: "85",
           corePercentage: "15",
           primaryUse: "office",
           secondaryUse: null,
@@ -289,7 +293,16 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
 
   const importFloorConfigurations = useCallback((configurations: FloorConfiguration[]) => {
     if (configurations && configurations.length > 0) {
-      setFloorConfigurations(configurations);
+      // Clean up any efficiency factors when importing
+      const cleanConfigs = configurations.map(config => {
+        if ('efficiencyFactor' in config) {
+          const { efficiencyFactor, ...rest } = config as any;
+          return rest;
+        }
+        return config;
+      });
+      
+      setFloorConfigurations(cleanConfigs);
     }
   }, []);
 

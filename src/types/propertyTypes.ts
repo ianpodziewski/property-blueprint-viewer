@@ -7,7 +7,6 @@ export interface SpaceType {
   squareFootage: string;
   units: string;
   phase: string;
-  efficiencyFactor: string;
   floorAllocation: Record<number, string>; // floor number -> percentage
 }
 
@@ -29,7 +28,6 @@ export interface FloorPlateTemplate {
   name: string;
   squareFootage: string;
   floorToFloorHeight: string;
-  efficiencyFactor: string;
   corePercentage: string;
   primaryUse?: string;
   description?: string;
@@ -68,7 +66,6 @@ export interface FloorConfiguration {
   templateId: string | null;
   customSquareFootage: string;
   floorToFloorHeight: string;
-  efficiencyFactor: string;
   corePercentage: string;
   primaryUse: string;
   secondaryUse: string | null;

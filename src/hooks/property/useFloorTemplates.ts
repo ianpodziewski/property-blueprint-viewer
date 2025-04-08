@@ -12,7 +12,6 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
       name: "Standard Floor",
       squareFootage: "10000",
       floorToFloorHeight: "12",
-      efficiencyFactor: "85",
       corePercentage: "15",
       primaryUse: "office"
     }
@@ -26,12 +25,21 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
         name: "Standard Floor",
         squareFootage: "10000",
         floorToFloorHeight: "12",
-        efficiencyFactor: "85",
         corePercentage: "15",
         primaryUse: "office"
       }
     ]);
-    setFloorTemplates(storedFloorTemplates);
+    
+    // Migrate stored data to remove efficiency factor if it exists
+    const migratedTemplates = storedFloorTemplates.map(template => {
+      if ('efficiencyFactor' in template) {
+        const { efficiencyFactor, ...rest } = template as any;
+        return rest;
+      }
+      return template;
+    });
+    
+    setFloorTemplates(migratedTemplates);
   }, []);
 
   // Save floor templates to localStorage whenever they change
@@ -48,7 +56,6 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
       name: template.name,
       squareFootage: template.squareFootage,
       floorToFloorHeight: template.floorToFloorHeight,
-      efficiencyFactor: template.efficiencyFactor,
       corePercentage: template.corePercentage,
       primaryUse: template.primaryUse,
       description: template.description || ""

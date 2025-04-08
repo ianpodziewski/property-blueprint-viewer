@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,7 +13,6 @@ interface SpaceTypeProps {
   squareFootage: string;
   units: string;
   phase: string;
-  efficiencyFactor: string;
   floorAllocation: Record<number, string>;
   onUpdate: (id: string, field: string, value: string) => void;
   onUpdateFloorAllocation: (id: string, floor: number, value: string) => void;
@@ -27,7 +26,6 @@ const EnhancedSpaceTypeInput = ({
   squareFootage,
   units,
   phase,
-  efficiencyFactor,
   floorAllocation,
   onUpdate,
   onUpdateFloorAllocation,
@@ -35,14 +33,6 @@ const EnhancedSpaceTypeInput = ({
   availableFloors
 }: SpaceTypeProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [netArea, setNetArea] = useState<number>(0);
-  
-  // Calculate net area based on efficiency factor
-  useEffect(() => {
-    const grossArea = parseFloat(squareFootage) || 0;
-    const efficiency = parseFloat(efficiencyFactor) || 100;
-    setNetArea(grossArea * (efficiency / 100));
-  }, [squareFootage, efficiencyFactor]);
   
   // Generate floor numbers array
   const floorNumbers = Array.from({ length: availableFloors }, (_, i) => i + 1);
@@ -88,17 +78,6 @@ const EnhancedSpaceTypeInput = ({
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor={`efficiency-${id}`}>Efficiency (%)</Label>
-          <Input 
-            id={`efficiency-${id}`} 
-            placeholder="100" 
-            type="number" 
-            value={efficiencyFactor}
-            onChange={(e) => onUpdate(id, "efficiencyFactor", e.target.value)}
-          />
-        </div>
-        
-        <div className="space-y-2">
           <Label htmlFor={`phase-${id}`}>Phasing</Label>
           <Select 
             value={phase}
@@ -129,8 +108,8 @@ const EnhancedSpaceTypeInput = ({
       
       <div className="flex justify-between items-center text-sm text-gray-600 mt-2">
         <div>
-          <span>Net Area: </span>
-          <span className="font-medium">{netArea.toLocaleString()} sq ft</span>
+          <span>Total Area: </span>
+          <span className="font-medium">{parseInt(squareFootage || "0").toLocaleString()} sq ft</span>
         </div>
         
         <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full md:w-auto">
