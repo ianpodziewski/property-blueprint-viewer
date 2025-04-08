@@ -9,15 +9,27 @@ import {
 
 const STORAGE_KEY = "realEstateModel_floorConfigurations";
 
-const dispatchFloorConfigSavedEvent = () => {
-  if (typeof window !== 'undefined') {
-    const event = new CustomEvent('floorConfigSaved');
-    window.dispatchEvent(event);
-  }
-};
+const dispatchFloorConfigSavedEvent = (() => {
+  let timeout: number | undefined;
+  
+  return () => {
+    if (typeof window !== 'undefined') {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+      
+      timeout = window.setTimeout(() => {
+        const event = new CustomEvent('floorConfigSaved');
+        window.dispatchEvent(event);
+        timeout = undefined;
+      }, 100);
+    }
+  };
+})();
 
 export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]) => {
   const isFirstRender = useRef(true);
+  const isUpdatingRef = useRef(false);
   
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>(() => {
     const storedFloorConfigurations = loadFromLocalStorage<FloorConfiguration[]>(STORAGE_KEY, []);
@@ -38,27 +50,31 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     return [];
   });
 
-  const [isInitialized, setIsInitialized] = useState(true);
-  
-  const prevFloorConfigurationsRef = useRef<FloorConfiguration[]>([]);
+  const prevFloorConfigurationsRef = useRef<string>("");
 
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
-      prevFloorConfigurationsRef.current = floorConfigurations;
+      prevFloorConfigurationsRef.current = JSON.stringify(floorConfigurations);
       return;
     }
     
-    if (isInitialized && 
-        JSON.stringify(floorConfigurations) !== JSON.stringify(prevFloorConfigurationsRef.current)) {
-      
+    if (isUpdatingRef.current) {
+      isUpdatingRef.current = false;
+      return;
+    }
+    
+    const currentConfigString = JSON.stringify(floorConfigurations);
+    
+    if (currentConfigString !== prevFloorConfigurationsRef.current) {
       saveToLocalStorage(STORAGE_KEY, floorConfigurations);
       console.log("Saved floor configurations to localStorage:", floorConfigurations);
-      dispatchFloorConfigSavedEvent();
       
-      prevFloorConfigurationsRef.current = floorConfigurations;
+      prevFloorConfigurationsRef.current = currentConfigString;
+      
+      dispatchFloorConfigSavedEvent();
     }
-  }, [floorConfigurations, isInitialized]);
+  }, [floorConfigurations]);
 
   const updateFloorConfiguration = useCallback((
     floorNumber: number, 
@@ -67,22 +83,30 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   ) => {
     console.log(`Updating floor ${floorNumber}, field ${String(field)}`, value);
     
-    setFloorConfigurations(
-      floorConfigurations.map(floor => {
+    isUpdatingRef.current = true;
+    
+    setFloorConfigurations(prev => {
+      const updated = prev.map(floor => {
         if (floor.floorNumber === floorNumber) {
-          const updatedFloor = { ...floor, [field]: value };
-          return updatedFloor;
+          return { ...floor, [field]: value };
         }
         return floor;
-      })
-    );
+      });
+      
+      return updated;
+    });
     
     if (field === 'spaces' || field === 'buildingSystems') {
       const updatedConfigs = floorConfigurations.map(floor => 
         floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
       );
-      saveToLocalStorage(STORAGE_KEY, updatedConfigs);
-      dispatchFloorConfigSavedEvent();
+      
+      const updatedConfigsString = JSON.stringify(updatedConfigs);
+      if (updatedConfigsString !== prevFloorConfigurationsRef.current) {
+        saveToLocalStorage(STORAGE_KEY, updatedConfigs);
+        prevFloorConfigurationsRef.current = updatedConfigsString;
+        dispatchFloorConfigSavedEvent();
+      }
     }
   }, [floorConfigurations]);
 
@@ -90,8 +114,9 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     const sourceFloor = floorConfigurations.find(floor => floor.floorNumber === sourceFloorNumber);
     
     if (sourceFloor && targetFloorNumbers.length > 0) {
-      setFloorConfigurations(
-        floorConfigurations.map(floor => 
+      isUpdatingRef.current = true;
+      setFloorConfigurations(prev =>
+        prev.map(floor => 
           targetFloorNumbers.includes(floor.floorNumber)
             ? { 
                 ...floor, 
@@ -116,12 +141,13 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     field: keyof FloorConfiguration, 
     value: string | null | boolean
   ) => {
-    setFloorConfigurations(
-      floorConfigurations.map(floor => 
+    isUpdatingRef.current = true;
+    setFloorConfigurations(prev =>
+      prev.map(floor => 
         floorNumbers.includes(floor.floorNumber) ? { ...floor, [field]: value } : floor
       )
     );
-  }, [floorConfigurations]);
+  }, []);
 
   const addFloors = useCallback((
     count: number,
@@ -208,18 +234,18 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
         : [...floorConfigurations, ...newFloors];
     }
     
+    isUpdatingRef.current = true;
     setFloorConfigurations(updatedFloors);
   }, [floorConfigurations]);
 
   const removeFloors = useCallback((floorNumbers: number[]) => {
     if (floorNumbers.length > 0) {
-      const remainingFloors = floorConfigurations.filter(
+      isUpdatingRef.current = true;
+      setFloorConfigurations(prev => prev.filter(
         floor => !floorNumbers.includes(floor.floorNumber)
-      );
-      
-      setFloorConfigurations(remainingFloors);
+      ));
     }
-  }, [floorConfigurations]);
+  }, []);
 
   const reorderFloor = useCallback((floorNumber: number, direction: "up" | "down") => {
     const sortedFloors = [...floorConfigurations].sort((a, b) => b.floorNumber - a.floorNumber);
@@ -240,6 +266,7 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     currentFloor.floorNumber = targetFloor.floorNumber;
     targetFloor.floorNumber = tempFloorNumber;
     
+    isUpdatingRef.current = true;
     setFloorConfigurations([...sortedFloors]);
   }, [floorConfigurations]);
 
@@ -277,6 +304,7 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
         return config;
       });
       
+      isUpdatingRef.current = true;
       setFloorConfigurations(cleanConfigs);
     }
   }, []);
@@ -320,6 +348,7 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   }, [floorConfigurations, floorTemplatesInput]);
 
   const resetAllData = useCallback(() => {
+    isUpdatingRef.current = true;
     setFloorConfigurations([]);
   }, []);
 

@@ -17,6 +17,7 @@ const ModelingTabs = () => {
   const [floorConfigSaved, setFloorConfigSaved] = useState(0);
   const [unitAllocationSaved, setUnitAllocationSaved] = useState(0);
   
+  // Create a more robust debounced event handler to prevent infinite loops
   const handleFloorConfigSave = useCallback(() => {
     console.log('Floor configuration save event detected');
     setFloorConfigSaved(prev => prev + 1);
@@ -27,48 +28,40 @@ const ModelingTabs = () => {
     setUnitAllocationSaved(prev => prev + 1);
   }, []);
   
+  // Use separate useEffects with clear dependencies to avoid circular updates
   useEffect(() => {
-    // Create a reference to the timeout to ensure it can be cleared
     let timeoutId: number | undefined;
-    
-    const debouncedHandler = () => {
+    const debouncedFloorConfigHandler = () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
       timeoutId = window.setTimeout(handleFloorConfigSave, 300);
     };
     
-    // Listen for our custom event
-    window.addEventListener('floorConfigSaved', debouncedHandler);
-    
-    // Also listen for unit allocation changes that would affect space availability
-    window.addEventListener('unitAllocationChanged', debouncedHandler);
+    window.addEventListener('floorConfigSaved', debouncedFloorConfigHandler);
     
     return () => {
-      window.removeEventListener('floorConfigSaved', debouncedHandler);
-      window.removeEventListener('unitAllocationChanged', debouncedHandler);
+      window.removeEventListener('floorConfigSaved', debouncedFloorConfigHandler);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
     };
   }, [handleFloorConfigSave]);
   
+  // Separate effect for unit allocation changes - no longer triggering floor config saves
   useEffect(() => {
-    // Create a reference to the timeout to ensure it can be cleared
     let timeoutId: number | undefined;
-    
-    const debouncedHandler = () => {
+    const debouncedUnitAllocationHandler = () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
       timeoutId = window.setTimeout(handleUnitAllocationSave, 300);
     };
     
-    // Listen for unit allocation changes
-    window.addEventListener('unitAllocationChanged', debouncedHandler);
+    window.addEventListener('unitAllocationChanged', debouncedUnitAllocationHandler);
     
     return () => {
-      window.removeEventListener('unitAllocationChanged', debouncedHandler);
+      window.removeEventListener('unitAllocationChanged', debouncedUnitAllocationHandler);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
