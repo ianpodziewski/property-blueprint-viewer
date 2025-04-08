@@ -19,7 +19,6 @@ const STORAGE_KEYS = {
   FLOOR_CONFIGURATIONS: "realEstateModel_floorConfigurations"
 };
 
-// Add an event dispatcher for floor config updates
 const dispatchFloorConfigSavedEvent = () => {
   if (typeof window !== 'undefined') {
     const event = new CustomEvent('floorConfigSaved');
@@ -28,19 +27,16 @@ const dispatchFloorConfigSavedEvent = () => {
 };
 
 export const useExtendedPropertyState = () => {
-  // Project Information
   const [projectName, setProjectName] = useState<string>("");
   const [projectLocation, setProjectLocation] = useState<string>("");
   const [projectType, setProjectType] = useState<string>("");
-  
-  // Building Parameters
+
   const [farAllowance, setFarAllowance] = useState<string>("1.5");
   const [totalLandArea, setTotalLandArea] = useState<string>("0");
   const [buildingFootprint, setBuildingFootprint] = useState<string>("0");
   const [numberOfFloors, setNumberOfFloors] = useState<string>("1");
   const [numberOfUndergroundFloors, setNumberOfUndergroundFloors] = useState<string>("0");
-  
-  // Floor Templates
+
   const [floorTemplates, setFloorTemplates] = useState<FloorPlateTemplate[]>([
     {
       id: "template-1",
@@ -51,18 +47,15 @@ export const useExtendedPropertyState = () => {
       corePercentage: "15"
     }
   ]);
-  
-  // Floor Configurations
+
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>([]);
-  
-  // Calculated values
+
   const [totalBuildableArea, setTotalBuildableArea] = useState<number>(0);
   const [totalAboveGroundArea, setTotalAboveGroundArea] = useState<number>(0);
   const [totalBelowGroundArea, setTotalBelowGroundArea] = useState<number>(0);
   const [actualFar, setActualFar] = useState<number>(0);
   const [totalAllocatedArea, setTotalAllocatedArea] = useState<number>(0);
-  
-  // Space Types
+
   const [spaceTypes, setSpaceTypes] = useState<SpaceType[]>([
     { 
       id: "space-1", 
@@ -74,37 +67,31 @@ export const useExtendedPropertyState = () => {
       floorAllocation: { 1: "100" }
     }
   ]);
-  
-  // Unit Mix
+
   const [unitMixes, setUnitMixes] = useState<UnitMix[]>([
     { id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }
   ]);
-  
-  // Issues
+
   const [issues, setIssues] = useState<Issue[]>([]);
-  
-  // Space type colors for visualizations
+
   const spaceTypeColors: Record<string, string> = {
-    "residential": "#3B82F6", // blue
-    "office": "#10B981",      // green
-    "retail": "#F59E0B",      // amber
-    "parking": "#6B7280",     // gray
-    "hotel": "#8B5CF6",       // purple
-    "amenities": "#EC4899",   // pink
-    "storage": "#78716C",     // warm gray
-    "mechanical": "#475569",  // slate
+    "residential": "#3B82F6",
+    "office": "#10B981",
+    "retail": "#F59E0B",
+    "parking": "#6B7280",
+    "hotel": "#8B5CF6",
+    "amenities": "#EC4899",
+    "storage": "#78716C",
+    "mechanical": "#475569"
   };
 
-  // Initialize floor configurations when number of floors changes
   useEffect(() => {
     const aboveGroundFloors = parseInt(numberOfFloors) || 0;
     const belowGroundFloors = parseInt(numberOfUndergroundFloors) || 0;
-    
-    // Only do this initial setup if the configurations array is empty
+
     if (floorConfigurations.length === 0) {
       const newConfigurations: FloorConfiguration[] = [];
-      
-      // Create above ground configurations
+
       for (let i = 1; i <= aboveGroundFloors; i++) {
         newConfigurations.push({
           floorNumber: i,
@@ -119,8 +106,7 @@ export const useExtendedPropertyState = () => {
           secondaryUsePercentage: "0"
         });
       }
-      
-      // Create below ground configurations
+
       for (let i = 1; i <= belowGroundFloors; i++) {
         newConfigurations.push({
           floorNumber: -i,
@@ -135,19 +121,16 @@ export const useExtendedPropertyState = () => {
           secondaryUsePercentage: "0"
         });
       }
-      
+
       setFloorConfigurations(newConfigurations);
     } else {
-      // Update existing configurations if number of floors changes
       const currentAboveGround = floorConfigurations.filter(f => !f.isUnderground).length;
       const currentBelowGround = floorConfigurations.filter(f => f.isUnderground).length;
-      
+
       if (currentAboveGround !== aboveGroundFloors || currentBelowGround !== belowGroundFloors) {
         let updatedConfigurations = [...floorConfigurations];
-        
-        // Handle above ground floors
+
         if (currentAboveGround < aboveGroundFloors) {
-          // Add new floors
           for (let i = currentAboveGround + 1; i <= aboveGroundFloors; i++) {
             updatedConfigurations.push({
               floorNumber: i,
@@ -163,15 +146,12 @@ export const useExtendedPropertyState = () => {
             });
           }
         } else if (currentAboveGround > aboveGroundFloors) {
-          // Remove excess floors
           updatedConfigurations = updatedConfigurations.filter(
             config => config.isUnderground || config.floorNumber <= aboveGroundFloors
           );
         }
-        
-        // Handle below ground floors
+
         if (currentBelowGround < belowGroundFloors) {
-          // Add new below ground floors
           for (let i = currentBelowGround + 1; i <= belowGroundFloors; i++) {
             updatedConfigurations.push({
               floorNumber: -i,
@@ -187,30 +167,28 @@ export const useExtendedPropertyState = () => {
             });
           }
         } else if (currentBelowGround > belowGroundFloors) {
-          // Remove excess below ground floors
           const minFloorNumber = -(belowGroundFloors);
           updatedConfigurations = updatedConfigurations.filter(
             config => !config.isUnderground || config.floorNumber >= minFloorNumber
           );
         }
-        
+
         setFloorConfigurations(updatedConfigurations);
       }
     }
   }, [numberOfFloors, numberOfUndergroundFloors, floorConfigurations.length]);
-  
-  // Load data from localStorage on component mount
+
   useEffect(() => {
     const storedProjectInfo = loadFromLocalStorage(STORAGE_KEYS.PROJECT_INFO, {
       projectName: "",
       projectLocation: "",
       projectType: ""
     });
-    
+
     setProjectName(storedProjectInfo.projectName);
     setProjectLocation(storedProjectInfo.projectLocation);
     setProjectType(storedProjectInfo.projectType);
-    
+
     const storedBuildingParams = loadFromLocalStorage(STORAGE_KEYS.BUILDING_PARAMS, {
       farAllowance: "1.5",
       totalLandArea: "0",
@@ -218,13 +196,13 @@ export const useExtendedPropertyState = () => {
       numberOfFloors: "1",
       numberOfUndergroundFloors: "0"
     });
-    
+
     setFarAllowance(storedBuildingParams.farAllowance);
     setTotalLandArea(storedBuildingParams.totalLandArea);
     setBuildingFootprint(storedBuildingParams.buildingFootprint);
     setNumberOfFloors(storedBuildingParams.numberOfFloors);
     setNumberOfUndergroundFloors(storedBuildingParams.numberOfUndergroundFloors || "0");
-    
+
     const storedSpaceTypes = loadFromLocalStorage(STORAGE_KEYS.SPACE_TYPES, [
       { 
         id: "space-1", 
@@ -237,12 +215,12 @@ export const useExtendedPropertyState = () => {
       }
     ]);
     setSpaceTypes(storedSpaceTypes);
-    
+
     const storedUnitMix = loadFromLocalStorage(STORAGE_KEYS.UNIT_MIX, [
       { id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }
     ]);
     setUnitMixes(storedUnitMix);
-    
+
     const storedFloorTemplates = loadFromLocalStorage(STORAGE_KEYS.FLOOR_TEMPLATES, [
       {
         id: "template-1",
@@ -254,12 +232,11 @@ export const useExtendedPropertyState = () => {
       }
     ]);
     setFloorTemplates(storedFloorTemplates);
-    
+
     const storedFloorConfigurations = loadFromLocalStorage(STORAGE_KEYS.FLOOR_CONFIGURATIONS, []);
     setFloorConfigurations(storedFloorConfigurations);
   }, []);
-  
-  // Save project info to localStorage whenever it changes
+
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.PROJECT_INFO, {
       projectName,
@@ -267,8 +244,7 @@ export const useExtendedPropertyState = () => {
       projectType
     });
   }, [projectName, projectLocation, projectType]);
-  
-  // Save building parameters to localStorage whenever they change
+
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.BUILDING_PARAMS, {
       farAllowance,
@@ -278,34 +254,28 @@ export const useExtendedPropertyState = () => {
       numberOfUndergroundFloors
     });
   }, [farAllowance, totalLandArea, buildingFootprint, numberOfFloors, numberOfUndergroundFloors]);
-  
-  // Save space types to localStorage whenever they change
+
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.SPACE_TYPES, spaceTypes);
   }, [spaceTypes]);
-  
-  // Save unit mix to localStorage whenever it changes
+
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.UNIT_MIX, unitMixes);
   }, [unitMixes]);
-  
-  // Save floor templates to localStorage whenever they change
+
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.FLOOR_TEMPLATES, floorTemplates);
   }, [floorTemplates]);
-  
-  // Save floor configurations to localStorage whenever they change
+
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEYS.FLOOR_CONFIGURATIONS, floorConfigurations);
   }, [floorConfigurations]);
-  
-  // Calculate total square footage based on floor configurations
+
   useEffect(() => {
     let aboveGround = 0;
     let belowGround = 0;
-    
+
     floorConfigurations.forEach(floor => {
-      // Get square footage either from template or custom value
       let squareFootage = 0;
       if (floor.templateId) {
         const template = floorTemplates.find(t => t.id === floor.templateId);
@@ -313,35 +283,33 @@ export const useExtendedPropertyState = () => {
           squareFootage = parseFloat(template.squareFootage) || 0;
         }
       }
-      
+
       if (floor.customSquareFootage) {
         squareFootage = parseFloat(floor.customSquareFootage) || 0;
       }
-      
+
       if (floor.isUnderground) {
         belowGround += squareFootage;
       } else {
         aboveGround += squareFootage;
       }
     });
-    
+
     setTotalAboveGroundArea(aboveGround);
     setTotalBelowGroundArea(belowGround);
     setTotalBuildableArea(aboveGround + belowGround);
   }, [floorConfigurations, floorTemplates]);
-  
-  // Calculate actual FAR (using only above ground area)
+
   useEffect(() => {
     const landArea = parseFloat(totalLandArea) || 0;
-    
+
     if (landArea > 0) {
       setActualFar(totalAboveGroundArea / landArea);
     } else {
       setActualFar(0);
     }
   }, [totalLandArea, totalAboveGroundArea]);
-  
-  // Calculate total allocated area
+
   const calcTotalAllocatedArea = () => {
     const total = spaceTypes.reduce((sum, space) => {
       return sum + (parseFloat(space.squareFootage) || 0);
@@ -349,12 +317,10 @@ export const useExtendedPropertyState = () => {
     setTotalAllocatedArea(total);
     return total;
   };
-  
-  // Update issues
+
   useEffect(() => {
     const newIssues: Issue[] = [];
-    
-    // Check if exceeding FAR
+
     if (actualFar > parseFloat(farAllowance)) {
       newIssues.push({
         type: "FAR Exceeded",
@@ -362,10 +328,9 @@ export const useExtendedPropertyState = () => {
         severity: "error",
       });
     }
-    
-    // Check if all space is allocated
+
     const unallocatedSpace = totalBuildableArea - totalAllocatedArea;
-    if (Math.abs(unallocatedSpace) > 100) { // Allow small rounding errors
+    if (Math.abs(unallocatedSpace) > 100) {
       const action = unallocatedSpace > 0 ? "Unallocated" : "Over-allocated";
       newIssues.push({
         type: `${action} Space`,
@@ -373,8 +338,7 @@ export const useExtendedPropertyState = () => {
         severity: "warning",
       });
     }
-    
-    // Check floor allocation for each space type
+
     spaceTypes.forEach(space => {
       if (space.type) {
         const totalAllocation = Object.values(space.floorAllocation)
@@ -389,8 +353,7 @@ export const useExtendedPropertyState = () => {
         }
       }
     });
-    
-    // Check for inconsistent floor plate data
+
     floorConfigurations.forEach(floor => {
       if (!floor.templateId && !floor.customSquareFootage) {
         newIssues.push({
@@ -400,11 +363,10 @@ export const useExtendedPropertyState = () => {
         });
       }
     });
-    
+
     setIssues(newIssues);
   }, [spaceTypes, actualFar, farAllowance, totalBuildableArea, totalAllocatedArea, floorConfigurations]);
-  
-  // Floor template operations
+
   const addFloorTemplate = () => {
     const newId = `template-${floorTemplates.length + 1}`;
     setFloorTemplates([
@@ -419,7 +381,7 @@ export const useExtendedPropertyState = () => {
       }
     ]);
   };
-  
+
   const updateFloorTemplate = (id: string, field: keyof FloorPlateTemplate, value: string) => {
     setFloorTemplates(
       floorTemplates.map(template => 
@@ -427,13 +389,11 @@ export const useExtendedPropertyState = () => {
       )
     );
   };
-  
+
   const removeFloorTemplate = (id: string) => {
     if (floorTemplates.length > 1) {
-      // Remove the template
       setFloorTemplates(floorTemplates.filter(template => template.id !== id));
       
-      // Update any floor configurations using this template to use the first available template
       const firstTemplateId = floorTemplates.find(t => t.id !== id)?.id || null;
       setFloorConfigurations(
         floorConfigurations.map(floor => 
@@ -442,8 +402,7 @@ export const useExtendedPropertyState = () => {
       );
     }
   };
-  
-  // Floor configuration operations
+
   const updateFloorConfiguration = (
     floorNumber: number, 
     field: keyof FloorConfiguration, 
@@ -461,7 +420,6 @@ export const useExtendedPropertyState = () => {
       })
     );
     
-    // Force save to localStorage right away for critical updates
     if (field === 'spaces' || field === 'buildingSystems') {
       const updatedConfigs = floorConfigurations.map(floor => 
         floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
@@ -470,7 +428,7 @@ export const useExtendedPropertyState = () => {
       dispatchFloorConfigSavedEvent();
     }
   };
-  
+
   const copyFloorConfiguration = (sourceFloorNumber: number, targetFloorNumber: number) => {
     const sourceFloor = floorConfigurations.find(floor => floor.floorNumber === sourceFloorNumber);
     
@@ -496,7 +454,7 @@ export const useExtendedPropertyState = () => {
       );
     }
   };
-  
+
   const bulkEditFloorConfigurations = (
     floorNumbers: number[], 
     field: keyof FloorConfiguration, 
@@ -508,10 +466,8 @@ export const useExtendedPropertyState = () => {
       )
     );
   };
-  
-  // Generate floors data for visualizations
+
   const generateFloorsData = () => {
-    // Sort configurations by floor number (highest first)
     const sortedConfigs = [...floorConfigurations].sort((a, b) => b.floorNumber - a.floorNumber);
     const floors = [];
     
@@ -519,7 +475,6 @@ export const useExtendedPropertyState = () => {
       const floorSpaces = [];
       let totalFloorArea = 0;
       
-      // Get square footage for this floor
       let floorSquareFootage = 0;
       if (config.templateId) {
         const template = floorTemplates.find(t => t.id === config.templateId);
@@ -531,7 +486,6 @@ export const useExtendedPropertyState = () => {
         floorSquareFootage = parseFloat(config.customSquareFootage) || 0;
       }
       
-      // Primary use
       if (config.primaryUse) {
         const primaryPercentage = 100 - (parseFloat(config.secondaryUsePercentage) || 0);
         const primaryArea = floorSquareFootage * (primaryPercentage / 100);
@@ -541,11 +495,10 @@ export const useExtendedPropertyState = () => {
           id: `${config.floorNumber}-primary`,
           type: config.primaryUse,
           squareFootage: primaryArea,
-          percentage: 0 // Will calculate after total is known
+          percentage: 0
         });
       }
       
-      // Secondary use if specified
       if (config.secondaryUse && parseFloat(config.secondaryUsePercentage) > 0) {
         const secondaryArea = floorSquareFootage * (parseFloat(config.secondaryUsePercentage) / 100);
         totalFloorArea += secondaryArea;
@@ -554,11 +507,10 @@ export const useExtendedPropertyState = () => {
           id: `${config.floorNumber}-secondary`,
           type: config.secondaryUse,
           squareFootage: secondaryArea,
-          percentage: 0 // Will calculate after total is known
+          percentage: 0
         });
       }
       
-      // Calculate percentages
       if (totalFloorArea > 0) {
         floorSpaces.forEach(space => {
           space.percentage = (space.squareFootage / totalFloorArea) * 100;
@@ -574,10 +526,8 @@ export const useExtendedPropertyState = () => {
     
     return floors;
   };
-  
-  // Generate data for space breakdown visualization
+
   const generateSpaceBreakdown = () => {
-    // Create a map to aggregate space types
     const spaceMap: Record<string, { 
       type: string, 
       squareFootage: number, 
@@ -585,7 +535,6 @@ export const useExtendedPropertyState = () => {
     }> = {};
     
     floorConfigurations.forEach(config => {
-      // Get square footage for this floor
       let floorSquareFootage = 0;
       if (config.templateId) {
         const template = floorTemplates.find(t => t.id === config.templateId);
@@ -597,7 +546,6 @@ export const useExtendedPropertyState = () => {
         floorSquareFootage = parseFloat(config.customSquareFootage) || 0;
       }
       
-      // Primary use
       if (config.primaryUse) {
         const primaryPercentage = 100 - (parseFloat(config.secondaryUsePercentage) || 0);
         const primaryArea = floorSquareFootage * (primaryPercentage / 100);
@@ -614,7 +562,6 @@ export const useExtendedPropertyState = () => {
         spaceMap[config.primaryUse].floorAllocation[config.floorNumber] = primaryPercentage;
       }
       
-      // Secondary use
       if (config.secondaryUse && parseFloat(config.secondaryUsePercentage) > 0) {
         const secondaryArea = floorSquareFootage * (parseFloat(config.secondaryUsePercentage) / 100);
         
@@ -642,8 +589,7 @@ export const useExtendedPropertyState = () => {
       floorAllocation: space.floorAllocation
     }));
   };
-  
-  // Generate phases data for visualization
+
   const generatePhasesData = () => {
     const phaseMap: Record<string, {
       name: string,
@@ -671,7 +617,6 @@ export const useExtendedPropertyState = () => {
       }
     };
     
-    // Aggregate space data by phase
     spaceTypes.forEach(space => {
       if (space.phase && phaseMap[space.phase]) {
         const squareFootage = parseFloat(space.squareFootage) || 0;
@@ -684,7 +629,6 @@ export const useExtendedPropertyState = () => {
       }
     });
     
-    // Convert to array format for component
     return Object.entries(phaseMap).map(([phaseId, phaseData]) => {
       return {
         phase: phaseId,
@@ -699,14 +643,12 @@ export const useExtendedPropertyState = () => {
       };
     }).filter(phase => phase.squareFootage > 0);
   };
-  
-  // Space Type operations
+
   const addSpaceType = () => {
     const newId = `space-${spaceTypes.length + 1}`;
     const floorCount = parseInt(numberOfFloors) || 1;
     const floorAllocation: Record<number, string> = {};
     
-    // Default to allocating 100% to floor 1
     floorAllocation[1] = "100";
     
     setSpaceTypes([
@@ -736,7 +678,7 @@ export const useExtendedPropertyState = () => {
       )
     );
   };
-  
+
   const updateSpaceTypeFloorAllocation = (id: string, floor: number, value: string) => {
     setSpaceTypes(
       spaceTypes.map(space => {
@@ -749,8 +691,7 @@ export const useExtendedPropertyState = () => {
       })
     );
   };
-  
-  // Unit Mix operations
+
   const addUnitMix = () => {
     const newId = `unit-${unitMixes.length + 1}`;
     setUnitMixes([
@@ -772,8 +713,7 @@ export const useExtendedPropertyState = () => {
       )
     );
   };
-  
-  // Reset all data
+
   const resetAllData = useCallback(() => {
     setProjectName("");
     setProjectLocation("");
@@ -804,25 +744,27 @@ export const useExtendedPropertyState = () => {
     setFloorConfigurations([]);
   }, []);
 
-  // Update spaces for a specific floor
   const updateFloorSpaces = (floorNumber: number, spaces: SpaceDefinition[]) => {
-    console.log(`Updating spaces for floor ${floorNumber}`, spaces);
-    updateFloorConfiguration(floorNumber, 'spaces', spaces);
+    const validatedSpaces = spaces.map(space => ({
+      ...space,
+      dimensions: space.dimensions || { width: "0", depth: "0" },
+      subType: space.subType || null,
+      percentage: typeof space.percentage === 'number' ? space.percentage : 0
+    }));
+    console.log(`Updating spaces for floor ${floorNumber}`, validatedSpaces);
+    updateFloorConfiguration(floorNumber, 'spaces', validatedSpaces);
   };
-  
-  // Update building systems for a specific floor
+
   const updateFloorBuildingSystems = (floorNumber: number, systems: BuildingSystemsConfig) => {
     console.log(`Updating building systems for floor ${floorNumber}`, systems);
     updateFloorConfiguration(floorNumber, 'buildingSystems', systems);
   };
-  
+
   return {
-    // Project Information
     projectName, setProjectName,
     projectLocation, setProjectLocation,
     projectType, setProjectType,
     
-    // Building Parameters
     farAllowance, setFarAllowance,
     totalLandArea, setTotalLandArea,
     buildingFootprint, setBuildingFootprint,
@@ -834,13 +776,11 @@ export const useExtendedPropertyState = () => {
     actualFar,
     totalAllocatedArea,
     
-    // Floor Templates
     floorTemplates,
     addFloorTemplate,
     updateFloorTemplate,
     removeFloorTemplate,
     
-    // Floor Configurations
     floorConfigurations,
     updateFloorConfiguration,
     copyFloorConfiguration,
@@ -848,29 +788,24 @@ export const useExtendedPropertyState = () => {
     updateFloorSpaces,
     updateFloorBuildingSystems,
     
-    // Space Types
     spaceTypes, 
     addSpaceType,
     removeSpaceType,
     updateSpaceType,
     updateSpaceTypeFloorAllocation,
     
-    // Unit Mix
     unitMixes,
     addUnitMix,
     removeUnitMix,
     updateUnitMix,
     
-    // Visualization data
     generateFloorsData,
     generateSpaceBreakdown,
     generatePhasesData,
     spaceTypeColors,
     
-    // Issues
     issues,
     
-    // Data persistence
     resetAllData
   };
 };

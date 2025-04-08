@@ -37,14 +37,14 @@ export interface SpaceDefinition {
   id: string;
   name: string;  // Required in FloorConfigurationManager
   type: string;
-  subType: string | null;  // Make this required to match what FloorEditor expects
+  subType: string | null;  // Required to match what FloorEditor expects
   squareFootage: string;
-  dimensions?: {
+  dimensions: {  // Required to match what FloorEditor expects
     width: string;
     depth: string;
   };
   isRentable: boolean;
-  percentage: number;  // Make this required to match what FloorEditor expects
+  percentage: number;  // Required to match what FloorEditor expects
 }
 
 export interface BuildingSystemsConfig {
