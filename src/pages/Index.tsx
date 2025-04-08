@@ -1,4 +1,5 @@
 
+import React, { useRef, useEffect, useState } from "react";
 import Header from "@/components/Header";
 import ModelingTabs from "@/components/ModelingTabs";
 import SaveNotification from "@/components/SaveNotification";
@@ -16,13 +17,49 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useRef } from "react";
 import { isLocalStorageAvailable } from "@/hooks/useLocalStoragePersistence";
+import { Toaster } from "@/components/ui/toaster";
+
+// Simple render counter for debugging
+const useRenderCount = (componentName: string) => {
+  const renderCount = useRef(0);
+  
+  useEffect(() => {
+    renderCount.current += 1;
+    console.log(`${componentName} render count: ${renderCount.current}`);
+  });
+  
+  return renderCount.current;
+};
 
 const Index = () => {
+  // Track render count for debugging
+  const renderCount = useRenderCount('Index');
+  
+  // Track if the component is mounted
+  const isMounted = useRef(false);
+  
+  // Get model state
   const { saveStatus, clearSaveStatus, resetAllData, exportAllData, importAllData } = useModelState();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isStorageAvailable = isLocalStorageAvailable();
+  
+  // Check localStorage availability once
+  const [isStorageAvailable, setIsStorageAvailable] = useState<boolean | null>(null);
+  
+  useEffect(() => {
+    // Only check localStorage once
+    if (isStorageAvailable === null) {
+      setIsStorageAvailable(isLocalStorageAvailable());
+    }
+    
+    // Mark component as mounted
+    isMounted.current = true;
+    
+    // Cleanup on unmount
+    return () => {
+      isMounted.current = false;
+    };
+  }, [isStorageAvailable]);
 
   const handleImportClick = () => {
     if (fileInputRef.current) {
@@ -41,7 +78,19 @@ const Index = () => {
     }
   };
 
-  if (!isStorageAvailable) {
+  // Show fallback while checking localStorage
+  if (isStorageAvailable === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-pulse text-center">
+          <p className="text-lg text-gray-600">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show warning if localStorage is not available
+  if (isStorageAvailable === false) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
@@ -112,7 +161,10 @@ const Index = () => {
         </div>
         <ModelingTabs />
       </main>
+      {/* Save notification */}
       <SaveNotification status={saveStatus} onClose={clearSaveStatus} />
+      {/* Global toast provider */}
+      <Toaster />
     </div>
   );
 };

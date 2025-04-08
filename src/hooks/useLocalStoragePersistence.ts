@@ -1,14 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
+import { debounceStorage, safeLoadFromLocalStorage, safeSaveToLocalStorage } from '@/utils/storageUtils';
 
 type StorageValue<T> = T | null;
 
 /**
  * Custom hook for persisting and retrieving data from localStorage
+ * with debouncing and circuit breaking to prevent infinite loops
  */
 export const useLocalStoragePersistence = <T>(
   key: string, 
   initialValue: T
 ): [T, React.Dispatch<React.SetStateAction<T>>, () => void] => {
+  // Track first render to prevent initialization loops
+  const isFirstRender = useRef(true);
+  const previousValueRef = useRef<string | null>(null);
+  
   // Create state and setter
   // Use a function to initialize state from localStorage immediately
   const [value, setValue] = useState<T>(() => {
@@ -22,41 +28,46 @@ export const useLocalStoragePersistence = <T>(
       const storedValue = localStorage.getItem(key);
       if (storedValue !== null) {
         const parsedValue = JSON.parse(storedValue);
-        console.log(`Initialized state from localStorage (${key}):`, parsedValue);
+        // Store the initial JSON string to prevent unnecessary writes
+        previousValueRef.current = storedValue;
+        console.log(`Initialized state from localStorage (${key})`);
         return parsedValue;
       }
     } catch (error) {
       console.error(`Error loading data from localStorage (${key}) during initialization:`, error);
     }
-    console.log(`No stored value found for ${key}, using initial value:`, initialValue);
+    console.log(`No stored value found for ${key}, using initial value`);
     return initialValue;
   });
   
-  const [isInitialized, setIsInitialized] = useState(true);
-  const isFirstSave = useRef(true);
-
-  // Save to localStorage whenever value changes
+  // Save to localStorage whenever value changes, with debouncing
   useEffect(() => {
-    if (!isInitialized) return;
-    
     // Skip the very first save to prevent initialization loops
-    if (isFirstSave.current) {
-      isFirstSave.current = false;
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
       return;
     }
     
     try {
-      if (typeof window === 'undefined' || !window.localStorage) {
-        console.warn(`Cannot save to localStorage (${key}) - not available`);
-        return;
-      }
+      // Serialize current value
+      const valueJson = JSON.stringify(value);
       
-      localStorage.setItem(key, JSON.stringify(value));
-      console.log(`Data saved to localStorage (${key}):`, value);
+      // Only save if the value has actually changed
+      if (valueJson !== previousValueRef.current) {
+        previousValueRef.current = valueJson;
+        
+        // Use debounced storage operation
+        debounceStorage(key, () => {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.setItem(key, valueJson);
+            console.log(`Data saved to localStorage (${key})`);
+          }
+        });
+      }
     } catch (error) {
       console.error(`Error saving data to localStorage (${key}):`, error);
     }
-  }, [key, value, isInitialized]);
+  }, [key, value]);
 
   // Function to reset stored value
   const resetValue = () => {
@@ -68,7 +79,7 @@ export const useLocalStoragePersistence = <T>(
       
       localStorage.removeItem(key);
       setValue(initialValue);
-      console.log(`Reset data in localStorage (${key}) to:`, initialValue);
+      console.log(`Reset data in localStorage (${key})`);
     } catch (error) {
       console.error(`Error resetting data in localStorage (${key}):`, error);
     }
@@ -78,50 +89,17 @@ export const useLocalStoragePersistence = <T>(
 };
 
 /**
- * Helper to save arbitrary data to localStorage
+ * Helper to save arbitrary data to localStorage (with debouncing)
  */
 export const saveToLocalStorage = <T>(key: string, data: T): void => {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      console.warn(`Cannot save to localStorage (${key}) - not available`);
-      return;
-    }
-    
-    if (data === undefined) {
-      console.warn(`Attempted to save undefined data to localStorage (${key})`);
-      return;
-    }
-    
-    localStorage.setItem(key, JSON.stringify(data));
-    console.log(`Data saved to localStorage (${key}):`, data);
-  } catch (error) {
-    console.error(`Error saving data to localStorage (${key}):`, error);
-  }
+  safeSaveToLocalStorage(key, data);
 };
 
 /**
- * Helper to load arbitrary data from localStorage
+ * Helper to load arbitrary data from localStorage (with circuit breaking)
  */
 export const loadFromLocalStorage = <T>(key: string, defaultValue: T): T => {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      console.warn(`Cannot load from localStorage (${key}) - not available`);
-      return defaultValue;
-    }
-    
-    const storedValue = localStorage.getItem(key);
-    if (storedValue === null) {
-      console.log(`No data found in localStorage for key (${key}), using default value:`, defaultValue);
-      return defaultValue;
-    }
-    
-    const parsedValue = JSON.parse(storedValue);
-    console.log(`Data loaded from localStorage (${key}):`, parsedValue);
-    return parsedValue;
-  } catch (error) {
-    console.error(`Error loading data from localStorage (${key}):`, error);
-    return defaultValue;
-  }
+  return safeLoadFromLocalStorage(key, defaultValue);
 };
 
 /**
