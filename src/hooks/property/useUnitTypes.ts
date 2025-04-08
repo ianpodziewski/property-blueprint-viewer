@@ -39,7 +39,7 @@ export const useUnitTypes = () => {
       { 
         id: "unit-1", 
         name: "Studio", 
-        category: "residential",
+        category: "residential" as UnitType["category"],
         typicalSize: "550", 
         count: "0",
         color: getCategoryDefaultColor("residential")
@@ -55,7 +55,7 @@ export const useUnitTypes = () => {
 
   const addUnitType = useCallback(() => {
     const newId = `unit-${Date.now()}`;
-    const defaultCategory = "residential";
+    const defaultCategory = "residential" as UnitType["category"];
     
     const newUnitType: UnitType = {
       id: newId,
@@ -95,11 +95,17 @@ export const useUnitTypes = () => {
     }, 0);
   }, [unitTypes]);
 
+  // Add the missing getUnitTypeById function
+  const getUnitTypeById = useCallback((id: string) => {
+    return unitTypes.find(unit => unit.id === id);
+  }, [unitTypes]);
+
   return {
     unitTypes,
     addUnitType,
     removeUnitType,
     updateUnitType,
-    calculateTotalArea
+    calculateTotalArea,
+    getUnitTypeById
   };
 };

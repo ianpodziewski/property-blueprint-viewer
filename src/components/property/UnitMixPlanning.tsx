@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { useExtendedPropertyState } from "@/hooks/useExtendedPropertyState";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Component for unit type distribution charts
 import UnitTypeDistributionChart from "./UnitTypeDistributionChart";
