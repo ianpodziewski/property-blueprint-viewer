@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -848,3 +849,286 @@ const UnitMixPlanning: React.FC = () => {
                       <span className="ml-2 capitalize">{cat.name}</span>
                     </Button>
                   ))}
+                </div>
+              </div>
+              
+              {/* Custom Category Name */}
+              <div className="grid gap-2">
+                <Label htmlFor="categoryName">Category Name</Label>
+                <Input
+                  id="categoryName"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="e.g., Residential, Office, etc."
+                />
+              </div>
+              
+              {/* Color Selection */}
+              <div className="grid gap-2">
+                <Label>Category Color</Label>
+                <div className="flex flex-wrap gap-2">
+                  {COLOR_OPTIONS.map((color) => (
+                    <TooltipProvider key={color}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => setNewCategoryColor(color)}
+                            className={`w-8 h-8 rounded-full border ${newCategoryColor === color ? 'ring-2 ring-offset-2 ring-blue-500' : 'ring-0'}`}
+                            style={{ backgroundColor: color }}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Select this color</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Description */}
+              <div className="grid gap-2">
+                <Label htmlFor="categoryDescription">Description (optional)</Label>
+                <Input
+                  id="categoryDescription"
+                  value={newCategoryDescription}
+                  onChange={(e) => setNewCategoryDescription(e.target.value)}
+                  placeholder="Brief description of this category"
+                />
+              </div>
+            </div>
+            
+            <DialogFooter className="sm:justify-start">
+              <Button
+                variant="default"
+                onClick={handleAddCategory}
+                disabled={!newCategoryName.trim()}
+                className="flex items-center"
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Add Category
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setNewCategoryName("");
+                  setNewCategoryColor(COLOR_OPTIONS[0]);
+                  setNewCategoryDescription("");
+                  setSelectedSuggestedCategory(null);
+                  setNewCategoryDialogOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Allocate Units Dialog */}
+        <Dialog open={allocateDialogOpen} onOpenChange={setAllocateDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Allocate Units to Floors</DialogTitle>
+              <DialogDescription>
+                Select which floors these units should be allocated to.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4">
+              {selectedUnitTypeId && (
+                <div className="mb-4 p-3 bg-slate-50 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Unit Type:</span> 
+                    <span>{unitTypes.find(u => u.id === selectedUnitTypeId)?.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-medium">Size:</span>
+                    <span>{unitTypes.find(u => u.id === selectedUnitTypeId)?.typicalSize} sq ft</span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="space-y-4">
+                <h4 className="font-medium">Select Floors</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {aboveGroundFloors.map(floorNumber => {
+                    const isValid = selectedUnitTypeId ? isValidFloorForUnitType(floorNumber, selectedUnitTypeId) : false;
+                    const isSelected = selectedFloors.includes(floorNumber);
+                    
+                    return (
+                      <div key={floorNumber} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`floor-${floorNumber}`}
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedFloors(prev => [...prev, floorNumber]);
+                            } else {
+                              setSelectedFloors(prev => prev.filter(f => f !== floorNumber));
+                            }
+                          }}
+                          disabled={!isValid}
+                        />
+                        <Label
+                          htmlFor={`floor-${floorNumber}`}
+                          className={`${!isValid ? 'text-muted-foreground' : ''}`}
+                        >
+                          Floor {floorNumber}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button
+                variant="default"
+                onClick={handleAllocateUnits}
+                disabled={selectedFloors.length === 0}
+                className="flex items-center"
+              >
+                <ArrowDownToLine className="h-4 w-4 mr-2" />
+                Allocate Units
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setAllocateDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Delete Category Confirmation Dialog */}
+        <Dialog open={deleteConfirmDialogOpen} onOpenChange={setDeleteConfirmDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete Category</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this category? This will also remove all unit types within it.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Warning</p>
+                    <p className="text-sm text-muted-foreground">
+                      This will delete the "{categoryToDelete}" category and {unitTypesByCategory[categoryToDelete || ""]?.length || 0} unit types within it.
+                      All floor allocations for these unit types will also be removed.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button
+                variant="destructive"
+                onClick={confirmDeleteCategory}
+                className="flex items-center"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Category
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCategoryToDelete(null);
+                  setDeleteConfirmDialogOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  };
+  
+  return (
+    <div className="w-full p-6 overflow-hidden">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold">Unit Mix Planning</h2>
+          <p className="text-muted-foreground">
+            Define unit types and allocate them to floors
+          </p>
+        </div>
+        
+        <div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2">
+                  <Progress value={percentPlanned} className="w-32 h-2" />
+                  <span className="text-sm font-medium">{percentPlanned.toFixed(1)}%</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Percentage of buildable area allocated to unit types</p>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {totalUnitArea.toLocaleString()} of {totalBuildableAreaNumber.toLocaleString()} sq ft planned
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
+      
+      <Tabs defaultValue="list" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="list" className="flex items-center">
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Unit Library
+          </TabsTrigger>
+          <TabsTrigger value="distribution" className="flex items-center">
+            <PieChart className="h-4 w-4 mr-2" />
+            Distribution
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="list" className="w-full">
+          {renderUnitLibrary()}
+        </TabsContent>
+        
+        <TabsContent value="distribution">
+          <Card>
+            <CardHeader>
+              <CardTitle>Unit Type Distribution</CardTitle>
+              <CardDescription>
+                Visual breakdown of unit types across the building
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {unitTypes.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-muted-foreground mb-4">No unit types defined yet</p>
+                  <Button 
+                    onClick={() => setActiveTab("list")} 
+                    variant="outline"
+                  >
+                    Go to Unit Library
+                  </Button>
+                </div>
+              ) : (
+                <div className="h-[300px]">
+                  <UnitTypeDistributionChart unitTypes={unitTypes} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default UnitMixPlanning;

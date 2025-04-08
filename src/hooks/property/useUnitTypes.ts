@@ -76,7 +76,7 @@ export const useUnitTypes = () => {
     const newUnitType: UnitType = {
       id: newId,
       name: "New Unit Type",
-      category: defaultCategory as UnitType["category"],
+      category: defaultCategory,
       typicalSize: "0",
       count: "0",
       color: getCategoryColor(defaultCategory)
@@ -192,7 +192,7 @@ export const useUnitTypes = () => {
 
   // Get all available categories (default + custom)
   const getAllCategories = useCallback(() => {
-    return [...DEFAULT_CATEGORIES, ...customCategories] as UnitType["category"][];
+    return [...DEFAULT_CATEGORIES, ...customCategories];
   }, [customCategories]);
 
   // Get description for a category
