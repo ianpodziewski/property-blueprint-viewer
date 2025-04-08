@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { UnitAllocation } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
@@ -229,6 +228,10 @@ export const useUnitAllocations = () => {
     return (allocatedArea / totalFloorArea) * 100;
   }, [calculateAllocatedAreaByFloor]);
 
+  const resetAllData = useCallback(() => {
+    setUnitAllocations([]);
+  }, []);
+
   return {
     unitAllocations,
     addAllocation,
@@ -243,6 +246,7 @@ export const useUnitAllocations = () => {
     calculateTotalAllocatedArea,
     calculateAllocationStats,
     suggestAllocations,
-    getFloorUtilization
+    getFloorUtilization,
+    resetAllData
   };
 };

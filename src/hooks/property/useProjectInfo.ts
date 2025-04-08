@@ -31,9 +31,17 @@ export const useProjectInfo = () => {
     });
   }, [projectName, projectLocation, projectType]);
 
+  // Reset all project info data
+  const resetAllData = useCallback(() => {
+    setProjectName("");
+    setProjectLocation("");
+    setProjectType("");
+  }, []);
+
   return {
     projectName, setProjectName,
     projectLocation, setProjectLocation,
-    projectType, setProjectType
+    projectType, setProjectType,
+    resetAllData
   };
 };

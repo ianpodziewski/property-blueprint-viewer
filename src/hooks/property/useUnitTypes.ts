@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { UnitType } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
@@ -111,12 +110,10 @@ export const useUnitTypes = () => {
     }, 0);
   }, [unitTypes]);
 
-  // Get unit type by ID
   const getUnitTypeById = useCallback((id: string) => {
     return unitTypes.find(unit => unit.id === id);
   }, [unitTypes]);
 
-  // Add a new custom category
   const addCustomCategory = useCallback((categoryName: string, color: string, description: string) => {
     // Convert to lowercase for consistency
     const normalizedName = categoryName.toLowerCase().trim();
@@ -132,7 +129,6 @@ export const useUnitTypes = () => {
     return true;
   }, [customCategories]);
 
-  // Remove a category and its associated unit types
   const removeCategory = useCallback((categoryName: string) => {
     // Save the category data for potential undo
     const categoryUnitTypes = unitTypes.filter(unit => unit.category === categoryName);
@@ -163,7 +159,6 @@ export const useUnitTypes = () => {
     });
   }, [unitTypes, categoryColors, categoryDescriptions]);
 
-  // Undo the last category deletion
   const undoRemoveCategory = useCallback(() => {
     if (!recentlyDeletedCategory) return false;
     
@@ -190,15 +185,21 @@ export const useUnitTypes = () => {
     return true;
   }, [recentlyDeletedCategory]);
 
-  // Get all available categories (default + custom)
   const getAllCategories = useCallback(() => {
     return [...DEFAULT_CATEGORIES, ...customCategories];
   }, [customCategories]);
 
-  // Get description for a category
   const getCategoryDescription = useCallback((category: string) => {
     return categoryDescriptions[category] || "";
   }, [categoryDescriptions]);
+
+  const resetAllData = useCallback(() => {
+    setUnitTypes([]);
+    setCustomCategories([]);
+    setCategoryColors({});
+    setCategoryDescriptions({});
+    setRecentlyDeletedCategory(null);
+  }, []);
 
   return {
     unitTypes,
@@ -214,6 +215,7 @@ export const useUnitTypes = () => {
     getCategoryColor,
     getCategoryDescription,
     hasCategories: [...DEFAULT_CATEGORIES, ...customCategories].length > 0,
-    recentlyDeletedCategory
+    recentlyDeletedCategory,
+    resetAllData
   };
 };

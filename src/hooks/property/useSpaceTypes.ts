@@ -105,12 +105,25 @@ export const useSpaceTypes = () => {
     );
   }, [spaceTypes]);
 
+  // Reset all space types
+  const resetAllData = useCallback(() => {
+    setSpaceTypes([{ 
+      id: "space-1", 
+      type: "", 
+      squareFootage: "0", 
+      units: "", 
+      phase: "phase1",
+      floorAllocation: { 1: "100" }
+    }]);
+  }, []);
+
   return {
     spaceTypes,
     addSpaceType,
     removeSpaceType,
     updateSpaceType,
     updateSpaceTypeFloorAllocation,
-    totalAllocatedArea
+    totalAllocatedArea,
+    resetAllData
   };
 };

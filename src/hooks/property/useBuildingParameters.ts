@@ -81,6 +81,14 @@ export const useBuildingParameters = (
     }
   }, [totalLandArea, totalAboveGroundArea]);
 
+  // Reset all building parameters
+  const resetAllData = useCallback(() => {
+    setFarAllowance("1.5");
+    setTotalLandArea("0");
+    setBuildingFootprint("0");
+    // The calculated values will be reset through the effects
+  }, []);
+
   return {
     farAllowance, 
     setFarAllowance,
@@ -91,6 +99,7 @@ export const useBuildingParameters = (
     totalBuildableArea,
     totalAboveGroundArea,
     totalBelowGroundArea,
-    actualFar
+    actualFar,
+    resetAllData
   };
 };
