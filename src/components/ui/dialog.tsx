@@ -70,6 +70,10 @@ const DialogHeader = ({
       className
     )}
     {...props}
+    onClick={(e) => {
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
   />
 )
 DialogHeader.displayName = "DialogHeader"
@@ -84,6 +88,10 @@ const DialogFooter = ({
       className
     )}
     {...props}
+    onClick={(e) => {
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
   />
 )
 DialogFooter.displayName = "DialogFooter"
@@ -99,6 +107,10 @@ const DialogTitle = React.forwardRef<
       className
     )}
     {...props}
+    onClick={(e) => {
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
   />
 ))
 DialogTitle.displayName = DialogPrimitive.Title.displayName
@@ -106,12 +118,18 @@ DialogTitle.displayName = DialogPrimitive.Title.displayName
 const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
     className={cn("text-sm text-muted-foreground", className)}
     {...props}
-  />
+    onClick={(e) => {
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
+  >
+    {React.isValidElement(children) ? children : <span>{children}</span>}
+  </DialogPrimitive.Description>
 ))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
 

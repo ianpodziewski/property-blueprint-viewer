@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,22 @@ const defaultTemplateData: TemplateFormData = {
   description: ""
 };
 
+// Helper function to get color for space type
+const getUseColor = (useType: string): string => {
+  const colors: Record<string, string> = {
+    "residential": "#3B82F6",
+    "office": "#10B981",
+    "retail": "#F59E0B",
+    "parking": "#6B7280",
+    "hotel": "#8B5CF6",
+    "amenities": "#EC4899",
+    "storage": "#78716C",
+    "mechanical": "#475569"
+  };
+  
+  return colors[useType] || "#9CA3AF";
+};
+
 const FloorTemplateManager = ({
   isOpen,
   onClose,
@@ -54,7 +71,7 @@ const FloorTemplateManager = ({
   const { toast } = useToast();
   
   const [editMode, setEditMode] = useState<"create" | "edit" | "view">("view");
-  const [currentTemplate, setCurrentTemplate] = useState<TemplateFormData>(defaultTemplateData);
+  const [currentTemplate, setCurrentTemplate] = useState<TemplateFormData>({...defaultTemplateData});
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -66,7 +83,7 @@ const FloorTemplateManager = ({
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   
   const [formModified, setFormModified] = useState(false);
-  const originalTemplateRef = useRef<TemplateFormData>(defaultTemplateData);
+  const originalTemplateRef = useRef<TemplateFormData>({...defaultTemplateData});
   const dialogWasClosedRef = useRef<boolean>(false);
   
   const addDebugLog = (message: string) => {
@@ -77,7 +94,7 @@ const FloorTemplateManager = ({
   useEffect(() => {
     if (isOpen) {
       setEditMode("view");
-      setCurrentTemplate(defaultTemplateData);
+      setCurrentTemplate({...defaultTemplateData});
       setFormModified(false);
       setSaveSuccessful(false);
       setHasFormErrors(false);
@@ -136,6 +153,7 @@ const FloorTemplateManager = ({
   };
 
   const handleCreateNew = useCallback(() => {
+    // Create a completely fresh template with all fields explicitly set
     const newTemplate = {
       name: "",
       squareFootage: "10000",
@@ -146,21 +164,23 @@ const FloorTemplateManager = ({
       description: ""
     };
     
-    setCurrentTemplate(newTemplate);
+    // Use spread operator to ensure we get a clean copy
+    setCurrentTemplate({...newTemplate});
     originalTemplateRef.current = {...newTemplate};
     setFormModified(false);
     setEditMode("create");
     setSaveSuccessful(false);
     setHasFormErrors(false);
     setValidationMessages({});
-    addDebugLog("Create new template mode activated");
+    addDebugLog("Create new template mode activated with fresh template data");
   }, []);
 
   const handleEdit = useCallback((template: FloorPlateTemplate) => {
+    // Ensure we capture ALL fields with appropriate fallbacks
     const templateToEdit = {
       id: template.id,
-      name: template.name,
-      squareFootage: template.squareFootage,
+      name: template.name || "",
+      squareFootage: template.squareFootage || "10000",
       floorToFloorHeight: template.floorToFloorHeight || "12",
       primaryUse: template.primaryUse || "office",
       efficiencyFactor: template.efficiencyFactor || "85",
@@ -168,20 +188,22 @@ const FloorTemplateManager = ({
       description: template.description || ""
     };
     
-    setCurrentTemplate(templateToEdit);
+    // Use spread operator to ensure we get a clean copy
+    setCurrentTemplate({...templateToEdit});
     originalTemplateRef.current = {...templateToEdit};
     setFormModified(false);
     setEditMode("edit");
     setSaveSuccessful(false);
     setHasFormErrors(false);
     setValidationMessages({});
-    addDebugLog(`Edit template mode activated for template ID: ${template.id}`);
+    addDebugLog(`Edit template mode activated for template ID: ${template.id} with data: ${JSON.stringify(templateToEdit)}`);
   }, []);
 
   const handleDuplicate = useCallback((template: FloorPlateTemplate) => {
+    // Ensure we capture ALL fields with appropriate fallbacks
     const duplicatedTemplate = {
-      name: `${template.name} (Copy)`,
-      squareFootage: template.squareFootage,
+      name: `${template.name || "Template"} (Copy)`,
+      squareFootage: template.squareFootage || "10000",
       floorToFloorHeight: template.floorToFloorHeight || "12",
       primaryUse: template.primaryUse || "office",
       efficiencyFactor: template.efficiencyFactor || "85",
@@ -189,14 +211,15 @@ const FloorTemplateManager = ({
       description: template.description || ""
     };
     
-    setCurrentTemplate(duplicatedTemplate);
+    // Use spread operator to ensure we get a clean copy
+    setCurrentTemplate({...duplicatedTemplate});
     originalTemplateRef.current = {...duplicatedTemplate};
     setFormModified(false);
     setEditMode("create");
     setSaveSuccessful(false);
     setHasFormErrors(false);
     setValidationMessages({});
-    addDebugLog(`Duplicating template ID: ${template.id}`);
+    addDebugLog(`Duplicating template ID: ${template.id} with data: ${JSON.stringify(duplicatedTemplate)}`);
   }, []);
 
   const handleDelete = useCallback((templateId: string, event?: React.MouseEvent) => {
@@ -282,13 +305,19 @@ const FloorTemplateManager = ({
   }, []);
 
   const handleSave = useCallback(() => {
+    // Capture current form state for debugging
+    const formState = {...currentTemplate};
+    addDebugLog(`Attempting to save template with data: ${JSON.stringify(formState)}`);
+    
     if (!validateTemplateForm()) {
+      const validationErrors = JSON.stringify(validationMessages);
+      addDebugLog(`Save failed - validation errors: ${validationErrors}`);
+      
       toast({
         title: "Validation Error",
         description: "Please check the form for errors and try again.",
         variant: "destructive",
       });
-      addDebugLog("Save failed - validation errors");
       return;
     }
     
@@ -297,6 +326,7 @@ const FloorTemplateManager = ({
     setSaveSuccessful(false);
     
     try {
+      // Create a clean copy of template data to prevent reference issues
       const templateToSave = {
         name: currentTemplate.name,
         squareFootage: currentTemplate.squareFootage,
@@ -310,6 +340,7 @@ const FloorTemplateManager = ({
       addDebugLog(`Saving template data: ${JSON.stringify(templateToSave)}`);
       
       if (editMode === "create") {
+        // Add the new template
         addTemplate(templateToSave);
         toast({
           title: "Template created",
@@ -317,6 +348,7 @@ const FloorTemplateManager = ({
         });
         addDebugLog("New template created successfully");
       } else if (editMode === "edit" && currentTemplate.id) {
+        // Update the existing template
         updateTemplate(currentTemplate.id, templateToSave);
         toast({
           title: "Template updated",
@@ -325,24 +357,29 @@ const FloorTemplateManager = ({
         addDebugLog(`Template ID: ${currentTemplate.id} updated successfully`);
       }
       
+      // Mark save as successful and reset form modified state
       setSaveSuccessful(true);
       setFormModified(false);
+      
+      // Return to view mode after a brief delay to show success state
       setTimeout(() => {
         setEditMode("view");
       }, 800);
     } catch (error) {
       console.error("Error saving template:", error);
+      
       toast({
         title: "Error",
         description: "Failed to save the template. Please try again.",
         variant: "destructive",
       });
+      
       setSaveSuccessful(false);
       addDebugLog(`Error saving template: ${error}`);
     } finally {
       setIsProcessing(false);
     }
-  }, [editMode, currentTemplate, addTemplate, updateTemplate, toast, validateTemplateForm]);
+  }, [editMode, currentTemplate, addTemplate, updateTemplate, toast, validateTemplateForm, validationMessages]);
 
   const handleCancel = useCallback((event?: React.MouseEvent) => {
     if (event) {
@@ -353,7 +390,7 @@ const FloorTemplateManager = ({
     if (formModified) {
       if (window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
         setEditMode("view");
-        setCurrentTemplate(defaultTemplateData);
+        setCurrentTemplate({...defaultTemplateData});
         setFormModified(false);
         setHasFormErrors(false);
         setValidationMessages({});
@@ -363,7 +400,7 @@ const FloorTemplateManager = ({
       }
     } else {
       setEditMode("view");
-      setCurrentTemplate(defaultTemplateData);
+      setCurrentTemplate({...defaultTemplateData});
       setHasFormErrors(false);
       setValidationMessages({});
       addDebugLog("Cancelled without unsaved changes");
@@ -412,12 +449,18 @@ const FloorTemplateManager = ({
   ) => {
     addDebugLog(`Form field "${field}" changed: ${value}`);
     
-    setCurrentTemplate(prev => ({ ...prev, [field]: value }));
+    // Create a new object to ensure state update
+    setCurrentTemplate(prev => {
+      const updated = { ...prev, [field]: value };
+      addDebugLog(`Updated template state: ${JSON.stringify(updated)}`);
+      return updated;
+    });
     
     if (!formModified) {
       setFormModified(true);
     }
     
+    // Clear validation error for this field if it exists
     if (validationMessages[field]) {
       setValidationMessages(prev => {
         const updated = { ...prev };
@@ -436,7 +479,7 @@ const FloorTemplateManager = ({
     setIsProcessing(true);
     
     setEditMode("view");
-    setCurrentTemplate(defaultTemplateData);
+    setCurrentTemplate({...defaultTemplateData});
     setDeleteConfirmOpen(false);
     setTemplateToDelete(null);
     setSelectedTemplateId(null);
@@ -456,7 +499,7 @@ const FloorTemplateManager = ({
   }, [toast]);
 
   const renderForm = () => (
-    <div className="space-y-4">
+    <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
       <div className="space-y-2">
         <Label htmlFor="template-name">Template Name</Label>
         <Input
@@ -614,13 +657,16 @@ const FloorTemplateManager = ({
   );
 
   const renderTemplateList = () => (
-    <div className="space-y-4">
+    <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
       <div className="flex justify-between items-center">
         <h3 className="text-sm font-medium">Floor Templates</h3>
         <Button 
           variant="default" 
           size="sm" 
-          onClick={handleCreateNew}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCreateNew();
+          }}
           className="flex items-center gap-2"
           disabled={isProcessing}
           type="button"
@@ -630,12 +676,15 @@ const FloorTemplateManager = ({
       </div>
       
       {templates.length === 0 ? (
-        <div className="text-center py-8">
+        <div className="text-center py-8" onClick={(e) => e.stopPropagation()}>
           <p className="text-muted-foreground">No templates created yet</p>
           <Button 
             variant="outline" 
             className="mt-4"
-            onClick={handleCreateNew}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCreateNew();
+            }}
             disabled={isProcessing}
             type="button"
           >
@@ -651,7 +700,10 @@ const FloorTemplateManager = ({
                 className={`overflow-hidden transition-colors ${
                   selectedTemplateId === template.id ? 'border-primary' : ''
                 }`}
-                onClick={(e) => handleTemplateSelect(template.id, e)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTemplateSelect(template.id, e);
+                }}
               >
                 <CardContent className="p-0">
                   <div className="flex justify-between items-center p-4 cursor-pointer">
@@ -733,7 +785,10 @@ const FloorTemplateManager = ({
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={handleForceRefresh}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleForceRefresh();
+            }}
             className="w-full bg-white"
             type="button"
           >
@@ -751,7 +806,7 @@ const FloorTemplateManager = ({
     if (!template) return null;
     
     return (
-      <div className="mt-6 p-4 border rounded-md">
+      <div className="mt-6 p-4 border rounded-md" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-sm font-medium mb-3">Template Preview</h3>
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
@@ -849,7 +904,10 @@ const FloorTemplateManager = ({
           }
         }}
       >
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <DialogContent 
+          className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto" 
+          onClick={(e) => e.stopPropagation()}
+        >
           <DialogHeader>
             <DialogTitle>Manage Floor Templates</DialogTitle>
             <DialogDescription>
@@ -881,48 +939,40 @@ const FloorTemplateManager = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Template</AlertDialogTitle>
             <AlertDialogDescription>
-              <div>
-                Are you sure you want to delete this template? This action cannot be undone.
-                
-                {templateToDelete && templates.some(t => t.id === templateToDelete) && (
-                  <div className="mt-2 font-medium">
-                    "{templates.find(t => t.id === templateToDelete)?.name}"
-                  </div>
-                )}
-                
-                <div className="mt-3 text-amber-600 flex items-center gap-1.5">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span>Floors currently using this template will not be affected.</span>
+              Are you sure you want to delete this template? This action cannot be undone.
+              
+              {templateToDelete && templates.some(t => t.id === templateToDelete) && (
+                <div className="mt-2 font-medium">
+                  "{templates.find(t => t.id === templateToDelete)?.name}"
                 </div>
-              </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel 
               onClick={(e) => {
+                e.stopPropagation();
                 cancelDelete(e);
-              }} 
+              }}
               disabled={isProcessing}
-              type="button"
             >
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={(e) => {
+                e.stopPropagation();
                 confirmDelete(e);
-              }} 
-              className="bg-destructive hover:bg-destructive/90"
+              }}
               disabled={isProcessing}
-              type="button"
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
               {isProcessing ? (
                 <>
-                  <Loader className="h-4 w-4 mr-2 animate-spin" /> Deleting...
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  <span>Deleting...</span>
                 </>
               ) : (
-                <>
-                  <Trash className="h-4 w-4 mr-2" /> Delete Template
-                </>
+                'Delete Template'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -930,21 +980,6 @@ const FloorTemplateManager = ({
       </AlertDialog>
     </>
   );
-};
-
-const getUseColor = (spaceType: string) => {
-  const colors: Record<string, string> = {
-    "residential": "#3B82F6",
-    "office": "#10B981",
-    "retail": "#F59E0B",
-    "parking": "#6B7280",
-    "hotel": "#8B5CF6",
-    "amenities": "#EC4899",
-    "storage": "#78716C",
-    "mechanical": "#475569",
-  };
-  
-  return colors[spaceType] || "#9CA3AF";
 };
 
 export default FloorTemplateManager;

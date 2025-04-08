@@ -102,6 +102,10 @@ const AlertDialogTitle = React.forwardRef<
     ref={ref}
     className={cn("text-lg font-semibold", className)}
     {...props}
+    onClick={(e) => {
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
   />
 ))
 AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
