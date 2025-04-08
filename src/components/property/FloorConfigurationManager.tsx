@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +13,7 @@ import FloorEditor from "./FloorEditor";
 import { 
   FloorPlateTemplate,
   FloorConfiguration, 
-  SpaceDefinition,
-  BuildingSystemsConfig 
+  SpaceDefinition
 } from "@/types/propertyTypes";
 
 interface FloorConfigurationManagerProps {
@@ -124,10 +124,6 @@ const FloorConfigurationManager = ({
 
   const updateSpaces = (floorNumber: number, spaces: SpaceDefinition[]) => {
     updateFloorConfiguration(floorNumber, "spaces", spaces);
-  };
-
-  const updateBuildingSystems = (floorNumber: number, systems: BuildingSystemsConfig) => {
-    updateFloorConfiguration(floorNumber, "buildingSystems", systems);
   };
   
   const getSpacesInfo = (config: FloorConfiguration) => {
@@ -447,7 +443,6 @@ const FloorConfigurationManager = ({
           floorTemplates={floorTemplates}
           updateFloorConfiguration={updateFloorConfiguration}
           updateSpaces={updateSpaces}
-          updateBuildingSystems={updateBuildingSystems}
         />
       )}
       

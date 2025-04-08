@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,60 +9,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Save, X, Plus, Trash2, ChevronsUpDown, Move } from "lucide-react";
+import { Save, X, Plus, Trash2, ChevronsUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 
-interface FloorPlateTemplate {
-  id: string;
-  name: string;
-  squareFootage: string;
-  floorToFloorHeight: string;
-  efficiencyFactor: string;
-  corePercentage: string;
-}
-
-interface FloorConfiguration {
-  floorNumber: number;
-  isUnderground: boolean;
-  templateId: string | null;
-  customSquareFootage: string;
-  floorToFloorHeight: string;
-  efficiencyFactor: string;
-  corePercentage: string;
-  primaryUse: string;
-  secondaryUse: string | null;
-  secondaryUsePercentage: string;
-  spaces?: SpaceDefinition[];
-  buildingSystems?: BuildingSystemsConfig;
-}
-
-interface SpaceDefinition {
-  id: string;
-  name: string;
-  type: string;
-  subType: string | null;
-  squareFootage: string;
-  dimensions: {
-    width: string;
-    depth: string;
-  };
-  isRentable: boolean;
-}
-
-interface BuildingSystemsConfig {
-  elevators: {
-    passenger: string;
-    service: string;
-    freight: string;
-  };
-  hvacSystem: string;
-  hvacZones: string;
-  floorLoadCapacity: string;
-  ceilingHeight: string;
-  plenumHeight: string;
-}
+import {
+  FloorPlateTemplate,
+  FloorConfiguration,
+  SpaceDefinition,
+  BuildingSystemsConfig
+} from "@/types/propertyTypes";
 
 interface FloorEditorProps {
   isOpen: boolean;
@@ -89,6 +47,7 @@ const DEFAULT_SPACES: SpaceDefinition[] = [
       depth: "100",
     },
     isRentable: true,
+    percentage: 75,
   },
   {
     id: "space-2",
@@ -101,21 +60,9 @@ const DEFAULT_SPACES: SpaceDefinition[] = [
       depth: "50",
     },
     isRentable: false,
+    percentage: 15,
   },
 ];
-
-const DEFAULT_BUILDING_SYSTEMS: BuildingSystemsConfig = {
-  elevators: {
-    passenger: "2",
-    service: "1",
-    freight: "0",
-  },
-  hvacSystem: "VAV",
-  hvacZones: "4",
-  floorLoadCapacity: "100",
-  ceilingHeight: "9",
-  plenumHeight: "3",
-};
 
 const USE_TYPE_OPTIONS: Record<string, string[]> = {
   office: ["executive", "open", "conference", "reception"],
@@ -132,8 +79,7 @@ const FloorEditor = ({
   floorConfig,
   floorTemplates,
   updateFloorConfiguration,
-  updateSpaces,
-  updateBuildingSystems,
+  updateSpaces
 }: FloorEditorProps) => {
   const [activeTab, setActiveTab] = useState("basic");
   
@@ -157,10 +103,6 @@ const FloorEditor = ({
   
   const [currentSpaces, setCurrentSpaces] = useState<SpaceDefinition[]>(
     convertSpaces(floorConfig.spaces)
-  );
-  
-  const [currentSystems, setCurrentSystems] = useState<BuildingSystemsConfig>(
-    floorConfig.buildingSystems || DEFAULT_BUILDING_SYSTEMS
   );
 
   const getGrossArea = () => {
@@ -225,6 +167,7 @@ const FloorEditor = ({
         depth: "0",
       },
       isRentable: true,
+      percentage: 0,
     };
     
     setCurrentSpaces([...currentSpaces, newSpace]);
@@ -262,24 +205,6 @@ const FloorEditor = ({
         return space;
       })
     );
-  };
-
-  const handleUpdateBuildingSystems = (field: string, value: any) => {
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      setCurrentSystems({
-        ...currentSystems,
-        [parent]: {
-          ...currentSystems[parent as keyof BuildingSystemsConfig] as Record<string, string>,
-          [child]: value
-        }
-      });
-    } else {
-      setCurrentSystems({
-        ...currentSystems,
-        [field]: value
-      });
-    }
   };
 
   const calculateDimensions = (spaceId: string) => {
@@ -337,12 +262,6 @@ const FloorEditor = ({
       updateFloorConfiguration(floorConfig.floorNumber, "spaces", sanitizedSpaces);
     }
 
-    if (updateBuildingSystems) {
-      updateBuildingSystems(floorConfig.floorNumber, currentSystems);
-    } else {
-      updateFloorConfiguration(floorConfig.floorNumber, "buildingSystems", currentSystems);
-    }
-
     updateFloorConfiguration(
       floorConfig.floorNumber,
       "corePercentage",
@@ -392,7 +311,6 @@ const FloorEditor = ({
           <TabsList className="mb-4">
             <TabsTrigger value="basic">Basic Configuration</TabsTrigger>
             <TabsTrigger value="spaces">Space Planning</TabsTrigger>
-            <TabsTrigger value="systems">Building Systems</TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-6">
@@ -852,125 +770,6 @@ const FloorEditor = ({
               <ChevronsUpDown className="h-8 w-8 text-gray-300 mb-2" />
               <p className="text-gray-500">Advanced space planning visualizations will be available in a future update.</p>
               <p className="text-sm text-gray-400 mt-1">Use the table above to configure spaces in the meantime.</p>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="systems" className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h3 className="text-lg font-medium">Building Systems</h3>
-                <p className="text-sm text-gray-500">Configure systems and infrastructure for this floor</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h4 className="font-medium">Vertical Transportation</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="passenger-elevators">Passenger Elevators</Label>
-                    <Input
-                      id="passenger-elevators"
-                      type="number"
-                      value={currentSystems.elevators.passenger}
-                      onChange={(e) => handleUpdateBuildingSystems("elevators.passenger", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="service-elevators">Service Elevators</Label>
-                    <Input
-                      id="service-elevators"
-                      type="number"
-                      value={currentSystems.elevators.service}
-                      onChange={(e) => handleUpdateBuildingSystems("elevators.service", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="freight-elevators">Freight Elevators</Label>
-                    <Input
-                      id="freight-elevators"
-                      type="number"
-                      value={currentSystems.elevators.freight}
-                      onChange={(e) => handleUpdateBuildingSystems("elevators.freight", e.target.value)}
-                    />
-                  </div>
-                </div>
-  
-                <Separator className="my-4" />
-  
-                <h4 className="font-medium">HVAC Systems</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="hvac-system">System Type</Label>
-                    <Select
-                      value={currentSystems.hvacSystem}
-                      onValueChange={(value) => handleUpdateBuildingSystems("hvacSystem", value)}
-                    >
-                      <SelectTrigger id="hvac-system">
-                        <SelectValue placeholder="Select HVAC type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="VAV">VAV (Variable Air Volume)</SelectItem>
-                        <SelectItem value="VRF">VRF (Variable Refrigerant Flow)</SelectItem>
-                        <SelectItem value="FCU">FCU (Fan Coil Units)</SelectItem>
-                        <SelectItem value="Chilled_Beam">Chilled Beam</SelectItem>
-                        <SelectItem value="Radiant">Radiant Heating/Cooling</SelectItem>
-                        <SelectItem value="Heat_Pump">Heat Pump</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="hvac-zones">Number of Zones</Label>
-                    <Input
-                      id="hvac-zones"
-                      type="number"
-                      value={currentSystems.hvacZones}
-                      onChange={(e) => handleUpdateBuildingSystems("hvacZones", e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-  
-              <div className="space-y-4">
-                <h4 className="font-medium">Structure & Load</h4>
-                <div className="space-y-2">
-                  <Label htmlFor="floor-load">Floor Load Capacity (lbs/sq ft)</Label>
-                  <Input
-                    id="floor-load"
-                    type="number"
-                    value={currentSystems.floorLoadCapacity}
-                    onChange={(e) => handleUpdateBuildingSystems("floorLoadCapacity", e.target.value)}
-                  />
-                </div>
-  
-                <Separator className="my-4" />
-  
-                <h4 className="font-medium">Ceiling Heights</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="ceiling-height">Finished Ceiling Height (ft)</Label>
-                    <Input
-                      id="ceiling-height"
-                      type="number"
-                      value={currentSystems.ceilingHeight}
-                      onChange={(e) => handleUpdateBuildingSystems("ceilingHeight", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="plenum-height">Plenum Space (ft)</Label>
-                    <Input
-                      id="plenum-height"
-                      type="number"
-                      value={currentSystems.plenumHeight}
-                      onChange={(e) => handleUpdateBuildingSystems("plenumHeight", e.target.value)}
-                    />
-                    <p className="text-xs text-gray-500">
-                      Floor-to-Floor: {parseFloat(floorConfig.floorToFloorHeight) || 0} ft
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
           </TabsContent>
         </Tabs>
