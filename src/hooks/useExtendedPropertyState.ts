@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "./useLocalStoragePersistence";
 
@@ -25,11 +24,35 @@ interface Issue {
   severity: 'warning' | 'error';
 }
 
+interface FloorPlateTemplate {
+  id: string;
+  name: string;
+  squareFootage: string;
+  floorToFloorHeight: string;
+  efficiencyFactor: string;
+  corePercentage: string;
+}
+
+interface FloorConfiguration {
+  floorNumber: number;
+  isUnderground: boolean;
+  templateId: string | null;
+  customSquareFootage: string;
+  floorToFloorHeight: string;
+  efficiencyFactor: string;
+  corePercentage: string;
+  primaryUse: string;
+  secondaryUse: string | null;
+  secondaryUsePercentage: string;
+}
+
 const STORAGE_KEYS = {
   PROJECT_INFO: "realEstateModel_extendedProjectInfo",
   BUILDING_PARAMS: "realEstateModel_buildingParams",
   SPACE_TYPES: "realEstateModel_extendedSpaceTypes",
-  UNIT_MIX: "realEstateModel_extendedUnitMix"
+  UNIT_MIX: "realEstateModel_extendedUnitMix",
+  FLOOR_TEMPLATES: "realEstateModel_floorTemplates",
+  FLOOR_CONFIGURATIONS: "realEstateModel_floorConfigurations"
 };
 
 export const useExtendedPropertyState = () => {
@@ -43,9 +66,27 @@ export const useExtendedPropertyState = () => {
   const [totalLandArea, setTotalLandArea] = useState<string>("0");
   const [buildingFootprint, setBuildingFootprint] = useState<string>("0");
   const [numberOfFloors, setNumberOfFloors] = useState<string>("1");
+  const [numberOfUndergroundFloors, setNumberOfUndergroundFloors] = useState<string>("0");
+  
+  // Floor Templates
+  const [floorTemplates, setFloorTemplates] = useState<FloorPlateTemplate[]>([
+    {
+      id: "template-1",
+      name: "Standard Floor",
+      squareFootage: "10000",
+      floorToFloorHeight: "12",
+      efficiencyFactor: "85",
+      corePercentage: "15"
+    }
+  ]);
+  
+  // Floor Configurations
+  const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>([]);
   
   // Calculated values
   const [totalBuildableArea, setTotalBuildableArea] = useState<number>(0);
+  const [totalAboveGroundArea, setTotalAboveGroundArea] = useState<number>(0);
+  const [totalBelowGroundArea, setTotalBelowGroundArea] = useState<number>(0);
   const [actualFar, setActualFar] = useState<number>(0);
   const [totalAllocatedArea, setTotalAllocatedArea] = useState<number>(0);
   
@@ -78,7 +119,113 @@ export const useExtendedPropertyState = () => {
     "parking": "#6B7280",     // gray
     "hotel": "#8B5CF6",       // purple
     "amenities": "#EC4899",   // pink
+    "storage": "#78716C",     // warm gray
+    "mechanical": "#475569",  // slate
   };
+
+  // Initialize floor configurations when number of floors changes
+  useEffect(() => {
+    const aboveGroundFloors = parseInt(numberOfFloors) || 0;
+    const belowGroundFloors = parseInt(numberOfUndergroundFloors) || 0;
+    
+    // Only do this initial setup if the configurations array is empty
+    if (floorConfigurations.length === 0) {
+      const newConfigurations: FloorConfiguration[] = [];
+      
+      // Create above ground configurations
+      for (let i = 1; i <= aboveGroundFloors; i++) {
+        newConfigurations.push({
+          floorNumber: i,
+          isUnderground: false,
+          templateId: "template-1",
+          customSquareFootage: "",
+          floorToFloorHeight: "12",
+          efficiencyFactor: "85",
+          corePercentage: "15",
+          primaryUse: "office",
+          secondaryUse: null,
+          secondaryUsePercentage: "0"
+        });
+      }
+      
+      // Create below ground configurations
+      for (let i = 1; i <= belowGroundFloors; i++) {
+        newConfigurations.push({
+          floorNumber: -i,
+          isUnderground: true,
+          templateId: "template-1",
+          customSquareFootage: "",
+          floorToFloorHeight: "12",
+          efficiencyFactor: "85",
+          corePercentage: "15",
+          primaryUse: "parking",
+          secondaryUse: null,
+          secondaryUsePercentage: "0"
+        });
+      }
+      
+      setFloorConfigurations(newConfigurations);
+    } else {
+      // Update existing configurations if number of floors changes
+      const currentAboveGround = floorConfigurations.filter(f => !f.isUnderground).length;
+      const currentBelowGround = floorConfigurations.filter(f => f.isUnderground).length;
+      
+      if (currentAboveGround !== aboveGroundFloors || currentBelowGround !== belowGroundFloors) {
+        let updatedConfigurations = [...floorConfigurations];
+        
+        // Handle above ground floors
+        if (currentAboveGround < aboveGroundFloors) {
+          // Add new floors
+          for (let i = currentAboveGround + 1; i <= aboveGroundFloors; i++) {
+            updatedConfigurations.push({
+              floorNumber: i,
+              isUnderground: false,
+              templateId: "template-1",
+              customSquareFootage: "",
+              floorToFloorHeight: "12",
+              efficiencyFactor: "85",
+              corePercentage: "15",
+              primaryUse: "office",
+              secondaryUse: null,
+              secondaryUsePercentage: "0"
+            });
+          }
+        } else if (currentAboveGround > aboveGroundFloors) {
+          // Remove excess floors
+          updatedConfigurations = updatedConfigurations.filter(
+            config => config.isUnderground || config.floorNumber <= aboveGroundFloors
+          );
+        }
+        
+        // Handle below ground floors
+        if (currentBelowGround < belowGroundFloors) {
+          // Add new below ground floors
+          for (let i = currentBelowGround + 1; i <= belowGroundFloors; i++) {
+            updatedConfigurations.push({
+              floorNumber: -i,
+              isUnderground: true,
+              templateId: "template-1",
+              customSquareFootage: "",
+              floorToFloorHeight: "12",
+              efficiencyFactor: "85",
+              corePercentage: "15",
+              primaryUse: "parking",
+              secondaryUse: null,
+              secondaryUsePercentage: "0"
+            });
+          }
+        } else if (currentBelowGround > belowGroundFloors) {
+          // Remove excess below ground floors
+          const minFloorNumber = -(belowGroundFloors);
+          updatedConfigurations = updatedConfigurations.filter(
+            config => !config.isUnderground || config.floorNumber >= minFloorNumber
+          );
+        }
+        
+        setFloorConfigurations(updatedConfigurations);
+      }
+    }
+  }, [numberOfFloors, numberOfUndergroundFloors, floorConfigurations.length]);
   
   // Load data from localStorage on component mount
   useEffect(() => {
@@ -96,13 +243,15 @@ export const useExtendedPropertyState = () => {
       farAllowance: "1.5",
       totalLandArea: "0",
       buildingFootprint: "0",
-      numberOfFloors: "1"
+      numberOfFloors: "1",
+      numberOfUndergroundFloors: "0"
     });
     
     setFarAllowance(storedBuildingParams.farAllowance);
     setTotalLandArea(storedBuildingParams.totalLandArea);
     setBuildingFootprint(storedBuildingParams.buildingFootprint);
     setNumberOfFloors(storedBuildingParams.numberOfFloors);
+    setNumberOfUndergroundFloors(storedBuildingParams.numberOfUndergroundFloors || "0");
     
     const storedSpaceTypes = loadFromLocalStorage(STORAGE_KEYS.SPACE_TYPES, [
       { 
@@ -121,6 +270,21 @@ export const useExtendedPropertyState = () => {
       { id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }
     ]);
     setUnitMixes(storedUnitMix);
+    
+    const storedFloorTemplates = loadFromLocalStorage(STORAGE_KEYS.FLOOR_TEMPLATES, [
+      {
+        id: "template-1",
+        name: "Standard Floor",
+        squareFootage: "10000",
+        floorToFloorHeight: "12",
+        efficiencyFactor: "85",
+        corePercentage: "15"
+      }
+    ]);
+    setFloorTemplates(storedFloorTemplates);
+    
+    const storedFloorConfigurations = loadFromLocalStorage(STORAGE_KEYS.FLOOR_CONFIGURATIONS, []);
+    setFloorConfigurations(storedFloorConfigurations);
   }, []);
   
   // Save project info to localStorage whenever it changes
@@ -138,9 +302,10 @@ export const useExtendedPropertyState = () => {
       farAllowance,
       totalLandArea,
       buildingFootprint,
-      numberOfFloors
+      numberOfFloors,
+      numberOfUndergroundFloors
     });
-  }, [farAllowance, totalLandArea, buildingFootprint, numberOfFloors]);
+  }, [farAllowance, totalLandArea, buildingFootprint, numberOfFloors, numberOfUndergroundFloors]);
   
   // Save space types to localStorage whenever they change
   useEffect(() => {
@@ -152,24 +317,57 @@ export const useExtendedPropertyState = () => {
     saveToLocalStorage(STORAGE_KEYS.UNIT_MIX, unitMixes);
   }, [unitMixes]);
   
-  // Calculate total buildable area
+  // Save floor templates to localStorage whenever they change
   useEffect(() => {
-    const landArea = parseFloat(totalLandArea) || 0;
-    const far = parseFloat(farAllowance) || 0;
-    setTotalBuildableArea(landArea * far);
-  }, [totalLandArea, farAllowance]);
+    saveToLocalStorage(STORAGE_KEYS.FLOOR_TEMPLATES, floorTemplates);
+  }, [floorTemplates]);
   
-  // Calculate actual FAR
+  // Save floor configurations to localStorage whenever they change
+  useEffect(() => {
+    saveToLocalStorage(STORAGE_KEYS.FLOOR_CONFIGURATIONS, floorConfigurations);
+  }, [floorConfigurations]);
+  
+  // Calculate total square footage based on floor configurations
+  useEffect(() => {
+    let aboveGround = 0;
+    let belowGround = 0;
+    
+    floorConfigurations.forEach(floor => {
+      // Get square footage either from template or custom value
+      let squareFootage = 0;
+      if (floor.templateId) {
+        const template = floorTemplates.find(t => t.id === floor.templateId);
+        if (template) {
+          squareFootage = parseFloat(template.squareFootage) || 0;
+        }
+      }
+      
+      if (floor.customSquareFootage) {
+        squareFootage = parseFloat(floor.customSquareFootage) || 0;
+      }
+      
+      if (floor.isUnderground) {
+        belowGround += squareFootage;
+      } else {
+        aboveGround += squareFootage;
+      }
+    });
+    
+    setTotalAboveGroundArea(aboveGround);
+    setTotalBelowGroundArea(belowGround);
+    setTotalBuildableArea(aboveGround + belowGround);
+  }, [floorConfigurations, floorTemplates]);
+  
+  // Calculate actual FAR (using only above ground area)
   useEffect(() => {
     const landArea = parseFloat(totalLandArea) || 0;
-    const allocatedArea = calcTotalAllocatedArea();
     
     if (landArea > 0) {
-      setActualFar(allocatedArea / landArea);
+      setActualFar(totalAboveGroundArea / landArea);
     } else {
       setActualFar(0);
     }
-  }, [totalLandArea, spaceTypes]);
+  }, [totalLandArea, totalAboveGroundArea]);
   
   // Calculate total allocated area
   const calcTotalAllocatedArea = () => {
@@ -220,34 +418,156 @@ export const useExtendedPropertyState = () => {
       }
     });
     
+    // Check for inconsistent floor plate data
+    floorConfigurations.forEach(floor => {
+      if (!floor.templateId && !floor.customSquareFootage) {
+        newIssues.push({
+          type: "Missing Floor Plate Data",
+          message: `Floor ${floor.floorNumber} is missing square footage information.`,
+          severity: "warning",
+        });
+      }
+    });
+    
     setIssues(newIssues);
-  }, [spaceTypes, actualFar, farAllowance, totalBuildableArea, totalAllocatedArea]);
+  }, [spaceTypes, actualFar, farAllowance, totalBuildableArea, totalAllocatedArea, floorConfigurations]);
+  
+  // Floor template operations
+  const addFloorTemplate = () => {
+    const newId = `template-${floorTemplates.length + 1}`;
+    setFloorTemplates([
+      ...floorTemplates,
+      {
+        id: newId,
+        name: `Template ${floorTemplates.length + 1}`,
+        squareFootage: "10000",
+        floorToFloorHeight: "12",
+        efficiencyFactor: "85",
+        corePercentage: "15"
+      }
+    ]);
+  };
+  
+  const updateFloorTemplate = (id: string, field: keyof FloorPlateTemplate, value: string) => {
+    setFloorTemplates(
+      floorTemplates.map(template => 
+        template.id === id ? { ...template, [field]: value } : template
+      )
+    );
+  };
+  
+  const removeFloorTemplate = (id: string) => {
+    if (floorTemplates.length > 1) {
+      // Remove the template
+      setFloorTemplates(floorTemplates.filter(template => template.id !== id));
+      
+      // Update any floor configurations using this template to use the first available template
+      const firstTemplateId = floorTemplates.find(t => t.id !== id)?.id || null;
+      setFloorConfigurations(
+        floorConfigurations.map(floor => 
+          floor.templateId === id ? { ...floor, templateId: firstTemplateId } : floor
+        )
+      );
+    }
+  };
+  
+  // Floor configuration operations
+  const updateFloorConfiguration = (
+    floorNumber: number, 
+    field: keyof FloorConfiguration, 
+    value: string | null | boolean
+  ) => {
+    setFloorConfigurations(
+      floorConfigurations.map(floor => 
+        floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
+      )
+    );
+  };
+  
+  const copyFloorConfiguration = (sourceFloorNumber: number, targetFloorNumber: number) => {
+    const sourceFloor = floorConfigurations.find(floor => floor.floorNumber === sourceFloorNumber);
+    
+    if (sourceFloor) {
+      setFloorConfigurations(
+        floorConfigurations.map(floor => 
+          floor.floorNumber === targetFloorNumber 
+            ? { 
+                ...floor, 
+                templateId: sourceFloor.templateId,
+                customSquareFootage: sourceFloor.customSquareFootage,
+                floorToFloorHeight: sourceFloor.floorToFloorHeight,
+                efficiencyFactor: sourceFloor.efficiencyFactor,
+                corePercentage: sourceFloor.corePercentage,
+                primaryUse: sourceFloor.primaryUse,
+                secondaryUse: sourceFloor.secondaryUse,
+                secondaryUsePercentage: sourceFloor.secondaryUsePercentage
+              } 
+            : floor
+        )
+      );
+    }
+  };
+  
+  const bulkEditFloorConfigurations = (
+    floorNumbers: number[], 
+    field: keyof FloorConfiguration, 
+    value: string | null | boolean
+  ) => {
+    setFloorConfigurations(
+      floorConfigurations.map(floor => 
+        floorNumbers.includes(floor.floorNumber) ? { ...floor, [field]: value } : floor
+      )
+    );
+  };
   
   // Generate floors data for visualizations
   const generateFloorsData = () => {
-    const floorCount = parseInt(numberOfFloors) || 1;
+    // Sort configurations by floor number (highest first)
+    const sortedConfigs = [...floorConfigurations].sort((a, b) => b.floorNumber - a.floorNumber);
     const floors = [];
     
-    for (let i = 1; i <= floorCount; i++) {
+    for (const config of sortedConfigs) {
       const floorSpaces = [];
       let totalFloorArea = 0;
       
-      // Calculate total area for this floor
-      spaceTypes.forEach(space => {
-        const allocation = parseFloat(space.floorAllocation[i] || "0");
-        if (allocation > 0) {
-          const spaceArea = parseFloat(space.squareFootage) || 0;
-          const floorArea = spaceArea * (allocation / 100);
-          totalFloorArea += floorArea;
-          
-          floorSpaces.push({
-            id: space.id,
-            type: space.type || "unassigned",
-            squareFootage: floorArea,
-            percentage: 0 // Will calculate after total is known
-          });
+      // Get square footage for this floor
+      let floorSquareFootage = 0;
+      if (config.templateId) {
+        const template = floorTemplates.find(t => t.id === config.templateId);
+        if (template) {
+          floorSquareFootage = parseFloat(template.squareFootage) || 0;
         }
-      });
+      }
+      if (config.customSquareFootage) {
+        floorSquareFootage = parseFloat(config.customSquareFootage) || 0;
+      }
+      
+      // Primary use
+      if (config.primaryUse) {
+        const primaryPercentage = 100 - (parseFloat(config.secondaryUsePercentage) || 0);
+        const primaryArea = floorSquareFootage * (primaryPercentage / 100);
+        totalFloorArea += primaryArea;
+        
+        floorSpaces.push({
+          id: `${config.floorNumber}-primary`,
+          type: config.primaryUse,
+          squareFootage: primaryArea,
+          percentage: 0 // Will calculate after total is known
+        });
+      }
+      
+      // Secondary use if specified
+      if (config.secondaryUse && parseFloat(config.secondaryUsePercentage) > 0) {
+        const secondaryArea = floorSquareFootage * (parseFloat(config.secondaryUsePercentage) / 100);
+        totalFloorArea += secondaryArea;
+        
+        floorSpaces.push({
+          id: `${config.floorNumber}-secondary`,
+          type: config.secondaryUse,
+          squareFootage: secondaryArea,
+          percentage: 0 // Will calculate after total is known
+        });
+      }
       
       // Calculate percentages
       if (totalFloorArea > 0) {
@@ -257,8 +577,9 @@ export const useExtendedPropertyState = () => {
       }
       
       floors.push({
-        floorNumber: i,
-        spaces: floorSpaces
+        floorNumber: config.floorNumber,
+        spaces: floorSpaces,
+        isUnderground: config.isUnderground
       });
     }
     
@@ -267,26 +588,70 @@ export const useExtendedPropertyState = () => {
   
   // Generate data for space breakdown visualization
   const generateSpaceBreakdown = () => {
-    return spaceTypes.map(space => {
-      const type = space.type || "unassigned";
-      const squareFootage = parseFloat(space.squareFootage) || 0;
-      const percentage = totalAllocatedArea > 0 ? (squareFootage / totalAllocatedArea) * 100 : 0;
+    // Create a map to aggregate space types
+    const spaceMap: Record<string, { 
+      type: string, 
+      squareFootage: number, 
+      floorAllocation: Record<number, number> 
+    }> = {};
+    
+    floorConfigurations.forEach(config => {
+      // Get square footage for this floor
+      let floorSquareFootage = 0;
+      if (config.templateId) {
+        const template = floorTemplates.find(t => t.id === config.templateId);
+        if (template) {
+          floorSquareFootage = parseFloat(template.squareFootage) || 0;
+        }
+      }
+      if (config.customSquareFootage) {
+        floorSquareFootage = parseFloat(config.customSquareFootage) || 0;
+      }
       
-      // Generate floor allocation for visualization
-      const floorAllocation: Record<number, number> = {};
+      // Primary use
+      if (config.primaryUse) {
+        const primaryPercentage = 100 - (parseFloat(config.secondaryUsePercentage) || 0);
+        const primaryArea = floorSquareFootage * (primaryPercentage / 100);
+        
+        if (!spaceMap[config.primaryUse]) {
+          spaceMap[config.primaryUse] = {
+            type: config.primaryUse,
+            squareFootage: 0,
+            floorAllocation: {}
+          };
+        }
+        
+        spaceMap[config.primaryUse].squareFootage += primaryArea;
+        spaceMap[config.primaryUse].floorAllocation[config.floorNumber] = primaryPercentage;
+      }
       
-      Object.entries(space.floorAllocation).forEach(([floor, percentage]) => {
-        floorAllocation[parseInt(floor)] = parseFloat(percentage) || 0;
-      });
-      
-      return {
-        type,
-        squareFootage,
-        percentage,
-        color: spaceTypeColors[type] || "#9CA3AF",
-        floorAllocation
-      };
+      // Secondary use
+      if (config.secondaryUse && parseFloat(config.secondaryUsePercentage) > 0) {
+        const secondaryArea = floorSquareFootage * (parseFloat(config.secondaryUsePercentage) / 100);
+        
+        if (!spaceMap[config.secondaryUse]) {
+          spaceMap[config.secondaryUse] = {
+            type: config.secondaryUse,
+            squareFootage: 0,
+            floorAllocation: {}
+          };
+        }
+        
+        spaceMap[config.secondaryUse].squareFootage += secondaryArea;
+        spaceMap[config.secondaryUse].floorAllocation[config.floorNumber] = 
+          parseFloat(config.secondaryUsePercentage);
+      }
     });
+    
+    const totalArea = Object.values(spaceMap).reduce((sum, space) => sum + space.squareFootage, 0);
+    
+    return Object.values(spaceMap).map(space => ({
+      type: space.type,
+      squareFootage: space.squareFootage,
+      percentage: totalArea > 0 ? (space.squareFootage / totalArea) * 100 : 0,
+      color: spaceTypeColors[space.type] || "#9CA3AF",
+      floorAllocation: space.floorAllocation
+    }));
   };
   
   // Generate phases data for visualization
@@ -346,6 +711,7 @@ export const useExtendedPropertyState = () => {
     }).filter(phase => phase.squareFootage > 0);
   };
   
+  // Space Type operations
   const addSpaceType = () => {
     const newId = `space-${spaceTypes.length + 1}`;
     const floorCount = parseInt(numberOfFloors) || 1;
@@ -395,6 +761,7 @@ export const useExtendedPropertyState = () => {
     );
   };
   
+  // Unit Mix operations
   const addUnitMix = () => {
     const newId = `unit-${unitMixes.length + 1}`;
     setUnitMixes([
@@ -426,6 +793,7 @@ export const useExtendedPropertyState = () => {
     setTotalLandArea("0");
     setBuildingFootprint("0");
     setNumberOfFloors("1");
+    setNumberOfUndergroundFloors("0");
     setSpaceTypes([{ 
       id: "space-1", 
       type: "", 
@@ -436,6 +804,15 @@ export const useExtendedPropertyState = () => {
       floorAllocation: { 1: "100" }
     }]);
     setUnitMixes([{ id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }]);
+    setFloorTemplates([{
+      id: "template-1",
+      name: "Standard Floor",
+      squareFootage: "10000",
+      floorToFloorHeight: "12",
+      efficiencyFactor: "85",
+      corePercentage: "15"
+    }]);
+    setFloorConfigurations([]);
   }, []);
 
   return {
@@ -449,9 +826,24 @@ export const useExtendedPropertyState = () => {
     totalLandArea, setTotalLandArea,
     buildingFootprint, setBuildingFootprint,
     numberOfFloors, setNumberOfFloors,
+    numberOfUndergroundFloors, setNumberOfUndergroundFloors,
     totalBuildableArea,
+    totalAboveGroundArea, 
+    totalBelowGroundArea,
     actualFar,
     totalAllocatedArea,
+    
+    // Floor Templates
+    floorTemplates,
+    addFloorTemplate,
+    updateFloorTemplate,
+    removeFloorTemplate,
+    
+    // Floor Configurations
+    floorConfigurations,
+    updateFloorConfiguration,
+    copyFloorConfiguration,
+    bulkEditFloorConfigurations,
     
     // Space Types
     spaceTypes, 
