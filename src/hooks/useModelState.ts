@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useProperty } from "@/contexts/PropertyContext";
 import { useDevelopmentCosts } from "./useDevelopmentCosts";
@@ -21,18 +20,34 @@ export const useModelState = () => {
   const isMounted = useRef(true);
   const lastUpdateTime = useRef(Date.now());
   const debounceDelay = 500; // ms between allowed state updates
+  const sectionStates = useRef<any>({});
   
-  // Get property state just once, avoid dependency
-  const propertyState = useProperty();
+  // Safe initialization of property state
+  const propertyState = useMemo(() => {
+    try {
+      return useProperty();
+    } catch (error) {
+      console.error("Error initializing property state:", error);
+      return {};
+    }
+  }, []);
   
-  // Safely get other state without creating re-render dependencies
-  const developmentCostsState = useMemo(() => useDevelopmentCosts(), []);
-  const timelineState = useMemo(() => useDevelopmentTimeline(), []);
-  const expensesState = useMemo(() => useExpensesState(), []);
-  const revenueState = useMemo(() => useRevenueState(), []);
-  const financingState = useMemo(() => useFinancingState(), []);
-  const dispositionState = useMemo(() => useDispositionState(), []);
-  const sensitivityState = useMemo(() => useSensitivityState(), []);
+  // Initialize other state sections only once to avoid re-renders
+  useEffect(() => {
+    try {
+      sectionStates.current = {
+        developmentCosts: useDevelopmentCosts(),
+        timeline: useDevelopmentTimeline(),
+        expenses: useExpensesState(),
+        revenue: useRevenueState(),
+        financing: useFinancingState(),
+        disposition: useDispositionState(),
+        sensitivity: useSensitivityState()
+      };
+    } catch (error) {
+      console.error("Error initializing section states:", error);
+    }
+  }, []);
   
   // Set up cleanup on unmount
   useEffect(() => {
@@ -51,39 +66,29 @@ export const useModelState = () => {
     setTimeout(() => {
       clearAllModelData();
       
-      // Reset all state objects that have resetAllData method using setTimeout
-      // to break any potential render loops
-      setTimeout(() => {
-        if (propertyState.resetAllData) propertyState.resetAllData();
-      }, 10);
+      // Function to safely reset a section
+      const safeReset = (section: string, delay: number) => {
+        setTimeout(() => {
+          try {
+            const state = section === 'property' ? propertyState : sectionStates.current[section];
+            if (state && typeof state.resetAllData === 'function') {
+              state.resetAllData();
+            }
+          } catch (error) {
+            console.error(`Error resetting ${section} state:`, error);
+          }
+        }, delay);
+      };
       
-      setTimeout(() => {
-        if (developmentCostsState.resetAllData) developmentCostsState.resetAllData();
-      }, 20);
-      
-      setTimeout(() => {
-        if (timelineState.resetAllData) timelineState.resetAllData();
-      }, 30);
-      
-      setTimeout(() => {
-        if (expensesState.resetAllData) expensesState.resetAllData();
-      }, 40);
-      
-      setTimeout(() => {
-        if (revenueState.resetAllData) revenueState.resetAllData();
-      }, 50);
-      
-      setTimeout(() => {
-        if (financingState.resetAllData) financingState.resetAllData();
-      }, 60);
-      
-      setTimeout(() => {
-        if (dispositionState.resetAllData) dispositionState.resetAllData();
-      }, 70);
-      
-      setTimeout(() => {
-        if (sensitivityState.resetAllData) sensitivityState.resetAllData();
-      }, 80);
+      // Reset all sections with delays to prevent loop
+      safeReset('property', 10);
+      safeReset('developmentCosts', 20);
+      safeReset('timeline', 30);
+      safeReset('expenses', 40);
+      safeReset('revenue', 50);
+      safeReset('financing', 60);
+      safeReset('disposition', 70);
+      safeReset('sensitivity', 80);
       
       if (isMounted.current) {
         setSaveStatus('reset');
@@ -92,7 +97,7 @@ export const useModelState = () => {
       // Reset the render counter
       resetCount();
     }, 0);
-  }, []);
+  }, [resetCount]);
   
   // Clear save status notification with auto-clear timer
   const clearSaveStatus = useCallback(() => {
@@ -137,13 +142,13 @@ export const useModelState = () => {
     console.warn("Loop detected in useModelState, cancelling render cycle");
     return {
       property: propertyState,
-      developmentCosts: developmentCostsState,
-      timeline: timelineState,
-      expenses: expensesState,
-      revenue: revenueState,
-      financing: financingState,
-      disposition: dispositionState,
-      sensitivity: sensitivityState,
+      developmentCosts: sectionStates.current.developmentCosts || {},
+      timeline: sectionStates.current.timeline || {},
+      expenses: sectionStates.current.expenses || {},
+      revenue: sectionStates.current.revenue || {},
+      financing: sectionStates.current.financing || {},
+      disposition: sectionStates.current.disposition || {},
+      sensitivity: sectionStates.current.sensitivity || {},
       
       // Provide safe dummy handlers that do nothing
       handleTextChange: () => {},
@@ -249,13 +254,13 @@ export const useModelState = () => {
   
   return {
     property: propertyState,
-    developmentCosts: developmentCostsState,
-    timeline: timelineState,
-    expenses: expensesState,
-    revenue: revenueState,
-    financing: financingState,
-    disposition: dispositionState,
-    sensitivity: sensitivityState,
+    developmentCosts: sectionStates.current.developmentCosts || {},
+    timeline: sectionStates.current.timeline || {},
+    expenses: sectionStates.current.expenses || {},
+    revenue: sectionStates.current.revenue || {},
+    financing: sectionStates.current.financing || {},
+    disposition: sectionStates.current.disposition || {},
+    sensitivity: sectionStates.current.sensitivity || {},
     
     // Common handlers
     handleTextChange,
@@ -271,3 +276,15 @@ export const useModelState = () => {
     resetAllData
   };
 };
+
+function handleSelectChange(value: string, setter: (value: string) => void) {
+  setter(value);
+}
+
+function handleBooleanChange(value: boolean, setter: (value: boolean) => void) {
+  setter(value);
+}
+
+function handleDateChange(date: Date | undefined, setter: (date: Date | undefined) => void) {
+  setter(date);
+}

@@ -105,17 +105,24 @@ export const useLocalStoragePersistence = <T>(
   useEffect(() => {
     isMounted.current = true;
     
-    try {
-      // Synchronously load from localStorage once on mount
-      const loadedValue = StorageManager.getItem<T>(key, initialValue);
-      if (JSON.stringify(loadedValue) !== JSON.stringify(initialValue)) {
-        setValue(loadedValue);
+    // Use setTimeout to break potential render loops
+    setTimeout(() => {
+      try {
+        // Synchronously load from localStorage once on mount
+        const loadedValue = StorageManager.getItem<T>(key, initialValue);
+        if (isMounted.current && JSON.stringify(loadedValue) !== JSON.stringify(initialValue)) {
+          setValue(loadedValue);
+        }
+        if (isMounted.current) {
+          setIsInitialized(true);
+        }
+      } catch (error) {
+        console.error(`Error loading data from localStorage (${key}):`, error);
+        if (isMounted.current) {
+          setIsInitialized(true);
+        }
       }
-      setIsInitialized(true);
-    } catch (error) {
-      console.error(`Error loading data from localStorage (${key}):`, error);
-      setIsInitialized(true);
-    }
+    }, 0);
     
     return () => {
       isMounted.current = false;
@@ -123,8 +130,8 @@ export const useLocalStoragePersistence = <T>(
         clearTimeout(saveTimer.current);
       }
     };
-  }, [key]); // Only depend on the key, not initialValue which might cause re-renders
-
+  }, []); // Only run on mount
+  
   // Save to localStorage with heavy debouncing
   useEffect(() => {
     // Skip first render and initializing state

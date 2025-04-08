@@ -132,7 +132,7 @@ export function useRenderDebugger(
     if (renderCount.current % 5 === 0) {
       console.log(`[RENDER] ${componentName} rendered ${renderCount.current} times. Current props:`, props);
     }
-  });
+  }, []); // Empty dependency array to make this effect run on every render but not create dependencies
   
   return { resetCount, isLoopDetected };
 }
