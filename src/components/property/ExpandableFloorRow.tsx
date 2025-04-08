@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,9 +7,6 @@ import { ChevronDown, ChevronUp, Edit, Trash } from "lucide-react";
 import { FloorConfiguration, FloorPlateTemplate } from "@/types/propertyTypes";
 import FloorDetailView from "./FloorDetailView";
 import { AnimatePresence, motion } from "framer-motion";
-
-// Add framer-motion dependency
-<lov-add-dependency>framer-motion@latest</lov-add-dependency>
 
 interface ExpandableFloorRowProps {
   floor: FloorConfiguration;
