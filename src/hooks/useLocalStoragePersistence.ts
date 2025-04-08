@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 
 type StorageValue<T> = T | null;
@@ -10,26 +11,25 @@ export const useLocalStoragePersistence = <T>(
   initialValue: T
 ): [T, React.Dispatch<React.SetStateAction<T>>, () => void] => {
   // Create state and setter
-  const [value, setValue] = useState<T>(initialValue);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Load from localStorage on mount
-  useEffect(() => {
+  // Use a function to initialize state from localStorage immediately
+  const [value, setValue] = useState<T>(() => {
     try {
+      // Try to get value from localStorage on initial render
+      if (typeof window === 'undefined') return initialValue;
+      
       const storedValue = localStorage.getItem(key);
       if (storedValue !== null) {
         const parsedValue = JSON.parse(storedValue);
-        setValue(parsedValue);
-        console.log(`Loaded data from localStorage (${key}):`, parsedValue);
-      } else {
-        console.log(`No data found in localStorage for key (${key}), using default value:`, initialValue);
+        console.log(`Initialized state from localStorage (${key}):`, parsedValue);
+        return parsedValue;
       }
-      setIsInitialized(true);
     } catch (error) {
-      console.error(`Error loading data from localStorage (${key}):`, error);
-      setIsInitialized(true);
+      console.error(`Error loading data from localStorage (${key}) during initialization:`, error);
     }
-  }, [key, initialValue]);
+    return initialValue;
+  });
+  
+  const [isInitialized, setIsInitialized] = useState(true); // Already initialized by the function above
 
   // Save to localStorage whenever value changes
   useEffect(() => {
@@ -78,6 +78,8 @@ export const saveToLocalStorage = <T>(key: string, data: T): void => {
  * Helper to load arbitrary data from localStorage
  */
 export const loadFromLocalStorage = <T>(key: string, defaultValue: T): T => {
+  if (typeof window === 'undefined') return defaultValue;
+  
   try {
     const storedValue = localStorage.getItem(key);
     if (storedValue === null) {

@@ -17,77 +17,70 @@ const generateRandomColor = (): string => {
 };
 
 export const useUnitTypes = () => {
-  const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
-  const [customCategories, setCustomCategories] = useState<string[]>([]);
-  const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
-  const [categoryDescriptions, setCategoryDescriptions] = useState<Record<string, string>>({});
+  // Initialize state directly with data from localStorage
+  const [unitTypes, setUnitTypes] = useState<UnitType[]>(() => {
+    return loadFromLocalStorage(STORAGE_KEY, []);
+  });
+  
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    return loadFromLocalStorage(CATEGORIES_STORAGE_KEY, []);
+  });
+  
+  const [categoryColors, setCategoryColors] = useState<Record<string, string>>(() => {
+    return loadFromLocalStorage(CATEGORY_COLORS_KEY, {});
+  });
+  
+  const [categoryDescriptions, setCategoryDescriptions] = useState<Record<string, string>>(() => {
+    return loadFromLocalStorage(CATEGORY_DESCRIPTIONS_KEY, {});
+  });
+  
   const [recentlyDeletedCategory, setRecentlyDeletedCategory] = useState<{
     name: string;
     unitTypes: UnitType[];
     color: string;
     description: string;
   } | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
   
   // Load data from localStorage on mount
   useEffect(() => {
-    const storedUnitTypes = loadFromLocalStorage(STORAGE_KEY, []);
-    const storedCategories = loadFromLocalStorage(CATEGORIES_STORAGE_KEY, []);
-    const storedColors = loadFromLocalStorage(CATEGORY_COLORS_KEY, {});
-    const storedDescriptions = loadFromLocalStorage(CATEGORY_DESCRIPTIONS_KEY, {});
-    
-    setUnitTypes(storedUnitTypes);
-    setCustomCategories(storedCategories);
-    setCategoryColors(storedColors);
-    setCategoryDescriptions(storedDescriptions);
-    setIsInitialized(true);
-    
-    console.log("Loaded unit types data from localStorage:", {
-      unitTypes: storedUnitTypes,
-      categories: storedCategories,
-      colors: storedColors,
-      descriptions: storedDescriptions
+    console.log("Initialized unit types data from localStorage:", {
+      unitTypes,
+      categories: customCategories,
+      colors: categoryColors,
+      descriptions: categoryDescriptions
     });
-  }, []);
+  }, [unitTypes, customCategories, categoryColors, categoryDescriptions]);
 
   // Save data to localStorage whenever they change
   useEffect(() => {
-    if (isInitialized) {
-      saveToLocalStorage(STORAGE_KEY, unitTypes);
-      console.log("Saved unit types to localStorage:", unitTypes);
-      
-      // Dispatch event to notify other components
-      if (typeof window !== 'undefined') {
-        const event = new CustomEvent('unitTypesChanged', { detail: unitTypes });
-        window.dispatchEvent(event);
-      }
+    saveToLocalStorage(STORAGE_KEY, unitTypes);
+    console.log("Saved unit types to localStorage:", unitTypes);
+    
+    // Dispatch event to notify other components
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('unitTypesChanged', { detail: unitTypes });
+      window.dispatchEvent(event);
     }
-  }, [unitTypes, isInitialized]);
+  }, [unitTypes]);
   
   useEffect(() => {
-    if (isInitialized) {
-      saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
-      console.log("Saved categories to localStorage:", customCategories);
-      
-      // Dispatch event to notify other components
-      if (typeof window !== 'undefined') {
-        const event = new CustomEvent('unitCategoriesChanged', { detail: customCategories });
-        window.dispatchEvent(event);
-      }
+    saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
+    console.log("Saved categories to localStorage:", customCategories);
+    
+    // Dispatch event to notify other components
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('unitCategoriesChanged', { detail: customCategories });
+      window.dispatchEvent(event);
     }
-  }, [customCategories, isInitialized]);
+  }, [customCategories]);
 
   useEffect(() => {
-    if (isInitialized) {
-      saveToLocalStorage(CATEGORY_COLORS_KEY, categoryColors);
-    }
-  }, [categoryColors, isInitialized]);
+    saveToLocalStorage(CATEGORY_COLORS_KEY, categoryColors);
+  }, [categoryColors]);
 
   useEffect(() => {
-    if (isInitialized) {
-      saveToLocalStorage(CATEGORY_DESCRIPTIONS_KEY, categoryDescriptions);
-    }
-  }, [categoryDescriptions, isInitialized]);
+    saveToLocalStorage(CATEGORY_DESCRIPTIONS_KEY, categoryDescriptions);
+  }, [categoryDescriptions]);
 
   // Get color for a specific category
   const getCategoryColor = useCallback((category: string): string => {

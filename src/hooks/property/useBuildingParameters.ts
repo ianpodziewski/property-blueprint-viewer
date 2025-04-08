@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { FloorConfiguration, FloorPlateTemplate } from "@/types/propertyTypes";
@@ -9,47 +8,53 @@ export const useBuildingParameters = (
   floorConfigurations: FloorConfiguration[], 
   floorTemplates: FloorPlateTemplate[]
 ) => {
-  const [farAllowance, setFarAllowance] = useState<string>("1.5");
-  const [totalLandArea, setTotalLandArea] = useState<string>("0");
-  const [buildingFootprint, setBuildingFootprint] = useState<string>("0");
-  const [isInitialized, setIsInitialized] = useState(false);
+  // Initialize state directly with data from localStorage
+  const [farAllowance, setFarAllowance] = useState<string>(() => {
+    const storedBuildingParams = loadFromLocalStorage(STORAGE_KEY, {
+      farAllowance: "1.5",
+      totalLandArea: "0",
+      buildingFootprint: "0"
+    });
+    return storedBuildingParams.farAllowance;
+  });
+  
+  const [totalLandArea, setTotalLandArea] = useState<string>(() => {
+    const storedBuildingParams = loadFromLocalStorage(STORAGE_KEY, {
+      farAllowance: "1.5",
+      totalLandArea: "0",
+      buildingFootprint: "0"
+    });
+    return storedBuildingParams.totalLandArea;
+  });
+  
+  const [buildingFootprint, setBuildingFootprint] = useState<string>(() => {
+    const storedBuildingParams = loadFromLocalStorage(STORAGE_KEY, {
+      farAllowance: "1.5",
+      totalLandArea: "0",
+      buildingFootprint: "0"
+    });
+    return storedBuildingParams.buildingFootprint;
+  });
   
   const [totalBuildableArea, setTotalBuildableArea] = useState<number>(0);
   const [totalAboveGroundArea, setTotalAboveGroundArea] = useState<number>(0);
   const [totalBelowGroundArea, setTotalBelowGroundArea] = useState<number>(0);
   const [actualFar, setActualFar] = useState<number>(0);
 
-  // Load building parameters from localStorage on mount
-  useEffect(() => {
-    const storedBuildingParams = loadFromLocalStorage(STORAGE_KEY, {
-      farAllowance: "1.5",
-      totalLandArea: "0",
-      buildingFootprint: "0"
-    });
-
-    setFarAllowance(storedBuildingParams.farAllowance);
-    setTotalLandArea(storedBuildingParams.totalLandArea);
-    setBuildingFootprint(storedBuildingParams.buildingFootprint);
-    setIsInitialized(true);
-    
-    console.log("Loaded building parameters from localStorage:", storedBuildingParams);
-  }, []);
-
   // Save building parameters to localStorage whenever they change
   useEffect(() => {
-    if (isInitialized) {
-      saveToLocalStorage(STORAGE_KEY, {
-        farAllowance,
-        totalLandArea,
-        buildingFootprint
-      });
-      console.log("Saved building parameters to localStorage:", {
-        farAllowance,
-        totalLandArea,
-        buildingFootprint
-      });
-    }
-  }, [farAllowance, totalLandArea, buildingFootprint, isInitialized]);
+    saveToLocalStorage(STORAGE_KEY, {
+      farAllowance,
+      totalLandArea,
+      buildingFootprint
+    });
+    
+    console.log("Saved building parameters to localStorage:", {
+      farAllowance,
+      totalLandArea,
+      buildingFootprint
+    });
+  }, [farAllowance, totalLandArea, buildingFootprint]);
 
   // Calculate building areas based on floor configurations
   useEffect(() => {

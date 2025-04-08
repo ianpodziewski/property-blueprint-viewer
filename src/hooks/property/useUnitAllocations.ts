@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { UnitAllocation } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
@@ -7,25 +6,20 @@ import { useToast } from "@/hooks/use-toast";
 const STORAGE_KEY = "realEstateModel_unitAllocations";
 
 export const useUnitAllocations = () => {
-  const [unitAllocations, setUnitAllocations] = useState<UnitAllocation[]>([]);
-  const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
-
-  // Load from localStorage on mount
-  useEffect(() => {
+  
+  // Initialize state directly with data from localStorage
+  const [unitAllocations, setUnitAllocations] = useState<UnitAllocation[]>(() => {
     const storedAllocations = loadFromLocalStorage<UnitAllocation[]>(STORAGE_KEY, []);
-    setUnitAllocations(storedAllocations);
-    setIsInitialized(true);
-    console.log("Loaded unit allocations from localStorage:", storedAllocations);
-  }, []);
+    console.log("Initialized unit allocations from localStorage:", storedAllocations);
+    return storedAllocations;
+  });
 
   // Save to localStorage when updated
   useEffect(() => {
-    if (isInitialized) {
-      saveToLocalStorage(STORAGE_KEY, unitAllocations);
-      console.log("Saved unit allocations to localStorage:", unitAllocations);
-    }
-  }, [unitAllocations, isInitialized]);
+    saveToLocalStorage(STORAGE_KEY, unitAllocations);
+    console.log("Saved unit allocations to localStorage:", unitAllocations);
+  }, [unitAllocations]);
 
   const addAllocation = useCallback((allocation: Omit<UnitAllocation, "id">) => {
     // Check if already exists, if so update it instead

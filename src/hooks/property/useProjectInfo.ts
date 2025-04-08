@@ -5,35 +5,42 @@ import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePers
 const STORAGE_KEY = "realEstateModel_extendedProjectInfo";
 
 export const useProjectInfo = () => {
-  const [projectName, setProjectName] = useState<string>("");
-  const [projectLocation, setProjectLocation] = useState<string>("");
-  const [projectType, setProjectType] = useState<string>("");
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Load project information from localStorage on mount
-  useEffect(() => {
+  // Initialize state directly with data from localStorage
+  const [projectName, setProjectName] = useState<string>(() => {
     const storedProjectInfo = loadFromLocalStorage(STORAGE_KEY, {
       projectName: "",
       projectLocation: "",
       projectType: ""
     });
-
-    setProjectName(storedProjectInfo.projectName);
-    setProjectLocation(storedProjectInfo.projectLocation);
-    setProjectType(storedProjectInfo.projectType);
-    setIsInitialized(true);
-  }, []);
+    return storedProjectInfo.projectName;
+  });
+  
+  const [projectLocation, setProjectLocation] = useState<string>(() => {
+    const storedProjectInfo = loadFromLocalStorage(STORAGE_KEY, {
+      projectName: "",
+      projectLocation: "",
+      projectType: ""
+    });
+    return storedProjectInfo.projectLocation;
+  });
+  
+  const [projectType, setProjectType] = useState<string>(() => {
+    const storedProjectInfo = loadFromLocalStorage(STORAGE_KEY, {
+      projectName: "",
+      projectLocation: "",
+      projectType: ""
+    });
+    return storedProjectInfo.projectType;
+  });
 
   // Save project information to localStorage whenever it changes
   useEffect(() => {
-    if (isInitialized) {
-      saveToLocalStorage(STORAGE_KEY, {
-        projectName,
-        projectLocation,
-        projectType
-      });
-    }
-  }, [projectName, projectLocation, projectType, isInitialized]);
+    saveToLocalStorage(STORAGE_KEY, {
+      projectName,
+      projectLocation,
+      projectType
+    });
+  }, [projectName, projectLocation, projectType]);
 
   // Reset all project info data
   const resetAllData = useCallback(() => {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { UnitMix } from "@/types/propertyTypes";
@@ -6,28 +5,20 @@ import { UnitMix } from "@/types/propertyTypes";
 const STORAGE_KEY = "realEstateModel_extendedUnitMix";
 
 export const useUnitMix = () => {
-  const [unitMixes, setUnitMixes] = useState<UnitMix[]>([
-    { id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }
-  ]);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Load unit mix from localStorage on mount
-  useEffect(() => {
+  // Initialize state directly with data from localStorage
+  const [unitMixes, setUnitMixes] = useState<UnitMix[]>(() => {
     const storedUnitMix = loadFromLocalStorage(STORAGE_KEY, [
       { id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }
     ]);
-    setUnitMixes(storedUnitMix);
-    setIsInitialized(true);
-    console.log("Loaded unit mixes from localStorage:", storedUnitMix);
-  }, []);
+    console.log("Initialized unit mixes from localStorage:", storedUnitMix);
+    return storedUnitMix;
+  });
 
   // Save unit mix to localStorage whenever it changes
   useEffect(() => {
-    if (isInitialized) {
-      saveToLocalStorage(STORAGE_KEY, unitMixes);
-      console.log("Saved unit mixes to localStorage:", unitMixes);
-    }
-  }, [unitMixes, isInitialized]);
+    saveToLocalStorage(STORAGE_KEY, unitMixes);
+    console.log("Saved unit mixes to localStorage:", unitMixes);
+  }, [unitMixes]);
 
   const addUnitMix = useCallback(() => {
     const newId = `unit-${unitMixes.length + 1}`;
