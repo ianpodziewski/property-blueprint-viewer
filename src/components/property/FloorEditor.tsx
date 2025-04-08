@@ -31,6 +31,7 @@ interface FloorEditorProps {
     value: any
   ) => void;
   updateSpaces?: (floorNumber: number, spaces: SpaceDefinition[]) => void;
+  updateBuildingSystems?: (floorNumber: number, systems: BuildingSystemsConfig) => void;
 }
 
 const DEFAULT_SPACES: SpaceDefinition[] = [

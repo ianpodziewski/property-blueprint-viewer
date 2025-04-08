@@ -77,6 +77,15 @@ const PropertyBreakdown = () => {
   const floorsData = generateFloorsData();
   const spaceBreakdown = generateSpaceBreakdown();
   const phasesData = generatePhasesData();
+
+  // Define floor space update function
+  const updateFloorSpaces = (floorNumber: number, spaces: SpaceDefinition[]) => {
+    // Pass the update through to the appropriate floor configuration
+    const floorIndex = floorConfigurations.findIndex(fc => fc.floorNumber === floorNumber);
+    if (floorIndex >= 0) {
+      updateFloorConfiguration(floorNumber, "spaces", spaces);
+    }
+  };
   
   return (
     
@@ -161,6 +170,7 @@ const PropertyBreakdown = () => {
         updateFloorConfiguration={updateFloorConfiguration}
         copyFloorConfiguration={copyFloorConfiguration}
         bulkEditFloorConfigurations={bulkEditFloorConfigurations}
+        updateFloorSpaces={updateFloorSpaces}
       />
       
       {/* Visualizations Row */}
