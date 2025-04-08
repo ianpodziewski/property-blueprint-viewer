@@ -18,7 +18,6 @@ import {
   FloorPlateTemplate,
   FloorConfiguration,
   SpaceDefinition,
-  BuildingSystemsConfig
 } from "@/types/propertyTypes";
 
 interface FloorEditorProps {
@@ -32,7 +31,6 @@ interface FloorEditorProps {
     value: any
   ) => void;
   updateSpaces?: (floorNumber: number, spaces: SpaceDefinition[]) => void;
-  updateBuildingSystems?: (floorNumber: number, systems: BuildingSystemsConfig) => void;
 }
 
 const DEFAULT_SPACES: SpaceDefinition[] = [
@@ -200,6 +198,12 @@ const FloorEditor = ({
             
             return updatedSpace;
           }
+          
+          // If changing the type, reset the subType to null
+          if (field === "type" && space.type !== value) {
+            return { ...space, [field]: value, subType: null };
+          }
+          
           return { ...space, [field]: value };
         }
         return space;
@@ -244,6 +248,10 @@ const FloorEditor = ({
     if (width > 0 && depth > 0 && Math.abs(calculatedArea - enteredArea) > 1) {
       handleUpdateSpace(spaceId, "squareFootage", calculatedArea.toString());
     }
+  };
+  
+  const getSpaceSubtypeOptions = (spaceType: string) => {
+    return USE_TYPE_OPTIONS[spaceType] || [];
   };
 
   const handleSave = () => {
@@ -602,44 +610,45 @@ const FloorEditor = ({
                           </TableCell>
                           <TableCell>
                             <Select 
+                              key={`type-${space.id}`}
                               value={space.type}
                               onValueChange={(value) => {
                                 handleUpdateSpace(space.id, "type", value);
-                                handleUpdateSpace(space.id, "subType", null);
                               }}
                             >
-                              <SelectTrigger className="h-9 text-left">
-                                <SelectValue placeholder="Type" />
+                              <SelectTrigger className="h-9 w-full min-w-[140px] text-left">
+                                <SelectValue placeholder="Select type" />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent position="popper" className="bg-white">
                                 <SelectItem value="office">Office</SelectItem>
                                 <SelectItem value="residential">Residential</SelectItem>
                                 <SelectItem value="retail">Retail</SelectItem>
                                 <SelectItem value="core">Core & Circulation</SelectItem>
                                 <SelectItem value="amenities">Amenities</SelectItem>
                                 <SelectItem value="mechanical">Mechanical</SelectItem>
+                                <SelectItem value="industrial">Industrial</SelectItem>
+                                <SelectItem value="common">Common Areas</SelectItem>
                               </SelectContent>
                             </Select>
                           </TableCell>
                           <TableCell>
                             <Select 
+                              key={`subtype-${space.id}-${space.type}`}
                               value={space.subType || "null"}
                               onValueChange={(value) => handleUpdateSpace(space.id, "subType", value === "null" ? null : value)}
                             >
-                              <SelectTrigger className="h-9 text-left">
+                              <SelectTrigger className="h-9 w-full min-w-[160px] text-left">
                                 <SelectValue placeholder="Select subtype" />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent position="popper" className="bg-white">
                                 <SelectItem value="null">None</SelectItem>
                                 {space.type && USE_TYPE_OPTIONS[space.type] ? (
                                   USE_TYPE_OPTIONS[space.type].map(subType => (
                                     <SelectItem key={subType} value={subType}>
-                                      {subType.replace('_', ' ')}
+                                      {subType.replace(/_/g, ' ')}
                                     </SelectItem>
                                   ))
-                                ) : (
-                                  <SelectItem value="null">No subtypes available</SelectItem>
-                                )}
+                                ) : null}
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -798,6 +807,8 @@ const getUseColor = (spaceType: string) => {
     "storage": "#78716C",
     "mechanical": "#475569",
     "core": "#94A3B8",
+    "industrial": "#6366F1",
+    "common": "#8B5CF6",
   };
   
   return colors[spaceType] || "#9CA3AF";
