@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import MainNavigation from "./MainNavigation";
 import PropertyBreakdown from "./sections/PropertyBreakdown";
 import DevelopmentCosts from "./sections/DevelopmentCosts";

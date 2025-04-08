@@ -10,13 +10,14 @@ import FloorStackingDiagram from "@/components/property/FloorStackingDiagram";
 import BuildingMassingVisualization from "@/components/property/BuildingMassingVisualization";
 import SpaceSummaryDashboard from "@/components/property/SpaceSummaryDashboard";
 import PhasingTimeline from "@/components/property/PhasingTimeline";
-import FloorConfigurationManager from "@/components/property/FloorConfigurationManager";
 import { useModelState } from "@/hooks/useModelState";
 import { Separator } from "@/components/ui/separator"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpaceDefinition, FloorPlateTemplate } from "@/types/propertyTypes";
 import { Toaster } from "@/components/ui/toaster";
 import { useEffect, useCallback } from "react";
+import UnitMixPlanning from "../property/UnitMixPlanning";
+import FloorConfigurationManagerEnhanced from "../property/FloorConfigurationManagerEnhanced";
 
 const PropertyBreakdown = () => {
   
@@ -206,8 +207,8 @@ const PropertyBreakdown = () => {
         removeFloorTemplate={removeFloorTemplate}
       />
       
-      {/* Floor Configuration Manager */}
-      <FloorConfigurationManager 
+      {/* Enhanced Floor Configuration Manager */}
+      <FloorConfigurationManagerEnhanced 
         floorConfigurations={floorConfigurations}
         floorTemplates={floorTemplates}
         updateFloorConfiguration={updateFloorConfiguration}
@@ -220,6 +221,14 @@ const PropertyBreakdown = () => {
         addFloorTemplate={adaptedAddFloorTemplate}
         updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
         removeFloorTemplate={removeFloorTemplate}
+      />
+      
+      {/* Unit Mix Planning Section */}
+      <UnitMixPlanning
+        unitMixes={unitMixes}
+        addUnitMix={addUnitMix}
+        removeUnitMix={removeUnitMix}
+        updateUnitMix={updateUnitMix}
       />
       
       {/* Visualizations Row */}
@@ -299,11 +308,11 @@ const PropertyBreakdown = () => {
         </TabsContent>
         
         <TabsContent value="unit-mix">
-          {/* Unit Mix Section */}
+          {/* We're keeping the original Unit Mix section as a backup */}
           <Card>
             <CardHeader>
-              <CardTitle>Unit Mix</CardTitle>
-              <CardDescription>Define the mix of unit types in your residential spaces</CardDescription>
+              <CardTitle>Legacy Unit Mix</CardTitle>
+              <CardDescription>Original unit mix definition interface</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
