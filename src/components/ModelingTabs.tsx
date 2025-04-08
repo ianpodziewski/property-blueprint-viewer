@@ -53,6 +53,10 @@ const ModelingTabs = () => {
   
   useEffect(() => {
     if (handlersRegistered.current) return;
+    
+    // Only register handlers if window is defined (to handle SSR)
+    if (typeof window === 'undefined') return;
+    
     handlersRegistered.current = true;
     
     const floorConfigHandler = (event: Event) => {
@@ -72,8 +76,10 @@ const ModelingTabs = () => {
         clearTimeout(eventTimeoutRef.current);
       }
       
-      window.removeEventListener('floorConfigSaved', floorConfigHandler);
-      window.removeEventListener('unitAllocationChanged', unitAllocationHandler);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('floorConfigSaved', floorConfigHandler);
+        window.removeEventListener('unitAllocationChanged', unitAllocationHandler);
+      }
     };
   }, [handleFloorConfigSave, handleUnitAllocationSave]);
 
