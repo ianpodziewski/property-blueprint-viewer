@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { UnitType } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
@@ -27,6 +28,7 @@ export const useUnitTypes = () => {
     color: string;
     description: string;
   } | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   // Load data from localStorage on mount
   useEffect(() => {
@@ -39,24 +41,40 @@ export const useUnitTypes = () => {
     setCustomCategories(storedCategories);
     setCategoryColors(storedColors);
     setCategoryDescriptions(storedDescriptions);
+    setIsInitialized(true);
+    
+    console.log("Loaded unit types data from localStorage:", {
+      unitTypes: storedUnitTypes,
+      categories: storedCategories
+    });
   }, []);
 
   // Save data to localStorage whenever they change
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, unitTypes);
-  }, [unitTypes]);
+    if (isInitialized) {
+      saveToLocalStorage(STORAGE_KEY, unitTypes);
+      console.log("Saved unit types to localStorage:", unitTypes);
+    }
+  }, [unitTypes, isInitialized]);
   
   useEffect(() => {
-    saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
-  }, [customCategories]);
+    if (isInitialized) {
+      saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
+      console.log("Saved categories to localStorage:", customCategories);
+    }
+  }, [customCategories, isInitialized]);
 
   useEffect(() => {
-    saveToLocalStorage(CATEGORY_COLORS_KEY, categoryColors);
-  }, [categoryColors]);
+    if (isInitialized) {
+      saveToLocalStorage(CATEGORY_COLORS_KEY, categoryColors);
+    }
+  }, [categoryColors, isInitialized]);
 
   useEffect(() => {
-    saveToLocalStorage(CATEGORY_DESCRIPTIONS_KEY, categoryDescriptions);
-  }, [categoryDescriptions]);
+    if (isInitialized) {
+      saveToLocalStorage(CATEGORY_DESCRIPTIONS_KEY, categoryDescriptions);
+    }
+  }, [categoryDescriptions, isInitialized]);
 
   // Get color for a specific category
   const getCategoryColor = useCallback((category: string): string => {

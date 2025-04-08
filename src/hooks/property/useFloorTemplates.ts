@@ -22,6 +22,7 @@ export const useFloorTemplates = () => {
       return template;
     });
     
+    console.log("Loaded floor templates from localStorage:", migratedTemplates);
     setFloorTemplates(migratedTemplates);
     setIsInitialized(true);
   }, []);

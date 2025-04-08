@@ -59,7 +59,7 @@ export const useLocalStoragePersistence = <T>(
 export const saveToLocalStorage = <T>(key: string, data: T): void => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
-    console.log(`Data saved to localStorage (${key})`);
+    console.log(`Data saved to localStorage (${key})`, data);
   } catch (error) {
     console.error(`Error saving data to localStorage (${key}):`, error);
   }
@@ -77,7 +77,7 @@ export const loadFromLocalStorage = <T>(key: string, defaultValue: T): T => {
     }
     
     const parsedValue = JSON.parse(storedValue);
-    console.log(`Data loaded from localStorage (${key})`);
+    console.log(`Data loaded from localStorage (${key}):`, parsedValue);
     return parsedValue;
   } catch (error) {
     console.error(`Error loading data from localStorage (${key}):`, error);

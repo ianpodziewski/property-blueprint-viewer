@@ -16,6 +16,7 @@ export const useSpaceTypes = () => {
       floorAllocation: { 1: "100" }
     }
   ]);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const [totalAllocatedArea, setTotalAllocatedArea] = useState<number>(0);
 
@@ -43,12 +44,17 @@ export const useSpaceTypes = () => {
     });
     
     setSpaceTypes(migratedSpaceTypes);
+    setIsInitialized(true);
+    console.log("Loaded space types from localStorage:", migratedSpaceTypes);
   }, []);
 
   // Save space types to localStorage whenever they change
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, spaceTypes);
-  }, [spaceTypes]);
+    if (isInitialized) {
+      saveToLocalStorage(STORAGE_KEY, spaceTypes);
+      console.log("Saved space types to localStorage:", spaceTypes);
+    }
+  }, [spaceTypes, isInitialized]);
   
   // Calculate total allocated area whenever space types change
   useEffect(() => {

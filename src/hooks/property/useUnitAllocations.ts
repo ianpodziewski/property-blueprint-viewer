@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { UnitAllocation } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
@@ -12,9 +13,10 @@ export const useUnitAllocations = () => {
 
   // Load from localStorage on mount
   useEffect(() => {
-    const storedAllocations = loadFromLocalStorage(STORAGE_KEY, []);
+    const storedAllocations = loadFromLocalStorage<UnitAllocation[]>(STORAGE_KEY, []);
     setUnitAllocations(storedAllocations);
     setIsInitialized(true);
+    console.log("Loaded unit allocations from localStorage:", storedAllocations);
   }, []);
 
   // Save to localStorage when updated

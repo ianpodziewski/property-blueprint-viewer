@@ -1,3 +1,4 @@
+
 import { useCallback } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
@@ -12,9 +13,9 @@ import { SpaceDefinition, BuildingSystemsConfig } from "../types/propertyTypes";
 
 export const useExtendedPropertyState = () => {
   const projectInfo = useProjectInfo();
-  
   const floorTemplates = useFloorTemplates();
   
+  // Pass floorTemplates.floorTemplates directly to ensure it's available immediately
   const floorConfigurations = useFloorConfigurations(floorTemplates.floorTemplates);
   
   const buildingParams = useBuildingParameters(

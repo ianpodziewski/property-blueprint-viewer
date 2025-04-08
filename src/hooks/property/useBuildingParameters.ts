@@ -12,6 +12,7 @@ export const useBuildingParameters = (
   const [farAllowance, setFarAllowance] = useState<string>("1.5");
   const [totalLandArea, setTotalLandArea] = useState<string>("0");
   const [buildingFootprint, setBuildingFootprint] = useState<string>("0");
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const [totalBuildableArea, setTotalBuildableArea] = useState<number>(0);
   const [totalAboveGroundArea, setTotalAboveGroundArea] = useState<number>(0);
@@ -29,16 +30,26 @@ export const useBuildingParameters = (
     setFarAllowance(storedBuildingParams.farAllowance);
     setTotalLandArea(storedBuildingParams.totalLandArea);
     setBuildingFootprint(storedBuildingParams.buildingFootprint);
+    setIsInitialized(true);
+    
+    console.log("Loaded building parameters from localStorage:", storedBuildingParams);
   }, []);
 
   // Save building parameters to localStorage whenever they change
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, {
-      farAllowance,
-      totalLandArea,
-      buildingFootprint
-    });
-  }, [farAllowance, totalLandArea, buildingFootprint]);
+    if (isInitialized) {
+      saveToLocalStorage(STORAGE_KEY, {
+        farAllowance,
+        totalLandArea,
+        buildingFootprint
+      });
+      console.log("Saved building parameters to localStorage:", {
+        farAllowance,
+        totalLandArea,
+        buildingFootprint
+      });
+    }
+  }, [farAllowance, totalLandArea, buildingFootprint, isInitialized]);
 
   // Calculate building areas based on floor configurations
   useEffect(() => {

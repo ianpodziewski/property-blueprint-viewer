@@ -9,6 +9,7 @@ export const useUnitMix = () => {
   const [unitMixes, setUnitMixes] = useState<UnitMix[]>([
     { id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }
   ]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load unit mix from localStorage on mount
   useEffect(() => {
@@ -16,12 +17,17 @@ export const useUnitMix = () => {
       { id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }
     ]);
     setUnitMixes(storedUnitMix);
+    setIsInitialized(true);
+    console.log("Loaded unit mixes from localStorage:", storedUnitMix);
   }, []);
 
   // Save unit mix to localStorage whenever it changes
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, unitMixes);
-  }, [unitMixes]);
+    if (isInitialized) {
+      saveToLocalStorage(STORAGE_KEY, unitMixes);
+      console.log("Saved unit mixes to localStorage:", unitMixes);
+    }
+  }, [unitMixes, isInitialized]);
 
   const addUnitMix = useCallback(() => {
     const newId = `unit-${unitMixes.length + 1}`;

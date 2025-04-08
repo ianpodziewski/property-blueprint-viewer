@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
@@ -20,6 +21,7 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Load floor configurations from localStorage on mount
   useEffect(() => {
     const storedFloorConfigurations = loadFromLocalStorage<FloorConfiguration[]>(STORAGE_KEY, []);
     
@@ -33,10 +35,12 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
       });
       
       setFloorConfigurations(migratedConfigs);
+      console.log("Loaded floor configurations from localStorage:", migratedConfigs);
     }
     setIsInitialized(true);
   }, []);
 
+  // Save floor configurations to localStorage whenever they change
   useEffect(() => {
     if (isInitialized) {
       saveToLocalStorage(STORAGE_KEY, floorConfigurations);
