@@ -8,7 +8,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Edit, Copy, Settings, ChevronUp, ChevronDown, Info, AlertTriangle, ArrowRightLeft, CheckCircle, Trash } from "lucide-react";
+import { PlusCircle, Edit, Copy, Settings, ChevronUp, ChevronDown, Info, AlertTriangle, ArrowRightLeft, CheckCircle, Trash, Building2, Building, Warehouse } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import FloorTemplateManager from "./FloorTemplateManager";
 import FloorEditor from "./FloorEditor";
@@ -23,6 +23,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { 
   AlertDialog,
@@ -87,6 +88,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   updateFloorTemplate,
   removeFloorTemplate
 }) => {
+  
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [allSelected, setAllSelected] = useState(false);
   const [addFloorDialogOpen, setAddFloorDialogOpen] = useState(false);
@@ -101,6 +103,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   const [floorToDelete, setFloorToDelete] = useState<number | null>(null);
   
   const [floorCount, setFloorCount] = useState("1");
+  const [floorType, setFloorType] = useState<"aboveGround" | "underground">("aboveGround");
   const [isUnderground, setIsUnderground] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [position, setPosition] = useState<"top" | "bottom" | "specific">("top");
@@ -111,6 +114,18 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   const [bulkEditValue, setBulkEditValue] = useState<string>("");
   
   const { toast } = useToast();
+
+  // Update isUnderground whenever floorType changes
+  useEffect(() => {
+    setIsUnderground(floorType === "underground");
+    
+    // Update position based on floor type
+    if (floorType === "underground") {
+      setPosition("bottom");
+    } else {
+      setPosition("top");
+    }
+  }, [floorType]);
   
   const sortedFloors = [...floorConfigurations].sort((a, b) => {
     if (a.isUnderground && b.isUnderground) {
@@ -184,6 +199,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     setAddFloorDialogOpen(false);
     
     setFloorCount("1");
+    setFloorType("aboveGround");
     setIsUnderground(false);
     setSelectedTemplateId(null);
     setPosition("top");
@@ -519,25 +535,29 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                 />
               </div>
               <div>
-                <Label>Floor Type</Label>
-                <div className="flex items-center pt-2">
+                <Label htmlFor="floor-type" className="mb-2 block">Floor Type</Label>
+                <RadioGroup 
+                  id="floor-type"
+                  defaultValue="aboveGround" 
+                  value={floorType}
+                  onValueChange={(value) => setFloorType(value as "aboveGround" | "underground")}
+                  className="flex flex-col space-y-1.5"
+                >
                   <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="is-underground" 
-                      checked={isUnderground}
-                      onCheckedChange={(checked) => {
-                        setIsUnderground(!!checked);
-                        setPosition(isUnderground ? "top" : "bottom");
-                      }}
-                    />
-                    <label 
-                      htmlFor="is-underground" 
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Underground Floors
-                    </label>
+                    <RadioGroupItem value="aboveGround" id="above-ground" />
+                    <Label htmlFor="above-ground" className="flex items-center cursor-pointer">
+                      <Building2 className="h-4 w-4 mr-2 text-blue-600" />
+                      <span>Above Ground</span>
+                    </Label>
                   </div>
-                </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="underground" id="underground" />
+                    <Label htmlFor="underground" className="flex items-center cursor-pointer">
+                      <Warehouse className="h-4 w-4 mr-2 text-amber-600" />
+                      <span>Underground</span>
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
             </div>
             
@@ -606,10 +626,10 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                 </TabsList>
                 
                 <TabsContent value="consecutive" className="text-muted-foreground text-xs mt-1">
-                  Example: 1, 2, 3, 4, 5
+                  Example: {isUnderground ? "-1, -2, -3, -4, -5" : "1, 2, 3, 4, 5"}
                 </TabsContent>
                 <TabsContent value="skip" className="text-muted-foreground text-xs mt-1">
-                  Example: 1, 3, 5, 7, 9
+                  Example: {isUnderground ? "-1, -3, -5, -7, -9" : "1, 3, 5, 7, 9"}
                 </TabsContent>
               </Tabs>
             </div>
