@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Copy, Plus, Trash, AlertTriangle, Loader, CheckCircle } from "lucide-react";
+import { Edit, Copy, Plus, Trash, AlertTriangle, Loader, CheckCircle, RefreshCcw } from "lucide-react";
 import { FloorPlateTemplate } from "@/types/propertyTypes";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,9 +62,16 @@ const FloorTemplateManager = ({
   const [hasFormErrors, setHasFormErrors] = useState(false);
   const [validationMessages, setValidationMessages] = useState<{[key: string]: string}>({});
   const [saveSuccessful, setSaveSuccessful] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
   
   const [formModified, setFormModified] = useState(false);
   const originalTemplateRef = useRef<TemplateFormData>(defaultTemplateData);
+  
+  const addDebugLog = (message: string) => {
+    setDebugLogs(prev => [...prev, `${new Date().toISOString()}: ${message}`]);
+    console.log(`[FloorTemplateManager] ${message}`);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -75,11 +82,14 @@ const FloorTemplateManager = ({
       setHasFormErrors(false);
       setValidationMessages({});
       originalTemplateRef.current = {...defaultTemplateData};
+      setRecoveryMode(false);
+      addDebugLog("Modal opened, state reset");
     }
   }, [isOpen]);
 
   useEffect(() => {
     return () => {
+      addDebugLog("Cleanup function executed");
       setDeleteConfirmOpen(false);
       setTemplateToDelete(null);
       setSelectedTemplateId(null);
@@ -88,6 +98,7 @@ const FloorTemplateManager = ({
       setValidationMessages({});
       setFormModified(false);
       setSaveSuccessful(false);
+      setRecoveryMode(false);
     };
   }, []);
 
@@ -140,6 +151,7 @@ const FloorTemplateManager = ({
     setSaveSuccessful(false);
     setHasFormErrors(false);
     setValidationMessages({});
+    addDebugLog("Create new template mode activated");
   }, []);
 
   const handleEdit = useCallback((template: FloorPlateTemplate) => {
@@ -161,6 +173,7 @@ const FloorTemplateManager = ({
     setSaveSuccessful(false);
     setHasFormErrors(false);
     setValidationMessages({});
+    addDebugLog(`Edit template mode activated for template ID: ${template.id}`);
   }, []);
 
   const handleDuplicate = useCallback((template: FloorPlateTemplate) => {
@@ -181,6 +194,7 @@ const FloorTemplateManager = ({
     setSaveSuccessful(false);
     setHasFormErrors(false);
     setValidationMessages({});
+    addDebugLog(`Duplicating template ID: ${template.id}`);
   }, []);
 
   const handleDelete = useCallback((templateId: string, event?: React.MouseEvent) => {
@@ -189,17 +203,23 @@ const FloorTemplateManager = ({
       event.stopPropagation();
     }
     
+    addDebugLog(`Delete initiated for template ID: ${templateId}`);
     setTemplateToDelete(templateId);
     setDeleteConfirmOpen(true);
   }, []);
 
   const confirmDelete = useCallback(() => {
-    if (!templateToDelete) return;
+    if (!templateToDelete) {
+      addDebugLog("Delete cancelled - no template ID");
+      return;
+    }
     
+    addDebugLog(`Confirming deletion of template ID: ${templateToDelete}`);
     setIsProcessing(true);
     
     try {
       if (selectedTemplateId === templateToDelete) {
+        addDebugLog("Deselecting template as it's being deleted");
         setSelectedTemplateId(null);
       }
       
@@ -209,13 +229,24 @@ const FloorTemplateManager = ({
         title: "Template deleted",
         description: "The floor template has been successfully removed.",
       });
+      
+      addDebugLog(`Template ID: ${templateToDelete} deleted successfully`);
     } catch (error) {
       console.error("Error deleting template:", error);
+      
       toast({
         title: "Error",
-        description: "Failed to delete the template. Please try again.",
+        description: "Failed to delete the template. Please try again or refresh.",
         variant: "destructive",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => setRecoveryMode(true)}>
+            <RefreshCcw className="h-4 w-4 mr-2" />
+            Recover
+          </Button>
+        ),
       });
+      
+      addDebugLog(`Error deleting template: ${error}`);
     } finally {
       setDeleteConfirmOpen(false);
       setTemplateToDelete(null);
@@ -223,9 +254,15 @@ const FloorTemplateManager = ({
     }
   }, [templateToDelete, selectedTemplateId, removeTemplate, toast]);
 
-  const cancelDelete = useCallback(() => {
+  const cancelDelete = useCallback((event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     setDeleteConfirmOpen(false);
     setTemplateToDelete(null);
+    addDebugLog("Delete operation cancelled");
   }, []);
 
   const handleSave = useCallback(() => {
@@ -235,9 +272,11 @@ const FloorTemplateManager = ({
         description: "Please check the form for errors and try again.",
         variant: "destructive",
       });
+      addDebugLog("Save failed - validation errors");
       return;
     }
     
+    addDebugLog("Saving template - validation passed");
     setIsProcessing(true);
     setSaveSuccessful(false);
     
@@ -252,18 +291,22 @@ const FloorTemplateManager = ({
         description: currentTemplate.description
       };
       
+      addDebugLog(`Saving template data: ${JSON.stringify(templateToSave)}`);
+      
       if (editMode === "create") {
         addTemplate(templateToSave);
         toast({
           title: "Template created",
           description: "New floor template has been created successfully.",
         });
+        addDebugLog("New template created successfully");
       } else if (editMode === "edit" && currentTemplate.id) {
         updateTemplate(currentTemplate.id, templateToSave);
         toast({
           title: "Template updated",
           description: "The floor template has been updated successfully.",
         });
+        addDebugLog(`Template ID: ${currentTemplate.id} updated successfully`);
       }
       
       setSaveSuccessful(true);
@@ -279,12 +322,18 @@ const FloorTemplateManager = ({
         variant: "destructive",
       });
       setSaveSuccessful(false);
+      addDebugLog(`Error saving template: ${error}`);
     } finally {
       setIsProcessing(false);
     }
   }, [editMode, currentTemplate, addTemplate, updateTemplate, toast, validateTemplateForm]);
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback((event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     if (formModified) {
       if (window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
         setEditMode("view");
@@ -292,12 +341,16 @@ const FloorTemplateManager = ({
         setFormModified(false);
         setHasFormErrors(false);
         setValidationMessages({});
+        addDebugLog("Cancelled with unsaved changes - changes discarded");
+      } else {
+        addDebugLog("Cancel declined - keeping unsaved changes");
       }
     } else {
       setEditMode("view");
       setCurrentTemplate(defaultTemplateData);
       setHasFormErrors(false);
       setValidationMessages({});
+      addDebugLog("Cancelled without unsaved changes");
     }
   }, [formModified]);
 
@@ -306,17 +359,26 @@ const FloorTemplateManager = ({
       event.preventDefault();
       event.stopPropagation();
     }
+    
+    addDebugLog(`Template selection changed to ID: ${templateId}`);
     setSelectedTemplateId(templateId === selectedTemplateId ? null : templateId);
   }, [selectedTemplateId]);
 
   const handleModalClose = useCallback(() => {
-    if (isProcessing) return;
+    if (isProcessing) {
+      addDebugLog("Close prevented - processing in progress");
+      return;
+    }
     
     if (editMode !== "view" && formModified) {
       if (confirm("You have unsaved changes. Are you sure you want to close?")) {
+        addDebugLog("Modal closed with unsaved changes");
         onClose();
+      } else {
+        addDebugLog("Modal close cancelled - unsaved changes");
       }
     } else {
+      addDebugLog("Modal closed normally");
       onClose();
     }
   }, [onClose, editMode, isProcessing, formModified]);
@@ -325,6 +387,8 @@ const FloorTemplateManager = ({
     field: keyof TemplateFormData,
     value: string
   ) => {
+    addDebugLog(`Form field "${field}" changed: ${value}`);
+    
     setCurrentTemplate(prev => ({ ...prev, [field]: value }));
     
     if (!formModified) {
@@ -343,6 +407,30 @@ const FloorTemplateManager = ({
       }
     }
   }, [formModified, validationMessages]);
+
+  const handleForceRefresh = useCallback(() => {
+    addDebugLog("Force refresh triggered");
+    setIsProcessing(true);
+    
+    setEditMode("view");
+    setCurrentTemplate(defaultTemplateData);
+    setDeleteConfirmOpen(false);
+    setTemplateToDelete(null);
+    setSelectedTemplateId(null);
+    setFormModified(false);
+    setSaveSuccessful(false);
+    setHasFormErrors(false);
+    setValidationMessages({});
+    setRecoveryMode(false);
+    
+    toast({
+      title: "UI Refreshed",
+      description: "The interface has been reset. Please try your action again.",
+    });
+    
+    setIsProcessing(false);
+    addDebugLog("Force refresh completed");
+  }, [toast]);
 
   const renderForm = () => (
     <div className="space-y-4">
@@ -466,8 +554,9 @@ const FloorTemplateManager = ({
       <div className="flex justify-end space-x-2 pt-4">
         <Button 
           variant="outline" 
-          onClick={handleCancel}
+          onClick={(e) => handleCancel(e)}
           disabled={isProcessing}
+          type="button"
         >
           Cancel
         </Button>
@@ -475,6 +564,7 @@ const FloorTemplateManager = ({
           onClick={handleSave}
           disabled={isProcessing || hasFormErrors}
           className={saveSuccessful ? "bg-green-600 hover:bg-green-700" : ""}
+          type="button"
         >
           {isProcessing ? (
             <>
@@ -510,6 +600,7 @@ const FloorTemplateManager = ({
           onClick={handleCreateNew}
           className="flex items-center gap-2"
           disabled={isProcessing}
+          type="button"
         >
           <Plus className="h-4 w-4" /> New Template
         </Button>
@@ -523,6 +614,7 @@ const FloorTemplateManager = ({
             className="mt-4"
             onClick={handleCreateNew}
             disabled={isProcessing}
+            type="button"
           >
             Create Your First Template
           </Button>
@@ -566,6 +658,7 @@ const FloorTemplateManager = ({
                         variant="ghost" 
                         size="sm" 
                         onClick={(e) => {
+                          e.preventDefault(); 
                           e.stopPropagation();
                           handleEdit(template);
                         }}
@@ -579,6 +672,7 @@ const FloorTemplateManager = ({
                         variant="ghost" 
                         size="sm" 
                         onClick={(e) => {
+                          e.preventDefault(); 
                           e.stopPropagation();
                           handleDuplicate(template);
                         }}
@@ -605,6 +699,24 @@ const FloorTemplateManager = ({
             ))}
           </div>
         </ScrollArea>
+      )}
+      
+      {recoveryMode && (
+        <div className="mt-4 p-3 border border-amber-200 bg-amber-50 rounded-md">
+          <p className="text-sm text-amber-700 mb-2 flex items-center">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Experiencing UI issues?
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleForceRefresh}
+            className="w-full bg-white"
+            type="button"
+          >
+            <RefreshCcw className="h-4 w-4 mr-2" /> Reset Interface
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -676,10 +788,12 @@ const FloorTemplateManager = ({
             size="sm" 
             onClick={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               handleEdit(template);
             }}
             className="flex items-center gap-2"
             disabled={isProcessing}
+            type="button"
           >
             <Edit className="h-4 w-4" /> Edit Template
           </Button>
@@ -688,10 +802,12 @@ const FloorTemplateManager = ({
             size="sm" 
             onClick={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               handleDuplicate(template);
             }}
             className="flex items-center gap-2"
             disabled={isProcessing}
+            type="button"
           >
             <Copy className="h-4 w-4" /> Duplicate
           </Button>
@@ -723,7 +839,14 @@ const FloorTemplateManager = ({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+      <AlertDialog 
+        open={deleteConfirmOpen} 
+        onOpenChange={(open) => {
+          if (!open) {
+            cancelDelete();
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Template</AlertDialogTitle>
@@ -743,11 +866,22 @@ const FloorTemplateManager = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={cancelDelete} disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel 
+              onClick={(e) => cancelDelete(e)} 
+              disabled={isProcessing}
+              type="button"
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction 
-              onClick={confirmDelete} 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                confirmDelete();
+              }} 
               className="bg-destructive hover:bg-destructive/90"
               disabled={isProcessing}
+              type="button"
             >
               {isProcessing ? (
                 <>
