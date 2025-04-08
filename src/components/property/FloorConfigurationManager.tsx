@@ -47,7 +47,7 @@ const FloorConfigurationManager = ({
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copySourceFloor, setCopySourceFloor] = useState<string>("");
   const [copyTargetFloor, setCopyTargetFloor] = useState<string>("");
-  
+
   const aboveGroundConfigs = floorConfigurations
     .filter(config => !config.isUnderground)
     .sort((a, b) => b.floorNumber - a.floorNumber);

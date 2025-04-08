@@ -35,16 +35,16 @@ export interface FloorPlateTemplate {
 
 export interface SpaceDefinition {
   id: string;
-  name: string;  // Required in FloorConfigurationManager but optional in useExtendedPropertyState
+  name: string;  // Required in FloorConfigurationManager
   type: string;
-  subType?: string | null;
+  subType: string | null;  // Make this required to match what FloorEditor expects
   squareFootage: string;
   dimensions?: {
     width: string;
     depth: string;
   };
   isRentable: boolean;
-  percentage: number;
+  percentage: number;  // Make this required to match what FloorEditor expects
 }
 
 export interface BuildingSystemsConfig {
