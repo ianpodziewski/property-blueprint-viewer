@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -145,7 +144,7 @@ const PropertyBreakdown = () => {
         actualFar={actualFar}
         floorTemplates={floorTemplates}
         addFloorTemplate={addFloorTemplate}
-        updateFloorTemplate={(id, template) => updateFloorTemplate(id, template)}
+        updateFloorTemplate={updateFloorTemplate}
         removeFloorTemplate={removeFloorTemplate}
       />
       
@@ -161,7 +160,7 @@ const PropertyBreakdown = () => {
         removeFloors={removeFloors}
         reorderFloor={reorderFloor}
         addFloorTemplate={addFloorTemplate}
-        updateFloorTemplate={(id, template) => updateFloorTemplate(id, template)}
+        updateFloorTemplate={updateFloorTemplate}
         removeFloorTemplate={removeFloorTemplate}
       />
       
