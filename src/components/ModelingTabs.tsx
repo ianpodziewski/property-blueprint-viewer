@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import MainNavigation from "./MainNavigation";
 import PropertyBreakdown from "./sections/PropertyBreakdown";
 import DevelopmentCosts from "./sections/DevelopmentCosts";
@@ -29,6 +29,7 @@ const ModelingTabs = () => {
     });
   }, [toast]);
   
+  // Listen for floor config saved event
   useEffect(() => {
     let timeoutId: number | undefined;
     
@@ -49,6 +50,23 @@ const ModelingTabs = () => {
     };
   }, [handleFloorConfigSave]);
 
+  // Listen for unit types changed event
+  useEffect(() => {
+    const handleUnitTypesChanged = () => {
+      console.log('Unit types change event detected');
+      toast({
+        title: "Unit types updated",
+        description: "All changes to unit types have been saved."
+      });
+    };
+    
+    window.addEventListener('unitTypesChanged', handleUnitTypesChanged);
+    
+    return () => {
+      window.removeEventListener('unitTypesChanged', handleUnitTypesChanged);
+    };
+  }, [toast]);
+
   return (
     <div className="w-full space-y-4">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
@@ -58,7 +76,9 @@ const ModelingTabs = () => {
       <Tabs value={activeTab} className="w-full" onValueChange={(value) => setActiveTab(value)}>
         <div className="mt-4 bg-white rounded-md p-6 border border-gray-200">
           <TabsContent value="property" className="space-y-4">
-            <PropertyBreakdown key={`property-breakdown-${floorConfigSaved}`} />
+            <TooltipProvider>
+              <PropertyBreakdown key={`property-breakdown-${floorConfigSaved}`} />
+            </TooltipProvider>
           </TabsContent>
           
           <TabsContent value="devCosts" className="space-y-4">

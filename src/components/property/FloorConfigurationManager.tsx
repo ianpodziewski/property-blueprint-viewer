@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -7,10 +8,11 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Table, TableHeader, TableRow, TableHead, TableBody } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Settings, ChevronUp, ChevronDown, ArrowRightLeft, Trash, Building } from "lucide-react";
+import { PlusCircle, Settings, Building, Library } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import FloorTemplateManager from "./FloorTemplateManager";
+import UnitTypeManager from "./UnitTypeManager";
 import { FloorConfiguration, FloorPlateTemplate, SpaceDefinition, BuildingSystemsConfig } from "@/types/propertyTypes";
 import {
   Dialog,
@@ -18,9 +20,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +71,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   const [allSelected, setAllSelected] = useState(false);
   const [addFloorDialogOpen, setAddFloorDialogOpen] = useState(false);
   const [addTemplateDialogOpen, setAddTemplateDialogOpen] = useState(false);
+  const [unitTypeManagerOpen, setUnitTypeManagerOpen] = useState(false);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [selectedFloorForCopy, setSelectedFloorForCopy] = useState<number | null>(null);
@@ -285,6 +286,13 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
             <CardDescription>Define your building's floor layout</CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setUnitTypeManagerOpen(true)}
+            >
+              <Library className="w-4 h-4 mr-1" /> Manage Unit Types
+            </Button>
             <Button 
               variant="outline" 
               size="sm" 
@@ -545,6 +553,12 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         addTemplate={addFloorTemplate}
         updateTemplate={updateFloorTemplate}
         removeTemplate={removeFloorTemplate}
+      />
+      
+      {/* Unit Type Manager Dialog */}
+      <UnitTypeManager
+        isOpen={unitTypeManagerOpen}
+        onClose={() => setUnitTypeManagerOpen(false)}
       />
       
       {/* Copy Configuration Dialog */}

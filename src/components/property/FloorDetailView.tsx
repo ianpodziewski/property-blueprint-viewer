@@ -5,11 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Plus, ArrowRight, Edit, AlertTriangle, Check, Info } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Settings, AlertTriangle, Info } from "lucide-react";
 import { FloorConfiguration, FloorPlateTemplate, SpaceDefinition } from "@/types/propertyTypes";
 import FloorEditor from "./FloorEditor";
 import { useUnitTypes } from "@/hooks/property/useUnitTypes";
@@ -17,6 +16,7 @@ import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
 import { UnitAllocation } from "@/types/unitMixTypes";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface FloorDetailViewProps {
   floor: FloorConfiguration;
@@ -37,7 +37,12 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
     squareFootage: string;
   } | null>(null);
   
-  const { unitTypes, getUnitTypeById } = useUnitTypes();
+  const { 
+    unitTypes, 
+    getUnitTypeById,
+    getAllCategories
+  } = useUnitTypes();
+  
   const { 
     unitAllocations, 
     addAllocation, 
@@ -47,6 +52,9 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
     calculateAllocatedAreaByFloor,
     checkEnoughSpaceForAllocation
   } = useUnitAllocations();
+
+  // Get all categories for grouping unit types
+  const categories = useMemo(() => getAllCategories(), [getAllCategories]);
   
   // Get the floor template
   const template = floorTemplates.find(t => t.id === floor.templateId);
@@ -72,6 +80,17 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
   
   const remainingArea = floorArea - allocatedArea;
   const utilization = floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0;
+  
+  // Group unit types by category for the dropdown
+  const groupedUnitTypes = useMemo(() => {
+    const grouped: Record<string, typeof unitTypes> = {};
+    
+    categories.forEach(category => {
+      grouped[category] = unitTypes.filter(unit => unit.category === category);
+    });
+    
+    return grouped;
+  }, [unitTypes, categories]);
   
   const handleTemplateChange = (templateId: string) => {
     updateFloorConfiguration(floor.floorNumber, "templateId", templateId);
@@ -186,6 +205,9 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
     return "bg-green-500";
   };
   
+  // Calculate rentable area
+  const rentableArea = Math.round(floorArea * (1 - (parseInt(floor.corePercentage || "15") / 100)));
+  
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -276,7 +298,7 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
                 <Input
                   id={`floor-rentable-${floor.floorNumber}`}
                   type="text"
-                  value={Math.round(floorArea * (1 - (parseInt(floor.corePercentage || "15") / 100))).toString()}
+                  value={rentableArea.toString()}
                   readOnly
                   className="bg-gray-50"
                 />
@@ -329,119 +351,150 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
             
             <div className="space-y-4">
               {floorAllocations.length > 0 ? (
-                floorAllocations.map(allocation => {
-                  const unitType = getUnitTypeById(allocation.unitTypeId);
-                  if (!unitType) return null;
-                  
-                  const allocationArea = parseInt(allocation.count as string) * parseInt(allocation.squareFootage as string) || 0;
-                  
-                  return (
-                    <div 
-                      key={allocation.id} 
-                      className="flex items-center p-2 border rounded-md"
-                      style={{ borderLeftWidth: 4, borderLeftColor: unitType.color }}
-                    >
-                      <div className="flex-grow">
-                        <div className="flex items-center">
-                          <span className="font-medium">{unitType.name}</span>
-                          <Badge variant="outline" className="ml-2">{unitType.category}</Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {parseInt(allocation.squareFootage as string).toLocaleString()} sf per unit
-                        </div>
-                      </div>
+                <ScrollArea className="h-[240px] pr-4">
+                  <div className="space-y-3">
+                    {floorAllocations.map(allocation => {
+                      const unitType = getUnitTypeById(allocation.unitTypeId);
+                      if (!unitType) return null;
                       
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => handleUpdateAllocationCount(allocation.id, String(Math.max(0, parseInt(allocation.count as string) - 1)))}
-                            disabled={parseInt(allocation.count as string) <= 1}
-                          >
-                            -
-                          </Button>
-                          <Input
-                            className="w-16 h-7 text-center"
-                            value={allocation.count}
-                            onChange={(e) => handleUpdateAllocationCount(allocation.id, e.target.value)}
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => handleUpdateAllocationCount(allocation.id, String(parseInt(allocation.count as string) + 1))}
-                          >
-                            +
-                          </Button>
-                        </div>
-                        
-                        <div className="text-sm font-medium w-24 text-right">
-                          {allocationArea.toLocaleString()} sf
-                        </div>
-                        
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleRemoveAllocation(allocation.id)}
+                      const allocationArea = parseInt(allocation.count as string) * parseInt(allocation.squareFootage as string) || 0;
+                      
+                      return (
+                        <div 
+                          key={allocation.id} 
+                          className="flex items-center p-2 border rounded-md"
+                          style={{ borderLeftWidth: 4, borderLeftColor: unitType.color }}
                         >
-                          ×
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })
+                          <div className="flex-grow">
+                            <div className="flex items-center">
+                              <span className="font-medium">{unitType.name}</span>
+                              <Badge variant="outline" className="ml-2">{unitType.category}</Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              {parseInt(allocation.squareFootage as string).toLocaleString()} sf per unit
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleUpdateAllocationCount(allocation.id, String(Math.max(0, parseInt(allocation.count as string) - 1)))}
+                                disabled={parseInt(allocation.count as string) <= 1}
+                              >
+                                -
+                              </Button>
+                              <Input
+                                className="w-16 h-7 text-center"
+                                value={allocation.count}
+                                onChange={(e) => handleUpdateAllocationCount(allocation.id, e.target.value)}
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleUpdateAllocationCount(allocation.id, String(parseInt(allocation.count as string) + 1))}
+                              >
+                                +
+                              </Button>
+                            </div>
+                            
+                            <div className="text-sm font-medium w-24 text-right">
+                              {allocationArea.toLocaleString()} sf
+                            </div>
+                            
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleRemoveAllocation(allocation.id)}
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
               ) : (
                 <div className="text-center py-4 border border-dashed rounded-md">
                   <p className="text-muted-foreground text-sm">No spaces assigned to this floor</p>
                 </div>
               )}
               
-              {unitTypes.length > 0 && (
-                <div className="mt-4">
+              {unitTypes.length > 0 && categories.length > 0 && (
+                <div className="mt-4 pt-2 border-t border-gray-100">
                   <Label className="mb-2 block text-sm">Add Unit Type</Label>
                   <Select onValueChange={handleAddUnit}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a unit type to add..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {unitTypes.map(unitType => {
-                        const unitSize = parseInt(unitType.typicalSize) || 0;
-                        const hasSpace = remainingArea >= unitSize;
-                        
-                        return (
-                          <SelectItem key={unitType.id} value={unitType.id}>
-                            <div className="flex items-center">
-                              <div 
-                                className="w-2 h-2 rounded-full mr-2" 
-                                style={{ backgroundColor: unitType.color }}
-                              ></div>
-                              <span>{unitType.name}</span>
-                              <span className="ml-2 text-muted-foreground text-xs">
-                                ({unitType.typicalSize} sf)
-                              </span>
-                              {!hasSpace && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger>
-                                      <span className="ml-2">
-                                        <AlertTriangle className="h-3 w-3 text-amber-500 inline" />
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Insufficient floor space: {unitType.typicalSize} sf needed, {remainingArea} sf available</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
+                      {categories.map(category => (
+                        <React.Fragment key={category}>
+                          <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                            {category}
+                          </div>
+                          {groupedUnitTypes[category]?.map(unitType => {
+                            const unitSize = parseInt(unitType.typicalSize) || 0;
+                            const hasSpace = remainingArea >= unitSize;
+                            
+                            return (
+                              <SelectItem key={unitType.id} value={unitType.id}>
+                                <div className="flex items-center justify-between w-full">
+                                  <div className="flex items-center">
+                                    <div 
+                                      className="w-2 h-2 rounded-full mr-2" 
+                                      style={{ backgroundColor: unitType.color }}
+                                    ></div>
+                                    <span>{unitType.name}</span>
+                                  </div>
+                                  
+                                  <div className="flex items-center">
+                                    <span className="text-muted-foreground text-xs">
+                                      {unitType.typicalSize} sf
+                                    </span>
+                                    {!hasSpace && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger>
+                                            <span className="ml-2">
+                                              <AlertTriangle className="h-3 w-3 text-amber-500 inline" />
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Insufficient floor space: {unitType.typicalSize} sf needed, {remainingArea} sf available</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                          <div className="h-px bg-gray-100 my-1" />
+                        </React.Fragment>
+                      ))}
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+              
+              {(!unitTypes.length || !categories.length) && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-md">
+                  <div className="flex items-start">
+                    <Info className="h-5 w-5 text-blue-500 mt-0.5 mr-2" />
+                    <div>
+                      <p className="text-sm text-blue-700">No unit types available</p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Use the "Manage Unit Types" button in the Floor Configuration header to create unit types.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

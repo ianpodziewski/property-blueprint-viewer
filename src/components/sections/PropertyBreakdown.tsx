@@ -18,7 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpaceDefinition, FloorPlateTemplate } from "@/types/propertyTypes";
 import { Toaster } from "@/components/ui/toaster";
 import { useEffect, useCallback, useRef } from "react";
-import UnitMixPlanning from "@/components/property/UnitMixPlanning";
 
 const PropertyBreakdown = () => {
   
@@ -73,9 +72,6 @@ const PropertyBreakdown = () => {
   
   // Get common handlers from the model state to ensure persistence
   const { handleTextChange, handleNumberChange } = useModelState();
-  
-  // Reference to the UnitMix section for smooth scrolling
-  const unitMixSectionRef = useRef<HTMLDivElement>(null);
 
   // Ensure clean-up of any global event listeners when component unmounts
   useEffect(() => {
@@ -86,14 +82,6 @@ const PropertyBreakdown = () => {
         modal.removeAttribute('data-state');
       });
     };
-  }, []);
-  
-  // Function to scroll to unit mix section with smooth animation
-  const scrollToUnitMix = useCallback(() => {
-    const unitMixSection = document.getElementById('unit-mix-section');
-    if (unitMixSection) {
-      unitMixSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
   }, []);
 
   // Generate data for visualizations
@@ -213,7 +201,7 @@ const PropertyBreakdown = () => {
         removeFloorTemplate={removeFloorTemplate}
       />
       
-      {/* Floor Configuration Manager - moved before Unit Mix Planning */}
+      {/* Floor Configuration Manager */}
       <FloorConfigurationManager 
         floorConfigurations={floorConfigurations}
         floorTemplates={floorTemplates}
@@ -228,23 +216,6 @@ const PropertyBreakdown = () => {
         updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
         removeFloorTemplate={removeFloorTemplate}
       />
-      
-      {/* Transition element to guide users to Unit Mix Planning */}
-      <div className="flex justify-center py-4">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-2">Now that you've defined your building structure, let's plan the unit mix</p>
-          <Button 
-            onClick={scrollToUnitMix}
-            variant="ghost"
-            className="text-primary hover:text-primary/80 font-medium"
-          >
-            Continue to Unit Mix Planning
-          </Button>
-        </div>
-      </div>
-
-      {/* Unit Mix Planning Section - moved after Floor Configuration */}
-      <UnitMixPlanning />
       
       {/* Visualizations Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

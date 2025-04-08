@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { UnitType } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
@@ -168,7 +169,8 @@ export const useUnitTypes = () => {
     }, 0);
   }, [unitTypes]);
 
-  const getUnitTypeById = useCallback((id: string) => {
+  const getUnitTypeById = useCallback((id: string | undefined) => {
+    if (!id) return undefined;
     return unitTypes.find(unit => unit.id === id);
   }, [unitTypes]);
 

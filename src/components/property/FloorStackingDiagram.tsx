@@ -1,22 +1,22 @@
 
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowUp, ArrowDown, Edit } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ChevronUp, ChevronDown } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FloorConfiguration, FloorPlateTemplate } from "@/types/propertyTypes";
+import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
+import { useUnitTypes } from "@/hooks/property/useUnitTypes";
 
 interface FloorData {
   floorNumber: number;
-  spaces: {
-    id: string;
-    type: string;
-    squareFootage: number;
-    percentage: number;
-  }[];
   isUnderground: boolean;
+  name?: string;
+  squareFootage: number;
+  primaryUse?: string;
+  secondaryUse?: string;
+  spaces?: { name: string; type: string; squareFootage: number }[];
 }
 
 interface FloorStackingDiagramProps {
@@ -24,353 +24,219 @@ interface FloorStackingDiagramProps {
   spaceTypeColors: Record<string, string>;
   floorTemplates: FloorPlateTemplate[];
   floorConfigurations: FloorConfiguration[];
-  updateFloorConfiguration: (
-    floorNumber: number,
-    field: keyof FloorConfiguration,
-    value: string | null | boolean
-  ) => void;
+  updateFloorConfiguration: (floorNumber: number, field: keyof FloorConfiguration, value: any) => void;
   reorderFloor: (floorNumber: number, direction: "up" | "down") => void;
 }
 
-const FloorStackingDiagram = ({
-  floors,
-  spaceTypeColors,
+const FloorStackingDiagram: React.FC<FloorStackingDiagramProps> = ({ 
+  floors, 
+  spaceTypeColors, 
   floorTemplates,
   floorConfigurations,
   updateFloorConfiguration,
   reorderFloor
-}: FloorStackingDiagramProps) => {
+}) => {
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   
-  // Sort floors by number, with highest floor number at the top for above-ground floors
-  const aboveGroundFloors = floors
-    .filter((floor) => !floor.isUnderground)
-    .sort((a, b) => b.floorNumber - a.floorNumber);
+  const { getAllocationsByFloor, calculateAllocatedAreaByFloor } = useUnitAllocations();
+  const { getUnitTypeById } = useUnitTypes();
   
-  // Sort underground floors with most negative at the bottom
-  const belowGroundFloors = floors
-    .filter((floor) => floor.isUnderground)
-    .sort((a, b) => a.floorNumber - b.floorNumber);
-
-  const getTemplateInfo = (floorNumber: number) => {
-    const config = floorConfigurations.find(c => c.floorNumber === floorNumber);
-    if (!config) return null;
-
-    if (config.customSquareFootage) {
-      return { name: "Custom", area: config.customSquareFootage };
+  // Helper to get floor color based on primary use
+  const getFloorColor = (primaryUse: string | undefined) => {
+    switch (primaryUse) {
+      case 'residential':
+        return 'bg-blue-100 border-blue-300';
+      case 'retail':
+        return 'bg-green-100 border-green-300';
+      case 'office':
+        return 'bg-purple-100 border-purple-300';
+      case 'parking':
+        return 'bg-gray-100 border-gray-300';
+      case 'hotel':
+        return 'bg-pink-100 border-pink-300';
+      case 'amenities':
+        return 'bg-yellow-100 border-yellow-300';
+      case 'storage':
+        return 'bg-neutral-100 border-neutral-300';
+      case 'mechanical':
+        return 'bg-zinc-100 border-zinc-300';
+      default:
+        return 'bg-slate-100 border-slate-300';
     }
-
-    const template = config.templateId 
-      ? floorTemplates.find(t => t.id === config.templateId) 
-      : null;
-
-    return template
-      ? { name: template.name, area: template.squareFootage } 
-      : { name: "Unknown", area: "0" };
+  };
+  
+  // Get primary use for a floor
+  const getFloorPrimaryUse = (floorNumber: number): string => {
+    const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
+    return floorConfig?.primaryUse || 'office';
+  };
+  
+  // Calculate utilization ratio for floor
+  const getFloorUtilization = (floorNumber: number): number => {
+    const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
+    if (!floorConfig) return 0;
+    
+    const template = floorTemplates.find(t => t.id === floorConfig.templateId);
+    const floorArea = floorConfig.customSquareFootage && floorConfig.customSquareFootage !== "" 
+      ? parseInt(floorConfig.customSquareFootage)
+      : template ? parseInt(template.squareFootage) : 0;
+    
+    if (floorArea === 0) return 0;
+    
+    const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
+    return (allocatedArea / floorArea) * 100;
+  };
+  
+  // Get unit allocation summary for tooltip
+  const getFloorUnitSummary = (floorNumber: number) => {
+    const allocations = getAllocationsByFloor(floorNumber);
+    if (allocations.length === 0) return "No units allocated";
+    
+    // Group by category
+    const categoryTotals: Record<string, {count: number, area: number}> = {};
+    
+    allocations.forEach(allocation => {
+      const unitType = getUnitTypeById(allocation.unitTypeId);
+      if (!unitType) return;
+      
+      const category = unitType.category;
+      const count = parseInt(allocation.count as string) || 0;
+      const area = count * (parseInt(allocation.squareFootage as string) || 0);
+      
+      if (!categoryTotals[category]) {
+        categoryTotals[category] = { count: 0, area: 0 };
+      }
+      
+      categoryTotals[category].count += count;
+      categoryTotals[category].area += area;
+    });
+    
+    return (
+      <div className="space-y-2 w-56">
+        <p className="font-medium text-sm mb-1">Unit Allocation</p>
+        {Object.entries(categoryTotals).map(([category, data]) => (
+          <div key={category} className="flex justify-between text-xs">
+            <span>{category}:</span>
+            <span>{data.count} units ({data.area.toLocaleString()} sf)</span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
-  const canMoveUp = (floorNumber: number) => {
-    if (floorNumber === Math.max(...floors.map(f => f.floorNumber))) return false;
-    const isUnderground = floors.find(f => f.floorNumber === floorNumber)?.isUnderground;
-    const siblingFloors = isUnderground ? belowGroundFloors : aboveGroundFloors;
-    const index = siblingFloors.findIndex(f => f.floorNumber === floorNumber);
-    return index > 0;
+  // Function to get template name
+  const getTemplateName = (floorNumber: number): string => {
+    const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
+    if (!floorConfig || !floorConfig.templateId) return 'Custom';
+    
+    const template = floorTemplates.find(t => t.id === floorConfig.templateId);
+    return template ? template.name : 'Unknown Template';
   };
-
-  const canMoveDown = (floorNumber: number) => {
-    if (floorNumber === Math.min(...floors.map(f => f.floorNumber))) return false;
-    const isUnderground = floors.find(f => f.floorNumber === floorNumber)?.isUnderground;
-    const siblingFloors = isUnderground ? belowGroundFloors : aboveGroundFloors;
-    const index = siblingFloors.findIndex(f => f.floorNumber === floorNumber);
-    return index < siblingFloors.length - 1;
-  };
-
-  const calculateFloorBarWidth = (spaces: FloorData["spaces"]) => {
-    // Only representing percentage relative to the largest floor
-    return 85; // Use a consistent percentage for visual clarity
-  };
-
-  const getTotalSquareFootage = (spaces: FloorData["spaces"]) => {
-    return spaces.reduce((sum, space) => sum + space.squareFootage, 0);
-  };
-
-  const handleOpenFloorEditor = (floorNumber: number) => {
-    const config = floorConfigurations.find(c => c.floorNumber === floorNumber);
-    if (config) {
-      // This could trigger the FloorEditor component through the parent
-      setSelectedFloor(floorNumber);
+  
+  // Sort floors by number, with above-ground floors at the top
+  const sortedFloors = [...floors].sort((a, b) => {
+    if (a.isUnderground && b.isUnderground) {
+      return a.floorNumber - b.floorNumber;
+    } else if (!a.isUnderground && !b.isUnderground) {
+      return b.floorNumber - a.floorNumber;
+    } else {
+      return a.isUnderground ? -1 : 1;
     }
+  });
+  
+  const getUtilizationColor = (utilization: number) => {
+    if (utilization >= 95) return 'bg-red-400';
+    if (utilization >= 80) return 'bg-amber-400';
+    if (utilization >= 50) return 'bg-green-400';
+    return 'bg-blue-200';
   };
 
   return (
     <Card className="h-full">
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>Floor Stacking Diagram</CardTitle>
-            <CardDescription>Visualize the vertical arrangement of your building</CardDescription>
-          </div>
-        </div>
+      <CardHeader className="border-b">
+        <CardTitle className="text-lg font-medium">Floor Stacking Diagram</CardTitle>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[400px] pr-4">
-          <div className="space-y-2">
-            {aboveGroundFloors.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-medium mb-3">Above Ground</h3>
-                {aboveGroundFloors.map((floor) => {
-                  const totalArea = getTotalSquareFootage(floor.spaces);
-                  const barWidth = calculateFloorBarWidth(floor.spaces);
-                  const templateInfo = getTemplateInfo(floor.floorNumber);
-                  
-                  return (
-                    <div 
-                      key={floor.floorNumber} 
-                      className={`flex items-center mb-2 ${selectedFloor === floor.floorNumber ? 'bg-muted/40 rounded-l' : ''}`}
-                    >
-                      <div className="w-10 text-right pr-2 font-medium">
-                        {floor.floorNumber}
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center">
-                          <div 
-                            className="flex h-10 rounded-sm overflow-hidden"
-                            style={{ width: `${barWidth}%` }}
-                          >
-                            {floor.spaces.map((space) => (
-                              <div
-                                key={space.id}
-                                className="h-full"
-                                style={{ 
-                                  width: `${space.percentage}%`,
-                                  backgroundColor: spaceTypeColors[space.type] || '#9CA3AF',
-                                }}
-                                title={`${space.type}: ${space.squareFootage.toLocaleString()} sf (${space.percentage.toFixed(0)}%)`}
-                              />
-                            ))}
-                          </div>
-                          
-                          <div className="ml-3 text-xs text-gray-600">
-                            {totalArea.toLocaleString()} sf
-                            {templateInfo && (
-                              <span className="ml-2 opacity-60">
-                                ({templateInfo.name})
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="ml-auto flex items-center gap-1">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    disabled={!canMoveUp(floor.floorNumber)}
-                                    onClick={() => reorderFloor(floor.floorNumber, "up")}
-                                  >
-                                    <ArrowUp className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Move floor up</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    disabled={!canMoveDown(floor.floorNumber)}
-                                    onClick={() => reorderFloor(floor.floorNumber, "down")}
-                                  >
-                                    <ArrowDown className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Move floor down</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={() => handleOpenFloorEditor(floor.floorNumber)}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Edit floor</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        </div>
+      <CardContent className="p-4">
+        <div className="space-y-2 max-h-[450px] overflow-y-auto py-2 pr-1">
+          <TooltipProvider>
+            {sortedFloors.map((floor) => {
+              const isSelected = selectedFloor === floor.floorNumber;
+              const floorColorClass = getFloorColor(getFloorPrimaryUse(floor.floorNumber));
+              const utilization = getFloorUtilization(floor.floorNumber);
+              const utilizationWidth = `${Math.min(utilization, 100)}%`;
+              
+              return (
+                <div 
+                  key={floor.floorNumber}
+                  className={`relative border rounded-md transition-all ${isSelected ? 'ring-2 ring-primary' : ''}`}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className={`relative flex items-center cursor-pointer overflow-hidden ${floorColorClass} p-2`}
+                        onClick={() => setSelectedFloor(isSelected ? null : floor.floorNumber)}
+                      >
+                        {/* Space Utilization Bar */}
+                        <div 
+                          className={`absolute left-0 top-0 h-full ${getUtilizationColor(utilization)} opacity-40 transition-all`} 
+                          style={{ width: utilizationWidth }}
+                        ></div>
                         
-                        {/* Primary use indicators */}
-                        <div className="flex mt-1 gap-1">
-                          {floor.spaces.length > 0 && floor.spaces.map((space) => (
+                        <div className="relative flex items-center justify-between w-full">
+                          <div className="flex items-center space-x-2">
                             <Badge 
-                              key={space.id} 
-                              variant="outline"
-                              className="text-xs py-0 h-5 capitalize"
-                              style={{ 
-                                borderColor: spaceTypeColors[space.type] || '#9CA3AF',
-                                backgroundColor: `${spaceTypeColors[space.type] || '#9CA3AF'}15`
-                              }}
+                              variant={floor.isUnderground ? "outline" : "secondary"}
+                              className={floor.isUnderground ? "bg-gray-100" : ""}
                             >
-                              {space.type}
+                              {floor.floorNumber}
                             </Badge>
-                          ))}
+                            <span className="text-sm font-medium">
+                              {getTemplateName(floor.floorNumber)}
+                            </span>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-muted-foreground">
+                              {Math.round(utilization)}% Used
+                            </span>
+                            <span className="text-xs">
+                              {floor.squareFootage.toLocaleString()} sf
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            
-            {belowGroundFloors.length > 0 && (
-              <div className="mb-2">
-                <h3 className="text-sm font-medium mb-3">Below Ground</h3>
-                {belowGroundFloors.map((floor) => {
-                  const totalArea = getTotalSquareFootage(floor.spaces);
-                  const barWidth = calculateFloorBarWidth(floor.spaces);
-                  const templateInfo = getTemplateInfo(floor.floorNumber);
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      {getFloorUnitSummary(floor.floorNumber)}
+                    </TooltipContent>
+                  </Tooltip>
                   
-                  return (
-                    <div 
-                      key={floor.floorNumber} 
-                      className={`flex items-center mb-2 ${selectedFloor === floor.floorNumber ? 'bg-muted/40 rounded-l' : ''}`}
-                    >
-                      <div className="w-10 text-right pr-2 font-medium">
-                        B{Math.abs(floor.floorNumber)}
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center">
-                          <div 
-                            className="flex h-10 rounded-sm overflow-hidden"
-                            style={{ width: `${barWidth}%` }}
-                          >
-                            {floor.spaces.map((space) => (
-                              <div
-                                key={space.id}
-                                className="h-full"
-                                style={{ 
-                                  width: `${space.percentage}%`,
-                                  backgroundColor: spaceTypeColors[space.type] || '#9CA3AF',
-                                }}
-                                title={`${space.type}: ${space.squareFootage.toLocaleString()} sf (${space.percentage.toFixed(0)}%)`}
-                              />
-                            ))}
-                          </div>
-                          
-                          <div className="ml-3 text-xs text-gray-600">
-                            {totalArea.toLocaleString()} sf
-                            {templateInfo && (
-                              <span className="ml-2 opacity-60">
-                                ({templateInfo.name})
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="ml-auto flex items-center gap-1">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    disabled={!canMoveUp(floor.floorNumber)}
-                                    onClick={() => reorderFloor(floor.floorNumber, "up")}
-                                  >
-                                    <ArrowUp className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Move floor up</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    disabled={!canMoveDown(floor.floorNumber)}
-                                    onClick={() => reorderFloor(floor.floorNumber, "down")}
-                                  >
-                                    <ArrowDown className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Move floor down</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={() => handleOpenFloorEditor(floor.floorNumber)}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Edit floor</TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        </div>
-                        
-                        {/* Primary use indicators */}
-                        <div className="flex mt-1 gap-1">
-                          {floor.spaces.length > 0 && floor.spaces.map((space) => (
-                            <Badge 
-                              key={space.id} 
-                              variant="outline"
-                              className="text-xs py-0 h-5 capitalize"
-                              style={{ 
-                                borderColor: spaceTypeColors[space.type] || '#9CA3AF',
-                                backgroundColor: `${spaceTypeColors[space.type] || '#9CA3AF'}15`
-                              }}
-                            >
-                              {space.type}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
+                  {/* Reorder buttons, only shown when floor is selected */}
+                  {isSelected && (
+                    <div className="absolute -right-10 top-0 h-full flex flex-col justify-center space-y-1">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-7 w-7"
+                        onClick={() => reorderFloor(floor.floorNumber, "up")}
+                      >
+                        <ChevronUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-7 w-7"
+                        onClick={() => reorderFloor(floor.floorNumber, "down")}
+                      >
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          
-          {/* Space type color legend */}
-          <div className="mt-6 pt-4 border-t">
-            <h3 className="text-sm font-medium mb-2">Legend</h3>
-            <div className="flex flex-wrap gap-3">
-              {Object.entries(spaceTypeColors).map(([type, color]) => (
-                <div key={type} className="flex items-center">
-                  <div className="w-3 h-3 rounded-sm mr-1.5" style={{ backgroundColor: color }}></div>
-                  <span className="text-xs capitalize">{type}</span>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-        </ScrollArea>
+              );
+            })}
+          </TooltipProvider>
+        </div>
       </CardContent>
     </Card>
   );

@@ -1,354 +1,272 @@
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEffect, useRef, useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { FloorConfiguration, FloorPlateTemplate } from "@/types/propertyTypes";
+import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
+import { useUnitTypes } from "@/hooks/property/useUnitTypes";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-interface SpaceBreakdown {
+interface SpaceBreakdownItem {
   type: string;
   squareFootage: number;
-  color: string;
-  floorAllocation: Record<number, number>;
-}
-
-interface FloorConfiguration {
-  floorNumber: number;
-  isUnderground: boolean;
-  templateId: string | null;
-  customSquareFootage: string;
-  floorToFloorHeight: string;
-  primaryUse: string;
-  secondaryUse: string | null;
-  secondaryUsePercentage: string;
-}
-
-interface FloorTemplate {
-  id: string;
-  name: string;
-  squareFootage: string;
+  percentage: number;
+  color?: string;
 }
 
 interface BuildingMassingVisualizationProps {
   buildingFootprint: number;
   numberOfFloors: number;
   numberOfUndergroundFloors: number;
-  spaceBreakdown: SpaceBreakdown[];
+  spaceBreakdown: SpaceBreakdownItem[];
   floorConfigurations: FloorConfiguration[];
-  floorTemplates: FloorTemplate[];
+  floorTemplates: FloorPlateTemplate[];
 }
 
-const BuildingMassingVisualization = ({ 
-  buildingFootprint, 
+const BuildingMassingVisualization: React.FC<BuildingMassingVisualizationProps> = ({
+  buildingFootprint,
   numberOfFloors,
   numberOfUndergroundFloors,
   spaceBreakdown,
   floorConfigurations,
   floorTemplates
-}: BuildingMassingVisualizationProps) => {
-  const massingCanvasRef = useRef<HTMLCanvasElement>(null);
-  const elevationCanvasRef = useRef<HTMLCanvasElement>(null);
-  const [view, setView] = useState<'massing' | 'elevation'>('massing');
+}) => {
+  const { calculateAllocatedAreaByFloor, getAllocationsByFloor } = useUnitAllocations();
+  const { getUnitTypeById, getAllCategories } = useUnitTypes();
   
-  // Draw the building massing diagram
-  useEffect(() => {
-    if (!massingCanvasRef.current) return;
+  // Helper to calculate utilization for a floor
+  const calculateFloorUtilization = (floorNumber: number) => {
+    const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
+    if (!floorConfig) return 0;
     
-    const canvas = massingCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const template = floorTemplates.find(t => t.id === floorConfig.templateId);
+    const floorArea = floorConfig.customSquareFootage && floorConfig.customSquareFootage !== "" 
+      ? parseInt(floorConfig.customSquareFootage) 
+      : template ? parseInt(template.squareFootage) : 0;
     
-    // Calculate building dimensions based on square footage
-    const footprintArea = buildingFootprint;
-    const baseSideLength = Math.sqrt(footprintArea);
-    const floorCount = Number(numberOfFloors) || 1;
-    const undergroundFloorCount = Number(numberOfUndergroundFloors) || 0;
-    const totalFloorCount = floorCount + undergroundFloorCount;
+    if (floorArea === 0) return 0;
     
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Calculate scale to fit within canvas
-    const maxDimension = Math.max(baseSideLength * 1.2, totalFloorCount * 20);
-    const scale = Math.min(canvas.width * 0.7 / maxDimension, canvas.height * 0.7 / maxDimension);
-    
-    // Calculate building dimensions after scaling
-    const baseWidth = baseSideLength * scale;
-    const floorHeight = 20 * scale;
-    const aboveGroundHeight = floorCount * floorHeight;
-    const belowGroundHeight = undergroundFloorCount * floorHeight;
-    const totalHeight = aboveGroundHeight + belowGroundHeight;
-    
-    // Center the building in canvas
-    const offsetX = (canvas.width - baseWidth) / 2;
-    const groundLevel = canvas.height - 30 - belowGroundHeight;
-    
-    // Draw ground level
-    ctx.fillStyle = '#D1D5DB';
-    ctx.fillRect(offsetX - 50, groundLevel, baseWidth + 100, 5);
-    
-    // Helper to get floor area
-    const getFloorArea = (floorNumber: number) => {
-      const config = floorConfigurations.find(f => f.floorNumber === floorNumber);
-      if (!config) return buildingFootprint;
-      
-      if (config.customSquareFootage && parseFloat(config.customSquareFootage) > 0) {
-        return parseFloat(config.customSquareFootage);
-      }
-      
-      if (config.templateId) {
-        const template = floorTemplates.find(t => t.id === config.templateId);
-        if (template && parseFloat(template.squareFootage) > 0) {
-          return parseFloat(template.squareFootage);
-        }
-      }
-      
-      return buildingFootprint;
-    };
-    
-    // Helper to determine floor width based on area
-    const getFloorWidth = (floorArea: number) => {
-      const ratio = floorArea / buildingFootprint;
-      return baseWidth * Math.sqrt(ratio);
-    };
-    
-    // Draw underground floors
-    for (let floor = 1; floor <= undergroundFloorCount; floor++) {
-      const floorNumber = -floor;
-      const y = groundLevel + ((floor - 1) * floorHeight);
-      
-      const floorArea = getFloorArea(floorNumber);
-      const floorWidth = getFloorWidth(floorArea);
-      
-      // Determine space allocations for this floor
-      const config = floorConfigurations.find(f => f.floorNumber === floorNumber);
-      
-      if (config) {
-        // Primary use
-        const primaryPct = 100 - (parseFloat(config.secondaryUsePercentage) || 0);
-        const primaryWidth = floorWidth * (primaryPct / 100);
-        
-        ctx.fillStyle = getSpaceColor(config.primaryUse);
-        ctx.fillRect(offsetX + (baseWidth - floorWidth)/2, y, primaryWidth, floorHeight);
-        ctx.strokeStyle = '#9CA3AF';
-        ctx.strokeRect(offsetX + (baseWidth - floorWidth)/2, y, primaryWidth, floorHeight);
-        
-        // Secondary use if any
-        if (config.secondaryUse && parseFloat(config.secondaryUsePercentage) > 0) {
-          const secondaryPct = parseFloat(config.secondaryUsePercentage);
-          const secondaryWidth = floorWidth * (secondaryPct / 100);
-          
-          ctx.fillStyle = getSpaceColor(config.secondaryUse);
-          ctx.fillRect(
-            offsetX + (baseWidth - floorWidth)/2 + primaryWidth, 
-            y, 
-            secondaryWidth, 
-            floorHeight
-          );
-          ctx.strokeStyle = '#9CA3AF';
-          ctx.strokeRect(
-            offsetX + (baseWidth - floorWidth)/2 + primaryWidth, 
-            y, 
-            secondaryWidth, 
-            floorHeight
-          );
-        }
-      } else {
-        // Default gray if no configuration
-        ctx.fillStyle = '#E5E7EB';
-        ctx.fillRect(offsetX + (baseWidth - floorWidth)/2, y, floorWidth, floorHeight);
-        ctx.strokeStyle = '#9CA3AF';
-        ctx.strokeRect(offsetX + (baseWidth - floorWidth)/2, y, floorWidth, floorHeight);
-      }
-      
-      // Floor number
-      ctx.fillStyle = '#000';
-      ctx.font = `${Math.max(10, scale * 7)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(`B${floor}`, offsetX - 15, y + floorHeight / 2 + 5);
-    }
-    
-    // Draw above-ground floors
-    for (let floor = 0; floor < floorCount; floor++) {
-      const floorNumber = floor + 1;
-      const y = groundLevel - ((floor + 1) * floorHeight);
-      
-      const floorArea = getFloorArea(floorNumber);
-      const floorWidth = getFloorWidth(floorArea);
-      
-      // Determine space allocations for this floor
-      const config = floorConfigurations.find(f => f.floorNumber === floorNumber);
-      
-      if (config) {
-        // Primary use
-        const primaryPct = 100 - (parseFloat(config.secondaryUsePercentage) || 0);
-        const primaryWidth = floorWidth * (primaryPct / 100);
-        
-        ctx.fillStyle = getSpaceColor(config.primaryUse);
-        ctx.fillRect(offsetX + (baseWidth - floorWidth)/2, y, primaryWidth, floorHeight);
-        ctx.strokeStyle = '#9CA3AF';
-        ctx.strokeRect(offsetX + (baseWidth - floorWidth)/2, y, primaryWidth, floorHeight);
-        
-        // Secondary use if any
-        if (config.secondaryUse && parseFloat(config.secondaryUsePercentage) > 0) {
-          const secondaryPct = parseFloat(config.secondaryUsePercentage);
-          const secondaryWidth = floorWidth * (secondaryPct / 100);
-          
-          ctx.fillStyle = getSpaceColor(config.secondaryUse);
-          ctx.fillRect(
-            offsetX + (baseWidth - floorWidth)/2 + primaryWidth, 
-            y, 
-            secondaryWidth, 
-            floorHeight
-          );
-          ctx.strokeStyle = '#9CA3AF';
-          ctx.strokeRect(
-            offsetX + (baseWidth - floorWidth)/2 + primaryWidth, 
-            y, 
-            secondaryWidth, 
-            floorHeight
-          );
-        }
-      } else {
-        // Default gray if no configuration
-        ctx.fillStyle = '#E5E7EB';
-        ctx.fillRect(offsetX + (baseWidth - floorWidth)/2, y, floorWidth, floorHeight);
-        ctx.strokeStyle = '#9CA3AF';
-        ctx.strokeRect(offsetX + (baseWidth - floorWidth)/2, y, floorWidth, floorHeight);
-      }
-      
-      // Floor number
-      ctx.fillStyle = '#000';
-      ctx.font = `${Math.max(10, scale * 7)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(`${floorNumber}`, offsetX - 15, y + floorHeight / 2 + 5);
-    }
-    
-  }, [buildingFootprint, numberOfFloors, numberOfUndergroundFloors, spaceBreakdown, floorConfigurations, floorTemplates]);
-
-  // Draw side elevation view
-  useEffect(() => {
-    if (!elevationCanvasRef.current) return;
-    
-    const canvas = elevationCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Sort floor configurations
-    const sortedConfigs = [...floorConfigurations].sort((a, b) => b.floorNumber - a.floorNumber);
-    const aboveGroundConfigs = sortedConfigs.filter(c => !c.isUnderground);
-    const belowGroundConfigs = sortedConfigs.filter(c => c.isUnderground).sort((a, b) => a.floorNumber - b.floorNumber);
-    
-    // Calculate dimensions
-    const width = 150;
-    const padding = 30;
-    const offsetX = (canvas.width - width) / 2;
-    
-    // Calculate total height by summing all floor heights
-    let totalAboveHeight = 0;
-    let totalBelowHeight = 0;
-    
-    aboveGroundConfigs.forEach(config => {
-      totalAboveHeight += parseFloat(config.floorToFloorHeight) || 12;
-    });
-    
-    belowGroundConfigs.forEach(config => {
-      totalBelowHeight += parseFloat(config.floorToFloorHeight) || 12;
-    });
-    
-    // Scale to fit
-    const totalHeight = totalAboveHeight + totalBelowHeight;
-    const availableHeight = canvas.height - (padding * 2);
-    const scale = totalHeight > 0 ? availableHeight / totalHeight : 1;
-    
-    // Draw ground level
-    const groundY = padding + (totalAboveHeight * scale);
-    ctx.fillStyle = '#D1D5DB';
-    ctx.fillRect(offsetX - 20, groundY, width + 40, 3);
-    
-    // Draw building label
-    ctx.fillStyle = '#000';
-    ctx.font = '12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Side Elevation', canvas.width / 2, canvas.height - 10);
-    
-    // Draw above-ground floors
-    let currentY = groundY;
-    aboveGroundConfigs.forEach((config, index) => {
-      const floorHeight = (parseFloat(config.floorToFloorHeight) || 12) * scale;
-      currentY -= floorHeight;
-      
-      // Draw floor
-      ctx.fillStyle = getSpaceColor(config.primaryUse);
-      ctx.fillRect(offsetX, currentY, width, floorHeight);
-      ctx.strokeStyle = '#9CA3AF';
-      ctx.strokeRect(offsetX, currentY, width, floorHeight);
-      
-      // Draw floor number and height
-      ctx.fillStyle = '#000';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`${config.floorNumber}`, offsetX - 25, currentY + (floorHeight / 2) + 3);
-      
-      // Draw height label
-      ctx.textAlign = 'right';
-      ctx.fillText(`${config.floorToFloorHeight}'`, offsetX + width + 25, currentY + (floorHeight / 2) + 3);
-    });
-    
-    // Draw below-ground floors
-    currentY = groundY;
-    belowGroundConfigs.forEach((config, index) => {
-      const floorHeight = (parseFloat(config.floorToFloorHeight) || 12) * scale;
-      
-      // Draw floor
-      ctx.fillStyle = getSpaceColor(config.primaryUse);
-      ctx.fillRect(offsetX, currentY, width, floorHeight);
-      ctx.strokeStyle = '#9CA3AF';
-      ctx.strokeRect(offsetX, currentY, width, floorHeight);
-      
-      // Draw floor number and height
-      ctx.fillStyle = '#000';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`B${Math.abs(config.floorNumber)}`, offsetX - 25, currentY + (floorHeight / 2) + 3);
-      
-      // Draw height label
-      ctx.textAlign = 'right';
-      ctx.fillText(`${config.floorToFloorHeight}'`, offsetX + width + 25, currentY + (floorHeight / 2) + 3);
-      
-      currentY += floorHeight;
-    });
-    
-  }, [floorConfigurations]);
-  
-  // Helper to get color for a space type
-  const getSpaceColor = (spaceType: string) => {
-    const matchedSpace = spaceBreakdown.find(space => space.type === spaceType);
-    return matchedSpace?.color || '#9CA3AF';
+    const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
+    return (allocatedArea / floorArea) * 100;
   };
   
+  // Get color for floor based on primary category allocation
+  const getFloorPrimaryCategory = (floorNumber: number) => {
+    const allocations = getAllocationsByFloor(floorNumber);
+    if (allocations.length === 0) {
+      return {
+        category: null,
+        color: null,
+        utilization: 0
+      };
+    }
+    
+    // Group by category
+    const categoryArea: Record<string, number> = {};
+    let totalArea = 0;
+    
+    allocations.forEach(allocation => {
+      const unitType = getUnitTypeById(allocation.unitTypeId);
+      if (!unitType) return;
+      
+      const category = unitType.category;
+      const area = (parseInt(allocation.count as string) || 0) * 
+                  (parseInt(allocation.squareFootage as string) || 0);
+      
+      if (!categoryArea[category]) {
+        categoryArea[category] = 0;
+      }
+      
+      categoryArea[category] += area;
+      totalArea += area;
+    });
+    
+    // Find category with most area
+    let maxCategory = null;
+    let maxArea = 0;
+    
+    Object.entries(categoryArea).forEach(([category, area]) => {
+      if (area > maxArea) {
+        maxCategory = category;
+        maxArea = area;
+      }
+    });
+    
+    if (!maxCategory) return {
+      category: null,
+      color: null,
+      utilization: 0
+    };
+    
+    // Get the color for this category
+    const unitType = allocations.find(a => {
+      const ut = getUnitTypeById(a.unitTypeId);
+      return ut && ut.category === maxCategory;
+    });
+    
+    const ut = unitType ? getUnitTypeById(unitType.unitTypeId) : null;
+    const utilization = calculateFloorUtilization(floorNumber);
+    
+    return {
+      category: maxCategory,
+      color: ut?.color || '#E5DEFF',
+      utilization
+    };
+  };
+  
+  // Default building proportions
+  const buildingHeight = 350; // Maximum height in pixels
+  const maxWidth = 250; // Maximum width in pixels
+  
+  const floorHeight = numberOfFloors > 0 ? Math.min(buildingHeight / numberOfFloors, 40) : 40;
+  const undergroundFloorHeight = numberOfUndergroundFloors > 0 ? Math.min(100 / numberOfUndergroundFloors, 40) : 0;
+  
+  // Scale building width based on footprint
+  const buildingWidth = Math.min(Math.max(buildingFootprint / 100, 150), maxWidth);
+  
+  // Calculate total height
+  const totalBuildingHeight = floorHeight * numberOfFloors;
+  const totalUndergroundHeight = undergroundFloorHeight * numberOfUndergroundFloors;
+
+  // Sort floors for rendering
+  const sortedFloors = [...floorConfigurations].sort((a, b) => {
+    if (a.isUnderground && b.isUnderground) {
+      return a.floorNumber - b.floorNumber;
+    } else if (!a.isUnderground && !b.isUnderground) {
+      return b.floorNumber - a.floorNumber;
+    } else {
+      return a.isUnderground ? 1 : -1;
+    }
+  });
+  
+  // Group floors by type (above ground vs underground)
+  const aboveGroundFloors = sortedFloors.filter(f => !f.isUnderground);
+  const undergroundFloors = sortedFloors.filter(f => f.isUnderground);
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Building Visualization</CardTitle>
-        <CardDescription>Visual representation of building massing and space usage</CardDescription>
+    <Card className="h-full">
+      <CardHeader className="border-b">
+        <CardTitle className="text-lg font-medium">Building Visualization</CardTitle>
       </CardHeader>
-      <CardContent>
-        <Tabs value={view} onValueChange={(v) => setView(v as 'massing' | 'elevation')} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="massing">3D Massing</TabsTrigger>
-            <TabsTrigger value="elevation">Side Elevation</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="massing" className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-            <canvas ref={massingCanvasRef} width={400} height={300} className="w-full" />
-          </TabsContent>
-          
-          <TabsContent value="elevation" className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-            <canvas ref={elevationCanvasRef} width={400} height={300} className="w-full" />
-          </TabsContent>
-        </Tabs>
+      <CardContent className="p-6">
+        <div className="flex justify-center">
+          <div>
+            {/* Category Legend */}
+            <div className="mb-6 flex flex-wrap justify-center gap-2">
+              {getAllCategories().map(category => (
+                <Badge 
+                  key={category} 
+                  variant="outline" 
+                  className="px-2 py-0.5 text-xs"
+                  style={{ 
+                    backgroundColor: `${getUnitTypeById(unitTypes.find(ut => ut.category === category)?.id || "")?.color}40` || "#E5DEFF40",
+                    borderColor: getUnitTypeById(unitTypes.find(ut => ut.category === category)?.id || "")?.color || "#E5DEFF"
+                  }}
+                >
+                  {category}
+                </Badge>
+              ))}
+            </div>
+            
+            {/* Above Ground Floors */}
+            <TooltipProvider>
+              <div className="flex flex-col items-center">
+                {aboveGroundFloors.map((floor, index) => {
+                  const { category, color, utilization } = getFloorPrimaryCategory(floor.floorNumber);
+                  const opacity = Math.min(0.3 + (utilization / 100) * 0.7, 1);
+                  const floorStyle = {
+                    height: `${floorHeight}px`,
+                    width: `${buildingWidth}px`,
+                    backgroundColor: color ? `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}` : '#f1f5f9',
+                    borderColor: color || '#e2e8f0'
+                  };
+                  
+                  return (
+                    <Tooltip key={floor.floorNumber}>
+                      <TooltipTrigger asChild>
+                        <div 
+                          className="border-b border-x first:border-t first:rounded-t-md last:rounded-b-md hover:brightness-95 flex items-center justify-between px-3"
+                          style={floorStyle}
+                        >
+                          <span className="text-xs font-medium">Floor {floor.floorNumber}</span>
+                          {category && (
+                            <Badge variant="outline" className="text-[10px] h-4 bg-white/80">
+                              {category}
+                            </Badge>
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <div className="text-xs space-y-1">
+                          <p className="font-semibold">Floor {floor.floorNumber}</p>
+                          <p>Utilization: {Math.round(utilization)}%</p>
+                          {category && <p>Primary Use: {category}</p>}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+                
+                {/* Ground Level */}
+                <div 
+                  className="bg-gray-200 border border-gray-300 w-full rounded-md"
+                  style={{ width: `${buildingWidth + 40}px`, height: '6px' }}
+                ></div>
+                
+                {/* Underground Floors */}
+                {undergroundFloors.map((floor) => {
+                  const { category, color, utilization } = getFloorPrimaryCategory(floor.floorNumber);
+                  const opacity = Math.min(0.3 + (utilization / 100) * 0.7, 1);
+                  const floorStyle = {
+                    height: `${undergroundFloorHeight}px`,
+                    width: `${buildingWidth * 0.8}px`,
+                    backgroundColor: color ? `${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')}` : '#f1f5f9',
+                    borderColor: color || '#e2e8f0'
+                  };
+                  
+                  return (
+                    <Tooltip key={floor.floorNumber}>
+                      <TooltipTrigger asChild>
+                        <div 
+                          className="border-b border-x first:rounded-t-md last:rounded-b-md hover:brightness-95 bg-gray-100 flex items-center justify-between px-3"
+                          style={floorStyle}
+                        >
+                          <span className="text-xs font-medium">Floor {floor.floorNumber}</span>
+                          {category && (
+                            <Badge variant="outline" className="text-[10px] h-4 bg-white/80">
+                              {category}
+                            </Badge>
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <div className="text-xs space-y-1">
+                          <p className="font-semibold">Underground Floor {floor.floorNumber}</p>
+                          <p>Utilization: {Math.round(utilization)}%</p>
+                          {category && <p>Primary Use: {category}</p>}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            </TooltipProvider>
+            
+            <div className="mt-6">
+              <div className="text-sm font-medium mb-2">Building Statistics</div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div className="text-sm text-muted-foreground">Above Ground Floors:</div>
+                <div className="text-sm">{numberOfFloors}</div>
+                
+                <div className="text-sm text-muted-foreground">Below Ground Floors:</div>
+                <div className="text-sm">{numberOfUndergroundFloors}</div>
+                
+                <div className="text-sm text-muted-foreground">Building Footprint:</div>
+                <div className="text-sm">{buildingFootprint.toLocaleString()} sf</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
