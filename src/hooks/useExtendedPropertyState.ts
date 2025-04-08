@@ -1,4 +1,3 @@
-
 import { useCallback } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
@@ -12,7 +11,6 @@ import { useVisualizationData } from "./property/useVisualizationData";
 import { SpaceDefinition, BuildingSystemsConfig } from "../types/propertyTypes";
 
 export const useExtendedPropertyState = () => {
-  // Use individual hooks for better organization
   const projectInfo = useProjectInfo();
   const floorConfigurations = useFloorConfigurations(
     projectInfo.projectName ? [] : [] // This is just to satisfy the dependency, will be fixed below
@@ -30,7 +28,6 @@ export const useExtendedPropertyState = () => {
   const unitTypes = useUnitTypes();
   const unitAllocations = useUnitAllocations();
   
-  // Visualization data depends on all other hooks
   const visualizationData = useVisualizationData(
     spaceTypes.spaceTypes,
     buildingParams.actualFar,
@@ -41,9 +38,7 @@ export const useExtendedPropertyState = () => {
     floorTemplates.floorTemplates
   );
   
-  // Function to reset all data
   const resetAllData = useCallback(() => {
-    // Reset individual state hooks
     if (projectInfo.resetAllData) projectInfo.resetAllData();
     if (floorConfigurations.resetAllData) floorConfigurations.resetAllData();
     if (floorTemplates.resetAllData) floorTemplates.resetAllData();
@@ -57,9 +52,7 @@ export const useExtendedPropertyState = () => {
     buildingParams, spaceTypes, unitMix, unitTypes, unitAllocations
   ]);
 
-  // Return all the properties and methods from individual hooks
   return {
-    // Project Information
     projectName: projectInfo.projectName, 
     setProjectName: projectInfo.setProjectName,
     projectLocation: projectInfo.projectLocation, 
@@ -67,7 +60,6 @@ export const useExtendedPropertyState = () => {
     projectType: projectInfo.projectType, 
     setProjectType: projectInfo.setProjectType,
     
-    // Building Parameters
     farAllowance: buildingParams.farAllowance, 
     setFarAllowance: buildingParams.setFarAllowance,
     totalLandArea: buildingParams.totalLandArea, 
@@ -79,7 +71,6 @@ export const useExtendedPropertyState = () => {
     totalBelowGroundArea: buildingParams.totalBelowGroundArea,
     actualFar: buildingParams.actualFar,
     
-    // Space Types
     spaceTypes: spaceTypes.spaceTypes,
     addSpaceType: spaceTypes.addSpaceType,
     removeSpaceType: spaceTypes.removeSpaceType,
@@ -87,32 +78,27 @@ export const useExtendedPropertyState = () => {
     updateSpaceTypeFloorAllocation: spaceTypes.updateSpaceTypeFloorAllocation,
     totalAllocatedArea: spaceTypes.totalAllocatedArea,
     
-    // Unit Mix
     unitMixes: unitMix.unitMixes,
     addUnitMix: unitMix.addUnitMix,
     removeUnitMix: unitMix.removeUnitMix,
     updateUnitMix: unitMix.updateUnitMix,
     
-    // Unit Types from the new system
     unitTypes: unitTypes.unitTypes,
     addUnitType: unitTypes.addUnitType,
     updateUnitType: unitTypes.updateUnitType,
     removeUnitType: unitTypes.removeUnitType,
     
-    // Unit Allocations
     unitAllocations: unitAllocations.unitAllocations,
     addUnitAllocation: unitAllocations.addAllocation,
     updateUnitAllocation: unitAllocations.updateAllocation,
     removeUnitAllocation: unitAllocations.removeAllocation,
     calculateAllocatedAreaByFloor: unitAllocations.calculateAllocatedAreaByFloor,
     
-    // Floor Templates
     floorTemplates: floorTemplates.floorTemplates,
     addFloorTemplate: floorTemplates.addFloorTemplate,
     updateFloorTemplate: floorTemplates.updateFloorTemplate,
     removeFloorTemplate: floorTemplates.removeFloorTemplate,
     
-    // Floor Configurations
     floorConfigurations: floorConfigurations.floorConfigurations,
     updateFloorConfiguration: floorConfigurations.updateFloorConfiguration,
     copyFloorConfiguration: floorConfigurations.copyFloorConfiguration,
@@ -122,19 +108,14 @@ export const useExtendedPropertyState = () => {
     reorderFloor: floorConfigurations.reorderFloor,
     importFloorConfigurations: floorConfigurations.importFloorConfigurations,
     exportFloorConfigurations: floorConfigurations.exportFloorConfigurations,
+    getFloorArea: floorConfigurations.getFloorArea,
     
-    // Floor space management
-    updateFloorSpaces: floorConfigurations.updateFloorSpaces,
-    updateFloorBuildingSystems: floorConfigurations.updateFloorBuildingSystems,
-    
-    // Visualization and issues
     issues: visualizationData.issues,
     spaceTypeColors: visualizationData.spaceTypeColors,
     generateFloorsData: visualizationData.generateFloorsData,
     generateSpaceBreakdown: visualizationData.generateSpaceBreakdown,
     generatePhasesData: visualizationData.generatePhasesData,
     
-    // Reset function
     resetAllData
   };
 };

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
@@ -281,7 +280,24 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
     return floorConfigurations;
   }, [floorConfigurations]);
 
-  // Reset all floor configurations
+  const getFloorArea = useCallback((floorNumber: number): number => {
+    const floor = floorConfigurations.find(f => f.floorNumber === floorNumber);
+    if (!floor) return 0;
+    
+    if (floor.customSquareFootage && floor.customSquareFootage !== "") {
+      return parseInt(floor.customSquareFootage) || 0;
+    }
+    
+    if (floor.templateId) {
+      const template = floorTemplates.find(t => t.id === floor.templateId);
+      if (template) {
+        return parseInt(template.squareFootage) || 0;
+      }
+    }
+    
+    return 0;
+  }, [floorConfigurations, floorTemplates]);
+
   const resetAllData = useCallback(() => {
     setFloorConfigurations([]);
   }, []);
@@ -299,6 +315,7 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
     updateFloorBuildingSystems,
     importFloorConfigurations,
     exportFloorConfigurations,
+    getFloorArea,
     resetAllData
   };
 };

@@ -95,7 +95,8 @@ const UnitMixPlanning: React.FC = () => {
   
   const {
     floorConfigurations,
-    totalBuildableArea
+    totalBuildableArea,
+    getFloorArea
   } = useExtendedPropertyState();
   
   const totalUnitArea = calculateTotalArea();
@@ -425,19 +426,15 @@ const UnitMixPlanning: React.FC = () => {
     const unitType = unitTypes.find(u => u.id === unitTypeId);
     if (!unitType) return false;
     
-    const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
-    if (!floorConfig) return false;
-    
-    const floorArea = floorConfig.customSquareFootage && floorConfig.customSquareFootage !== "" 
-      ? parseInt(floorConfig.customSquareFootage) 
-      : 0;
+    const floorArea = getFloorArea(floorNumber);
+    if (floorArea <= 0) return false;
     
     const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
     const availableArea = Math.max(0, floorArea - allocatedArea);
     
     const unitSize = parseInt(unitType.typicalSize) || 0;
     return availableArea >= unitSize;
-  }, [floorConfigurations, unitTypes, calculateAllocatedAreaByFloor]);
+  }, [unitTypes, getFloorArea, calculateAllocatedAreaByFloor]);
   
   const validateInput = useCallback((value: string, type: 'size' | 'count'): string => {
     let sanitized = value.replace(/[^0-9]/g, '');
