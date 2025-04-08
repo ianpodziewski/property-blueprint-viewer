@@ -8,7 +8,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Edit, Copy, Settings, ChevronUp, ChevronDown, Info, AlertTriangle, ArrowRightLeft, CheckCircle, Trash, Building2, Building, Warehouse } from "lucide-react";
+import { PlusCircle, Edit, Copy, Settings, ChevronUp, ChevronDown, Info, AlertTriangle, ArrowRightLeft, CheckCircle, Trash, Building2, Warehouse } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import FloorTemplateManager from "./FloorTemplateManager";
 import FloorEditor from "./FloorEditor";
@@ -115,11 +115,9 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   
   const { toast } = useToast();
 
-  // Update isUnderground whenever floorType changes
   useEffect(() => {
     setIsUnderground(floorType === "underground");
     
-    // Update position based on floor type
     if (floorType === "underground") {
       setPosition("bottom");
     } else {
@@ -363,13 +361,11 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="w-16">Floor</TableHead>
-                <TableHead>Template</TableHead>
-                <TableHead className="w-24 text-right">Height</TableHead>
-                <TableHead className="w-24 text-right">Area</TableHead>
-                <TableHead className="w-24 text-center">Primary Use</TableHead>
-                <TableHead className="w-16 text-center">Spaces</TableHead>
-                <TableHead className="w-16 text-center">Effic.</TableHead>
+                <TableHead className="w-20">Floor</TableHead>
+                <TableHead className="w-[180px]">Template</TableHead>
+                <TableHead className="w-[140px] text-right">Floor Plate (sf)</TableHead>
+                <TableHead className="w-[140px] text-center">Primary Use</TableHead>
+                <TableHead className="w-20 text-center">Spaces</TableHead>
                 <TableHead className="w-[120px] text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -450,9 +446,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {floor.floorToFloorHeight}' 
-                    </TableCell>
-                    <TableCell className="text-right">
                       {parseInt(floorArea).toLocaleString()} sf
                     </TableCell>
                     <TableCell className="text-center">
@@ -473,9 +466,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                           0
                         </Badge>
                       )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {floor.efficiencyFactor}%
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center space-x-1">
