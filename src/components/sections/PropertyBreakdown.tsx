@@ -131,6 +131,13 @@ const PropertyBreakdown = () => {
     return true;
   }, []);
   
+  // Fix for type issues - convert string values to numbers
+  const buildingFootprintAsNumber = parseFloat(buildingFootprint || "0");
+  const totalBuildableAreaAsNumber = parseFloat(String(totalBuildableArea) || "0");
+  const totalAllocatedAreaAsNumber = parseFloat(String(totalAllocatedArea) || "0");
+  const aboveGroundFloorsCount = floorConfigurations.filter(f => !f.isUnderground).length;
+  const belowGroundFloorsCount = floorConfigurations.filter(f => f.isUnderground).length;
+  
   return (
     <div 
       className="space-y-6"
@@ -220,9 +227,9 @@ const PropertyBreakdown = () => {
       {/* Visualizations Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <BuildingMassingVisualization 
-          buildingFootprint={parseFloat(buildingFootprint) || 0}
-          numberOfFloors={floorConfigurations.filter(f => !f.isUnderground).length}
-          numberOfUndergroundFloors={floorConfigurations.filter(f => f.isUnderground).length}
+          buildingFootprint={buildingFootprintAsNumber}
+          numberOfFloors={aboveGroundFloorsCount}
+          numberOfUndergroundFloors={belowGroundFloorsCount}
           spaceBreakdown={spaceBreakdown}
           floorConfigurations={floorConfigurations}
           floorTemplates={floorTemplates}
@@ -386,8 +393,8 @@ const PropertyBreakdown = () => {
       {/* Space Summary and Phasing */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <SpaceSummaryDashboard
-          totalBuildableArea={totalBuildableArea}
-          totalAllocatedArea={totalAllocatedArea}
+          totalBuildableArea={totalBuildableAreaAsNumber}
+          totalAllocatedArea={totalAllocatedAreaAsNumber}
           spaceBreakdown={spaceBreakdown}
           issues={issues}
         />

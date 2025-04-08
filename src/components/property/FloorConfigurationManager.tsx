@@ -1,51 +1,72 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Copy, Layout, AlertTriangle, X, Check, CheckSquare, Square, ChevronDown, Plus, Trash, FileText } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlusCircle, Edit, Copy, Settings, ChevronUp, ChevronDown, Info, AlertTriangle, ArrowRightLeft, CheckCircle, Trash } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import FloorEditor from "./FloorEditor";
-import { 
-  FloorPlateTemplate,
-  FloorConfiguration, 
-  SpaceDefinition,
-  BuildingSystemsConfig
-} from "@/types/propertyTypes";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import FloorTemplateManager from "./FloorTemplateManager";
+import FloorEditor from "./FloorEditor";
+import { FloorConfiguration, FloorPlateTemplate, SpaceDefinition, BuildingSystemsConfig } from "@/types/propertyTypes";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+
+// Define utility function to get badge color based on use type
+const getBadgeColorForUse = (useType: string): string => {
+  switch (useType) {
+    case "residential":
+      return "bg-blue-50 text-blue-800";
+    case "office":
+      return "bg-green-50 text-green-800";
+    case "retail":
+      return "bg-amber-50 text-amber-800";
+    case "parking":
+      return "bg-gray-50 text-gray-800";
+    case "hotel":
+      return "bg-purple-50 text-purple-800";
+    case "amenities":
+      return "bg-pink-50 text-pink-800";
+    case "storage":
+      return "bg-yellow-50 text-yellow-800";
+    case "mechanical":
+      return "bg-slate-50 text-slate-800";
+    default:
+      return "bg-gray-50 text-gray-800";
+  }
+};
 
 interface FloorConfigurationManagerProps {
   floorConfigurations: FloorConfiguration[];
   floorTemplates: FloorPlateTemplate[];
-  updateFloorConfiguration: (
-    floorNumber: number, 
-    field: keyof FloorConfiguration, 
-    value: any
-  ) => void;
+  updateFloorConfiguration: (floorNumber: number, field: keyof FloorConfiguration, value: any) => void;
   copyFloorConfiguration: (sourceFloorNumber: number, targetFloorNumbers: number[]) => void;
-  bulkEditFloorConfigurations: (
-    floorNumbers: number[], 
-    field: keyof FloorConfiguration, 
-    value: any
-  ) => void;
+  bulkEditFloorConfigurations: (floorNumbers: number[], field: keyof FloorConfiguration, value: any) => void;
   updateFloorSpaces: (floorNumber: number, spaces: SpaceDefinition[]) => void;
-  updateFloorBuildingSystems?: (floorNumber: number, systems: BuildingSystemsConfig) => void;
-  addFloors: (
-    count: number,
-    isUnderground: boolean,
-    templateId: string | null,
-    position: "top" | "bottom" | "specific",
-    specificPosition?: number,
-    numberingPattern?: "consecutive" | "skip" | "custom",
-    customNumbering?: number[]
-  ) => void;
+  addFloors: (count: number, isUnderground: boolean, templateId: string | null, position: "top" | "bottom" | "specific", specificPosition?: number, numberingPattern?: "consecutive" | "skip" | "custom", customNumbering?: number[]) => void;
   removeFloors: (floorNumbers: number[]) => void;
   reorderFloor: (floorNumber: number, direction: "up" | "down") => void;
   addFloorTemplate: (template: Omit<FloorPlateTemplate, "id">) => void;
@@ -53,1246 +74,799 @@ interface FloorConfigurationManagerProps {
   removeFloorTemplate: (id: string) => void;
 }
 
-const FloorConfigurationManager = ({
+const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   floorConfigurations,
   floorTemplates,
   updateFloorConfiguration,
   copyFloorConfiguration,
   bulkEditFloorConfigurations,
   updateFloorSpaces,
-  updateFloorBuildingSystems,
   addFloors,
   removeFloors,
   reorderFloor,
   addFloorTemplate,
   updateFloorTemplate,
   removeFloorTemplate
-}: FloorConfigurationManagerProps) => {
-  const [selectedFloor, setSelectedFloor] = useState<FloorConfiguration | null>(null);
-  const [isFloorEditorOpen, setIsFloorEditorOpen] = useState(false);
-  const [bulkEditMode, setBulkEditMode] = useState(false);
-  const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
-  const [groupStartFloor, setGroupStartFloor] = useState<string>("");
-  const [groupEndFloor, setGroupEndFloor] = useState<string>("");
+}) => {
+  // State for managing UI
+  const [selectedRows, setSelectedRows] = useState<number[]>([]);
+  const [allSelected, setAllSelected] = useState(false);
+  const [addFloorDialogOpen, setAddFloorDialogOpen] = useState(false);
+  const [addTemplateDialogOpen, setAddTemplateDialogOpen] = useState(false);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
-  const [copySourceFloor, setCopySourceFloor] = useState<string>("");
-  const [copyTargetFloors, setCopyTargetFloors] = useState<number[]>([]);
-  const [showRangeSelector, setShowRangeSelector] = useState(false);
-  const [rangeStart, setRangeStart] = useState<string>("");
-  const [rangeEnd, setRangeEnd] = useState<string>("");
-  const [confirmCopyOpen, setConfirmCopyOpen] = useState(false);
-  const [editorKey, setEditorKey] = useState<string>(`floor-editor-${Date.now()}`);
+  const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
+  const [selectedFloorForCopy, setSelectedFloorForCopy] = useState<number | null>(null);
+  const [floorEditorOpen, setFloorEditorOpen] = useState(false);
+  const [currentFloor, setCurrentFloor] = useState<number | null>(null);
   
-  // New state for add floors dialog
-  const [addFloorsDialogOpen, setAddFloorsDialogOpen] = useState(false);
+  // New state for floor deletion confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [floorToDelete, setFloorToDelete] = useState<number | null>(null);
+  
+  // State for add floor dialog
   const [floorCount, setFloorCount] = useState("1");
   const [isUnderground, setIsUnderground] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [position, setPosition] = useState<"top" | "bottom" | "specific">("top");
+  const [position, setPosition] = useState<"top" | "bottom">("top");
   const [specificPosition, setSpecificPosition] = useState<string>("");
-  const [numberingPattern, setNumberingPattern] = useState<"consecutive" | "skip" | "custom">("consecutive");
+  const [numberingPattern, setNumberingPattern] = useState<"consecutive" | "skip">("consecutive");
   
-  // New state for remove floors dialog
-  const [removeFloorsDialogOpen, setRemoveFloorsDialogOpen] = useState(false);
-  const [floorsToRemove, setFloorsToRemove] = useState<number[]>([]);
-  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
-
-  // New state for template manager dialog
-  const [templateManagerOpen, setTemplateManagerOpen] = useState(false);
-
-  useEffect(() => {
-    return () => {
-      setSelectedFloor(null);
-      setIsFloorEditorOpen(false);
-    };
+  // State for bulk edit dialog
+  const [bulkEditField, setBulkEditField] = useState<keyof FloorConfiguration>("templateId");
+  const [bulkEditValue, setBulkEditValue] = useState<string>("");
+  
+  const { toast } = useToast();
+  
+  // Sort floor configurations with above ground floors first (descending) then underground floors (ascending)
+  const sortedFloors = [...floorConfigurations].sort((a, b) => {
+    if (a.isUnderground && b.isUnderground) {
+      return a.floorNumber - b.floorNumber;  // Sort underground floors ascending
+    } else if (!a.isUnderground && !b.isUnderground) {
+      return b.floorNumber - a.floorNumber;  // Sort above ground floors descending
+    } else {
+      return a.isUnderground ? 1 : -1;  // Above ground floors first
+    }
+  });
+  
+  // Handler for row selection
+  const handleRowSelection = useCallback((floorNumber: number) => {
+    setSelectedRows(prev => {
+      if (prev.includes(floorNumber)) {
+        return prev.filter(num => num !== floorNumber);
+      } else {
+        return [...prev, floorNumber];
+      }
+    });
   }, []);
   
+  // Handler for select all rows
+  const handleSelectAll = useCallback(() => {
+    if (allSelected || selectedRows.length === floorConfigurations.length) {
+      setSelectedRows([]);
+      setAllSelected(false);
+    } else {
+      setSelectedRows(floorConfigurations.map(floor => floor.floorNumber));
+      setAllSelected(true);
+    }
+  }, [floorConfigurations, allSelected, selectedRows.length]);
+  
+  // Reset selected rows when floor configurations change
   useEffect(() => {
-    // Initialize selected template when dialog opens
-    if (addFloorsDialogOpen && floorTemplates.length > 0 && !selectedTemplateId) {
-      setSelectedTemplateId(floorTemplates[0].id);
-    }
-  }, [addFloorsDialogOpen, floorTemplates, selectedTemplateId]);
-
-  const aboveGroundConfigs = floorConfigurations
-    .filter(config => !config.isUnderground)
-    .sort((a, b) => b.floorNumber - a.floorNumber);
-    
-  const belowGroundConfigs = floorConfigurations
-    .filter(config => config.isUnderground)
-    .sort((a, b) => a.floorNumber - b.floorNumber);
+    setSelectedRows([]);
+    setAllSelected(false);
+  }, [floorConfigurations.length]);
   
-  const getFloorsByUse = () => {
-    const useGroups: Record<string, number[]> = {};
+  // Check if all rows are selected
+  useEffect(() => {
+    if (selectedRows.length === floorConfigurations.length) {
+      setAllSelected(true);
+    } else {
+      setAllSelected(false);
+    }
+  }, [selectedRows, floorConfigurations.length]);
+
+  // Handler for adding floors
+  const handleAddFloors = useCallback(() => {
+    if (!floorCount || isNaN(parseInt(floorCount)) || parseInt(floorCount) <= 0) {
+      toast({
+        title: "Invalid floor count",
+        description: "Please enter a valid number of floors to add.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    floorConfigurations.forEach(config => {
-      const use = config.primaryUse;
-      if (!useGroups[use]) {
-        useGroups[use] = [];
-      }
-      useGroups[use].push(config.floorNumber);
+    let positionValue: "top" | "bottom" | "specific" = position;
+    let specificPositionValue: number | undefined = undefined;
+    
+    // If position is "specific", validate specificPosition
+    if (position === "specific" && specificPosition) {
+      specificPositionValue = parseInt(specificPosition);
+    }
+    
+    addFloors(
+      parseInt(floorCount),
+      isUnderground,
+      selectedTemplateId,
+      positionValue,
+      specificPositionValue,
+      numberingPattern
+    );
+    
+    setAddFloorDialogOpen(false);
+    
+    // Reset add floor dialog state
+    setFloorCount("1");
+    setIsUnderground(false);
+    setSelectedTemplateId(null);
+    setPosition("top");
+    setSpecificPosition("");
+    setNumberingPattern("consecutive");
+    
+    toast({
+      title: "Floors added",
+      description: `Added ${floorCount} new ${isUnderground ? "underground" : "above-ground"} floor(s).`,
     });
+  }, [addFloors, floorCount, isUnderground, selectedTemplateId, position, specificPosition, numberingPattern, toast]);
+
+  // Handler for bulk edit
+  const handleBulkEdit = useCallback(() => {
+    if (selectedRows.length === 0) {
+      toast({
+        title: "No floors selected",
+        description: "Please select floors to edit.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    return useGroups;
-  };
+    bulkEditFloorConfigurations(selectedRows, bulkEditField, bulkEditValue);
+    setBulkEditDialogOpen(false);
+    
+    // Reset bulk edit dialog state
+    setBulkEditField("templateId");
+    setBulkEditValue("");
+    
+    toast({
+      title: "Floors updated",
+      description: `Updated ${selectedRows.length} floor(s).`,
+    });
+  }, [selectedRows, bulkEditField, bulkEditValue, bulkEditFloorConfigurations, toast]);
   
-  const floorsByUse = getFloorsByUse();
+  // Handler for copy floor configuration
+  const handleCopyFloorConfig = useCallback(() => {
+    if (!selectedFloorForCopy) {
+      toast({
+        title: "No source floor selected",
+        description: "Please select a source floor to copy from.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (selectedRows.length === 0) {
+      toast({
+        title: "No target floors selected",
+        description: "Please select floors to copy to.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    copyFloorConfiguration(selectedFloorForCopy, selectedRows);
+    setCopyDialogOpen(false);
+    
+    // Reset copy dialog state
+    setSelectedFloorForCopy(null);
+    
+    toast({
+      title: "Floor configuration copied",
+      description: `Copied configuration to ${selectedRows.length} floor(s).`,
+    });
+  }, [selectedFloorForCopy, selectedRows, copyFloorConfiguration, toast]);
   
-  const getTemplateName = (templateId: string | null) => {
-    if (!templateId) return "Custom";
+  // Handler for opening floor editor
+  const handleEditFloor = useCallback((floorNumber: number) => {
+    setCurrentFloor(floorNumber);
+    setFloorEditorOpen(true);
+  }, []);
+  
+  // Handler for selecting a floor for deletion
+  const handleDeleteClick = useCallback((floorNumber: number) => {
+    setFloorToDelete(floorNumber);
+    setDeleteDialogOpen(true);
+  }, []);
+  
+  // Handler for confirming floor deletion
+  const handleDeleteFloor = useCallback(() => {
+    if (floorToDelete === null) return;
+    
+    removeFloors([floorToDelete]);
+    setDeleteDialogOpen(false);
+    setFloorToDelete(null);
+    
+    toast({
+      title: "Floor removed",
+      description: "The floor has been successfully removed.",
+    });
+  }, [floorToDelete, removeFloors, toast]);
+  
+  // Function to get template name by ID
+  const getTemplateName = useCallback((templateId: string | null) => {
+    if (!templateId) return "No template";
     const template = floorTemplates.find(t => t.id === templateId);
-    return template ? template.name : "Custom";
-  };
+    return template ? template.name : "Unknown template";
+  }, [floorTemplates]);
   
-  const handleEditFloor = (floor: FloorConfiguration) => {
-    console.log("Opening floor editor for floor:", floor.floorNumber);
-    setSelectedFloor(floor);
-    setEditorKey(`floor-editor-${floor.floorNumber}-${Date.now()}`);
-    setIsFloorEditorOpen(true);
-  };
-
-  const handleCloseFloorEditor = () => {
-    console.log("Closing floor editor");
-    setIsFloorEditorOpen(false);
-    setTimeout(() => {
-      setSelectedFloor(null);
-    }, 100);
-  };
-  
-  const toggleFloorSelection = (floorNumber: number) => {
-    if (selectedFloors.includes(floorNumber)) {
-      setSelectedFloors(selectedFloors.filter(f => f !== floorNumber));
-    } else {
-      setSelectedFloors([...selectedFloors, floorNumber]);
-    }
-  };
-  
-  const selectFloorRange = () => {
-    const start = parseInt(groupStartFloor);
-    const end = parseInt(groupEndFloor);
-    
-    if (!isNaN(start) && !isNaN(end)) {
-      const floorNumbers = [];
-      
-      for (const config of floorConfigurations) {
-        const floorNum = config.floorNumber;
-        if ((floorNum >= start && floorNum <= end) || (floorNum <= start && floorNum >= end)) {
-          floorNumbers.push(floorNum);
-        }
-      }
-      
-      setSelectedFloors(floorNumbers);
-    }
-  };
-  
-  const applyBulkEdit = (field: keyof FloorConfiguration, value: any) => {
-    bulkEditFloorConfigurations(selectedFloors, field, value);
-  };
-  
-  const toggleTargetFloorSelection = (floorNumber: number) => {
-    if (copyTargetFloors.includes(floorNumber)) {
-      setCopyTargetFloors(copyTargetFloors.filter(f => f !== floorNumber));
-    } else {
-      setCopyTargetFloors([...copyTargetFloors, floorNumber]);
-    }
-  };
-  
-  const selectAllTargetFloors = () => {
-    const sourceFloorNum = parseInt(copySourceFloor);
-    const allFloorNumbers = floorConfigurations
-      .map(config => config.floorNumber)
-      .filter(num => num !== sourceFloorNum);
-    
-    setCopyTargetFloors(allFloorNumbers);
-  };
-  
-  const clearAllTargetFloors = () => {
-    setCopyTargetFloors([]);
-  };
-  
-  const selectTargetFloorsByUse = (use: string) => {
-    if (floorsByUse[use]) {
-      const sourceFloorNum = parseInt(copySourceFloor);
-      const floorsOfThisUse = floorsByUse[use].filter(num => num !== sourceFloorNum);
-      setCopyTargetFloors([...new Set([...copyTargetFloors, ...floorsOfThisUse])]);
-    }
-  };
-  
-  const selectTargetFloorsInRange = () => {
-    const start = parseInt(rangeStart);
-    const end = parseInt(rangeEnd);
-    
-    if (!isNaN(start) && !isNaN(end)) {
-      const sourceFloorNum = parseInt(copySourceFloor);
-      const floorsInRange = [];
-      
-      for (const config of floorConfigurations) {
-        const floorNum = config.floorNumber;
-        if (floorNum !== sourceFloorNum && 
-            ((floorNum >= start && floorNum <= end) || 
-             (floorNum <= start && floorNum >= end))) {
-          floorsInRange.push(floorNum);
-        }
-      }
-      
-      setCopyTargetFloors([...new Set([...copyTargetFloors, ...floorsInRange])]);
-      setShowRangeSelector(false);
-    }
-  };
-  
-  const handleCopy = () => {
-    const source = parseInt(copySourceFloor);
-    
-    if (!isNaN(source) && copyTargetFloors.length > 0) {
-      setConfirmCopyOpen(false);
-      copyFloorConfiguration(source, copyTargetFloors);
-      setCopyTargetFloors([]);
-      setCopyDialogOpen(false);
-    }
-  };
-  
-  const handleOpenConfirmCopy = () => {
-    if (copyTargetFloors.length > 0) {
-      setConfirmCopyOpen(true);
-    }
-  };
-  
-  const handleAddFloors = () => {
-    const count = parseInt(floorCount);
-    const position = isUnderground ? "bottom" : "top";
-    const specificPos = specificPosition ? parseInt(specificPosition) : undefined;
-    
-    if (!isNaN(count) && count > 0) {
-      addFloors(
-        count,
-        isUnderground,
-        selectedTemplateId,
-        position,
-        specificPos,
-        numberingPattern
-      );
-      setAddFloorsDialogOpen(false);
-    }
-  };
-  
-  const handleRemoveFloors = () => {
-    if (floorsToRemove.length > 0) {
-      removeFloors(floorsToRemove);
-      setFloorsToRemove([]);
-      setRemoveFloorsDialogOpen(false);
-      setConfirmRemoveOpen(false);
-    }
-  };
-  
-  const toggleFloorForRemoval = (floorNumber: number) => {
-    if (floorsToRemove.includes(floorNumber)) {
-      setFloorsToRemove(floorsToRemove.filter(f => f !== floorNumber));
-    } else {
-      setFloorsToRemove([...floorsToRemove, floorNumber]);
-    }
-  };
-  
-  const selectAllAboveGroundFloors = () => {
-    const aboveGroundFloorNumbers = aboveGroundConfigs.map(config => config.floorNumber);
-    setFloorsToRemove(aboveGroundFloorNumbers);
-  };
-  
-  const selectAllBelowGroundFloors = () => {
-    const belowGroundFloorNumbers = belowGroundConfigs.map(config => config.floorNumber);
-    setFloorsToRemove(belowGroundFloorNumbers);
-  };
-  
-  const formatFloorNumber = (floorNumber: number) => {
-    return floorNumber < 0 ? `B${Math.abs(floorNumber)}` : floorNumber.toString();
-  };
-  
-  const calculateGrossArea = (config: FloorConfiguration) => {
-    if (config.customSquareFootage) {
-      return parseFloat(config.customSquareFootage) || 0;
-    } else if (config.templateId) {
-      const template = floorTemplates.find(t => t.id === config.templateId);
-      if (template) {
-        return parseFloat(template.squareFootage) || 0;
-      }
-    }
-    return 0;
-  };
-
-  const calculateAssignedArea = (config: FloorConfiguration) => {
-    if (!config.spaces || config.spaces.length === 0) return 0;
-    
-    return config.spaces.reduce((sum, space) => {
-      return sum + (parseFloat(space.squareFootage) || 0);
-    }, 0);
-  };
-
-  const getSpacesInfo = (config: FloorConfiguration) => {
-    if (!config.spaces || config.spaces.length === 0) return null;
-    
-    const totalSpaces = config.spaces.length;
-    const totalPlannedArea = calculateAssignedArea(config);
-    
-    const rentableArea = config.spaces
-      .filter(space => space.isRentable)
-      .reduce((sum, space) => sum + (parseFloat(space.squareFootage) || 0), 0);
-    
-    return { totalSpaces, totalPlannedArea, rentableArea };
-  };
-
-  const getAssignedAreaStatus = (config: FloorConfiguration) => {
-    const grossArea = calculateGrossArea(config);
-    const assignedArea = calculateAssignedArea(config);
-    
-    if (assignedArea <= 0) return 'empty';
-    if (assignedArea > grossArea) return 'error';
-    if (assignedArea < grossArea * 0.9) return 'warning';
-    return 'ok';
-  };
-
-  const getAssignedPercentage = (config: FloorConfiguration) => {
-    const grossArea = calculateGrossArea(config);
-    const assignedArea = calculateAssignedArea(config);
-    
-    if (grossArea <= 0) return 0;
-    return (assignedArea / grossArea) * 100;
-  };
-
   return (
     <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
+      <CardHeader className="space-y-1">
+        <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Floor Configuration Manager</CardTitle>
-            <CardDescription>Manage building floor configurations and templates</CardDescription>
+            <CardTitle>Floor Configuration</CardTitle>
+            <CardDescription>Define your building's floor layout</CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button 
-              variant="outline"
-              onClick={() => setAddFloorsDialogOpen(true)}
-              className="flex items-center gap-2"
+              variant="outline" 
+              size="sm" 
+              onClick={() => setAddTemplateDialogOpen(true)}
             >
-              <Plus className="h-4 w-4" /> Add Floors
+              <Settings className="w-4 h-4 mr-1" /> Manage Templates
             </Button>
-            <Button 
-              variant="outline"
-              onClick={() => setRemoveFloorsDialogOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <Trash className="h-4 w-4" /> Remove Floors
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => setTemplateManagerOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" /> Manage Templates
-            </Button>
-            <Button 
-              variant={bulkEditMode ? "secondary" : "outline"}
-              onClick={() => {
-                setBulkEditMode(!bulkEditMode);
-                setSelectedFloors([]);
-              }}
-              className="flex items-center gap-2"
-            >
-              <Layout className="h-4 w-4" /> {bulkEditMode ? "Exit Bulk Edit" : "Bulk Edit"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setCopyDialogOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <Copy className="h-4 w-4" /> Copy Floor
+            <Button onClick={() => setAddFloorDialogOpen(true)}>
+              <PlusCircle className="w-4 h-4 mr-1" /> Add Floors
             </Button>
           </div>
         </div>
+        <div className="flex items-center justify-between pt-4">
+          <div className="text-sm text-muted-foreground">
+            {floorConfigurations.length} floors • {floorConfigurations.filter(f => !f.isUnderground).length} above ground • {floorConfigurations.filter(f => f.isUnderground).length} below ground
+          </div>
+          
+          {selectedRows.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {selectedRows.length} selected
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setSelectedRows([]);
+                  setAllSelected(false);
+                }}
+              >
+                Clear
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setBulkEditDialogOpen(true)}
+              >
+                Bulk Edit
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setCopyDialogOpen(true)}
+              >
+                Copy To
+              </Button>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
-        {bulkEditMode && (
-          <div className="mb-6 bg-muted/30 p-4 rounded-lg border">
-            <h3 className="text-sm font-medium mb-3">Bulk Edit Controls</h3>
-            
-            <div className="flex flex-wrap gap-3 items-end mb-4">
-              <div className="space-y-2">
-                <Label htmlFor="start-floor">Start Floor</Label>
-                <Input 
-                  id="start-floor" 
-                  className="w-24" 
-                  value={groupStartFloor}
-                  onChange={(e) => setGroupStartFloor(e.target.value)}
-                  placeholder="-2"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end-floor">End Floor</Label>
-                <Input 
-                  id="end-floor" 
-                  className="w-24" 
-                  value={groupEndFloor}
-                  onChange={(e) => setGroupEndFloor(e.target.value)}
-                  placeholder="5"
-                />
-              </div>
-              <Button onClick={selectFloorRange} variant="secondary">
-                Select Range
-              </Button>
-              {selectedFloors.length > 0 && (
-                <Badge variant="outline" className="ml-2">
-                  {selectedFloors.length} floors selected
-                </Badge>
-              )}
-            </div>
-            
-            {selectedFloors.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label>Template</Label>
-                  <Select onValueChange={(value) => applyBulkEdit("templateId", value === "null" ? null : value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Apply template..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="null">Custom (No Template)</SelectItem>
-                      {floorTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+        <ScrollArea className="h-[500px]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox 
+                    checked={allSelected} 
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
+                <TableHead className="w-16">Floor</TableHead>
+                <TableHead>Template</TableHead>
+                <TableHead className="w-24 text-right">Height</TableHead>
+                <TableHead className="w-24 text-right">Area</TableHead>
+                <TableHead className="w-24 text-center">Primary Use</TableHead>
+                <TableHead className="w-16 text-center">Spaces</TableHead>
+                <TableHead className="w-16 text-center">Effic.</TableHead>
+                <TableHead className="w-[120px] text-center">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedFloors.map(floor => {
+                // Find associated template
+                const template = floorTemplates.find(t => t.id === floor.templateId);
+                // Calculate area based on template or custom value
+                const floorArea = floor.customSquareFootage && floor.customSquareFootage !== "" 
+                  ? floor.customSquareFootage 
+                  : template?.squareFootage || "0";
+                // Calculate total spaces defined for the floor
+                const spacesCount = floor.spaces?.length || 0;
                 
-                <div className="space-y-2">
-                  <Label>Primary Use</Label>
-                  <Select onValueChange={(value) => applyBulkEdit("primaryUse", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Set use..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="residential">Residential</SelectItem>
-                      <SelectItem value="office">Office</SelectItem>
-                      <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="parking">Parking</SelectItem>
-                      <SelectItem value="hotel">Hotel</SelectItem>
-                      <SelectItem value="amenities">Amenities</SelectItem>
-                      <SelectItem value="storage">Storage</SelectItem>
-                      <SelectItem value="mechanical">Mechanical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Floor-to-Floor Height (ft)</Label>
-                  <div className="flex gap-2">
-                    <Input type="number" placeholder="12" />
-                    <Button variant="secondary" onClick={(e) => {
-                      const input = (e.currentTarget.previousSibling as HTMLInputElement);
-                      applyBulkEdit("floorToFloorHeight", input.value);
-                    }}>
-                      Apply
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Efficiency Factor (%)</Label>
-                  <div className="flex gap-2">
-                    <Input type="number" placeholder="85" />
-                    <Button variant="secondary" onClick={(e) => {
-                      const input = (e.currentTarget.previousSibling as HTMLInputElement);
-                      applyBulkEdit("efficiencyFactor", input.value);
-                    }}>
-                      Apply
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        
-        <h3 className="text-sm font-medium mb-2">Above Ground Floors</h3>
-        <div className="overflow-x-auto">
-          <TooltipProvider>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Floor</TableHead>
-                  <TableHead>Template</TableHead>
-                  <TableHead>Gross Area</TableHead>
-                  <TableHead>Assigned Area</TableHead>
-                  <TableHead>Height</TableHead>
-                  <TableHead>Primary Use</TableHead>
-                  <TableHead>Space Planning</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {aboveGroundConfigs.map((config) => (
-                  <TableRow key={config.floorNumber} className={bulkEditMode && selectedFloors.includes(config.floorNumber) ? "bg-muted/20" : ""}>
+                return (
+                  <TableRow key={`floor-${floor.floorNumber}`}>
                     <TableCell>
-                      {bulkEditMode ? (
-                        <Button 
-                          variant={selectedFloors.includes(config.floorNumber) ? "secondary" : "ghost"}
-                          size="sm"
-                          className="px-2 h-6"
-                          onClick={() => toggleFloorSelection(config.floorNumber)}
-                        >
-                          {config.floorNumber}
-                        </Button>
-                      ) : (
-                        config.floorNumber
-                      )}
-                    </TableCell>
-                    <TableCell>{getTemplateName(config.templateId)}</TableCell>
-                    <TableCell>
-                      {calculateGrossArea(config).toLocaleString()} sf
+                      <Checkbox 
+                        checked={selectedRows.includes(floor.floorNumber)}
+                        onCheckedChange={() => handleRowSelection(floor.floorNumber)}
+                      />
                     </TableCell>
                     <TableCell>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center">
-                            <span className={
-                              getAssignedAreaStatus(config) === 'error' 
-                                ? "text-red-500 font-medium" 
-                                : ""
-                            }>
-                              {calculateAssignedArea(config) > 0 
-                                ? calculateAssignedArea(config).toLocaleString() + " sf" 
-                                : "Not assigned"}
-                            </span>
-                            
-                            {getAssignedAreaStatus(config) === 'warning' && (
-                              <AlertTriangle className="h-4 w-4 ml-1.5 text-amber-500" />
+                      <div className="flex items-center">
+                        <Badge variant={floor.isUnderground ? "outline" : "default"} className="mr-1">
+                          {floor.floorNumber}
+                        </Badge>
+                        <div className="flex flex-col ml-1">
+                          <div className="flex gap-1">
+                            {floor.floorNumber > 1 && !floor.isUnderground && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-5 w-5"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  reorderFloor(floor.floorNumber, "down");
+                                }}
+                              >
+                                <ChevronUp className="h-3 w-3" />
+                              </Button>
                             )}
-                            
-                            {getAssignedAreaStatus(config) === 'error' && (
-                              <AlertTriangle className="h-4 w-4 ml-1.5 text-red-500" />
+                            {floor.floorNumber < 0 && floor.isUnderground && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-5 w-5"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  reorderFloor(floor.floorNumber, "up");
+                                }}
+                              >
+                                <ChevronUp className="h-3 w-3" />
+                              </Button>
+                            )}
+                            {((floor.isUnderground && floor.floorNumber !== -1) || 
+                                (!floor.isUnderground && floor.floorNumber !== 1)) && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-5 w-5"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  reorderFloor(floor.floorNumber, floor.isUnderground ? "down" : "up");
+                                }}
+                              >
+                                <ChevronDown className="h-3 w-3" />
+                              </Button>
                             )}
                           </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <div className="max-w-xs">
-                            <p className="font-medium mb-1">Assigned Area</p>
-                            <p className="text-sm text-muted-foreground">
-                              {getAssignedAreaStatus(config) === 'empty' && (
-                                "No spaces have been assigned to this floor yet."
-                              )}
-                              {getAssignedAreaStatus(config) === 'error' && (
-                                "Assigned area exceeds the gross area of this floor."
-                              )}
-                              {getAssignedAreaStatus(config) === 'warning' && (
-                                `Only ${getAssignedPercentage(config).toFixed(1)}% of the floor area has been assigned.`
-                              )}
-                              {getAssignedAreaStatus(config) === 'ok' && (
-                                `${getAssignedPercentage(config).toFixed(1)}% of the floor area has been assigned.`
-                              )}
-                            </p>
-                            <p className="text-xs mt-1 text-muted-foreground">
-                              Assigned Area represents the total square footage that has been allocated to specific spaces on this floor. This should typically be equal to or slightly less than the Gross Area.
-                            </p>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>{config.floorToFloorHeight}'</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-sm" 
-                          style={{ backgroundColor: getUseColor(config.primaryUse) }}
-                        ></div>
-                        <span className="capitalize">{config.primaryUse}</span>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      {getSpacesInfo(config) ? (
-                        <Badge variant="outline" className="bg-muted/30 hover:bg-muted cursor-default">
-                          {getSpacesInfo(config)!.totalSpaces} spaces • {getSpacesInfo(config)!.totalPlannedArea.toLocaleString()} sf
-                        </Badge>
+                      {floor.templateId ? (
+                        getTemplateName(floor.templateId)
                       ) : (
-                        <Badge variant="outline" className="text-muted-foreground">
-                          Not configured
+                        <Badge variant="outline" className="bg-amber-100 text-amber-800 hover:bg-amber-200">
+                          Custom
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => handleEditFloor(config)}
-                        className="px-2 h-7"
+                      {floor.floorToFloorHeight}' 
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {parseInt(floorArea).toLocaleString()} sf
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge 
+                        variant="outline" 
+                        className={`capitalize ${getBadgeColorForUse(floor.primaryUse || "office")}`}
                       >
-                        <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-                      </Button>
+                        {floor.primaryUse || "office"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {spacesCount > 0 ? (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-800">
+                          {spacesCount}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-gray-100 text-gray-600">
+                          0
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {floor.efficiencyFactor}%
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex justify-center space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditFloor(floor.floorNumber)}
+                          title="Edit floor"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteClick(floor.floorNumber)}
+                          title="Delete floor"
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TooltipProvider>
-        </div>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </ScrollArea>
         
-        {belowGroundConfigs.length > 0 && (
-          <>
-            <h3 className="text-sm font-medium mb-2 mt-8">Below Ground Floors</h3>
-            <div className="overflow-x-auto">
-              <TooltipProvider>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-16">Floor</TableHead>
-                      <TableHead>Template</TableHead>
-                      <TableHead>Gross Area</TableHead>
-                      <TableHead>Assigned Area</TableHead>
-                      <TableHead>Height</TableHead>
-                      <TableHead>Primary Use</TableHead>
-                      <TableHead>Space Planning</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {belowGroundConfigs.map((config) => (
-                      <TableRow key={config.floorNumber} className={bulkEditMode && selectedFloors.includes(config.floorNumber) ? "bg-muted/20" : ""}>
-                        <TableCell>
-                          {bulkEditMode ? (
-                            <Button 
-                              variant={selectedFloors.includes(config.floorNumber) ? "secondary" : "ghost"}
-                              size="sm"
-                              className="px-2 h-6"
-                              onClick={() => toggleFloorSelection(config.floorNumber)}
-                            >
-                              B{Math.abs(config.floorNumber)}
-                            </Button>
-                          ) : (
-                            `B${Math.abs(config.floorNumber)}`
-                          )}
-                        </TableCell>
-                        <TableCell>{getTemplateName(config.templateId)}</TableCell>
-                        <TableCell>
-                          {calculateGrossArea(config).toLocaleString()} sf
-                        </TableCell>
-                        <TableCell>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center">
-                                <span className={
-                                  getAssignedAreaStatus(config) === 'error' 
-                                    ? "text-red-500 font-medium" 
-                                    : ""
-                                }>
-                                  {calculateAssignedArea(config) > 0 
-                                    ? calculateAssignedArea(config).toLocaleString() + " sf" 
-                                    : "Not assigned"}
-                                </span>
-                                
-                                {getAssignedAreaStatus(config) === 'warning' && (
-                                  <AlertTriangle className="h-4 w-4 ml-1.5 text-amber-500" />
-                                )}
-                                
-                                {getAssignedAreaStatus(config) === 'error' && (
-                                  <AlertTriangle className="h-4 w-4 ml-1.5 text-red-500" />
-                                )}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">
-                              <div className="max-w-xs">
-                                <p className="font-medium mb-1">Assigned Area</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {getAssignedAreaStatus(config) === 'empty' && (
-                                    "No spaces have been assigned to this floor yet."
-                                  )}
-                                  {getAssignedAreaStatus(config) === 'error' && (
-                                    "Assigned area exceeds the gross area of this floor."
-                                  )}
-                                  {getAssignedAreaStatus(config) === 'warning' && (
-                                    `Only ${getAssignedPercentage(config).toFixed(1)}% of the floor area has been assigned.`
-                                  )}
-                                  {getAssignedAreaStatus(config) === 'ok' && (
-                                    `${getAssignedPercentage(config).toFixed(1)}% of the floor area has been assigned.`
-                                  )}
-                                </p>
-                                <p className="text-xs mt-1 text-muted-foreground">
-                                  Assigned Area represents the total square footage that has been allocated to specific spaces on this floor. This should typically be equal to or slightly less than the Gross Area.
-                                </p>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TableCell>
-                        <TableCell>{config.floorToFloorHeight}'</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-sm" 
-                              style={{ backgroundColor: getUseColor(config.primaryUse) }}
-                            ></div>
-                            <span className="capitalize">{config.primaryUse}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {getSpacesInfo(config) ? (
-                            <Badge variant="outline" className="bg-muted/30 hover:bg-muted cursor-default">
-                              {getSpacesInfo(config)!.totalSpaces} spaces • {getSpacesInfo(config)!.totalPlannedArea.toLocaleString()} sf
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-muted-foreground">
-                              Not configured
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleEditFloor(config)}
-                            className="px-2 h-7"
-                          >
-                            <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TooltipProvider>
-            </div>
-          </>
+        {floorConfigurations.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-muted-foreground mb-4">No floors added yet</div>
+            <Button onClick={() => setAddFloorDialogOpen(true)}>
+              <PlusCircle className="w-4 h-4 mr-1" /> Add Your First Floor
+            </Button>
+          </div>
         )}
       </CardContent>
       
-      {selectedFloor && isFloorEditorOpen && (
-        <FloorEditor
-          key={editorKey}
-          isOpen={isFloorEditorOpen}
-          onClose={handleCloseFloorEditor}
-          floorConfig={selectedFloor}
-          floorTemplates={floorTemplates}
-          updateFloorConfiguration={updateFloorConfiguration}
-          updateSpaces={updateFloorSpaces}
-          updateBuildingSystems={updateFloorBuildingSystems}
-        />
-      )}
-      
-      <Dialog open={addFloorsDialogOpen} onOpenChange={setAddFloorsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+      {/* Add Floor Dialog */}
+      <Dialog open={addFloorDialogOpen} onOpenChange={setAddFloorDialogOpen}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Floors</DialogTitle>
+            <DialogDescription>Add new floors to your building</DialogDescription>
           </DialogHeader>
+          
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="floor-count">Number of Floors</Label>
-                <Input 
+                <Input
                   id="floor-count"
-                  type="number" 
+                  type="number"
+                  min="1"
                   value={floorCount}
                   onChange={(e) => setFloorCount(e.target.value)}
-                  min="1"
                 />
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label>Floor Type</Label>
                 <div className="flex items-center pt-2">
-                  <div className="flex items-center space-x-2 mr-4">
-                    <input
-                      type="radio"
-                      id="above-ground"
-                      name="floor-type"
-                      checked={!isUnderground}
-                      onChange={() => setIsUnderground(false)}
-                      className="h-4 w-4 text-primary"
-                    />
-                    <Label htmlFor="above-ground" className="cursor-pointer">Above Ground</Label>
-                  </div>
                   <div className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      id="below-ground"
-                      name="floor-type"
+                    <Checkbox
+                      id="is-underground" 
                       checked={isUnderground}
-                      onChange={() => setIsUnderground(true)}
-                      className="h-4 w-4 text-primary"
+                      onCheckedChange={(checked) => {
+                        setIsUnderground(!!checked);
+                        // Reset position when changing floor type
+                        setPosition(isUnderground ? "top" : "bottom");
+                      }}
                     />
-                    <Label htmlFor="below-ground" className="cursor-pointer">Below Ground</Label>
+                    <label 
+                      htmlFor="is-underground" 
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Underground Floors
+                    </label>
                   </div>
                 </div>
               </div>
             </div>
             
-            <div className="space-y-2">
+            <div>
               <Label htmlFor="floor-template">Floor Template</Label>
               <Select 
-                value={selectedTemplateId || undefined} 
-                onValueChange={(value) => setSelectedTemplateId(value)}
+                value={selectedTemplateId || ""} 
+                onValueChange={setSelectedTemplateId}
               >
-                <SelectTrigger id="floor-template">
-                  <SelectValue placeholder="Select template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {floorTemplates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="numbering-pattern">Numbering Pattern</Label>
-              <Select 
-                value={numberingPattern} 
-                onValueChange={(value: "consecutive" | "skip" | "custom") => setNumberingPattern(value)}
-              >
-                <SelectTrigger id="numbering-pattern">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="consecutive">Consecutive (1, 2, 3...)</SelectItem>
-                  <SelectItem value="skip">Skip numbers (1, 3, 5...)</SelectItem>
-                  {/* Disable custom for now as it requires more UI */}
-                  {/*<SelectItem value="custom">Custom Numbering</SelectItem>*/}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setAddFloorsDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleAddFloors}>Add Floors</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={removeFloorsDialogOpen} onOpenChange={setRemoveFloorsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Remove Floors</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <Label>Select Floors to Remove</Label>
-                <div className="space-x-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-xs h-7"
-                    onClick={selectAllAboveGroundFloors}
-                  >
-                    All Above Ground
-                  </Button>
-                  {belowGroundConfigs.length > 0 && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-xs h-7"
-                      onClick={selectAllBelowGroundFloors}
-                    >
-                      All Below Ground
-                    </Button>
-                  )}
-                </div>
-              </div>
-              
-              <ScrollArea className="h-[240px] border rounded-md p-3">
-                <div className="space-y-1">
-                  {aboveGroundConfigs.map((config) => (
-                    <div 
-                      key={`remove-${config.floorNumber}`} 
-                      className="flex items-center space-x-2 py-1 px-1 hover:bg-muted/40 rounded"
-                    >
-                      <Checkbox 
-                        id={`remove-floor-${config.floorNumber}`}
-                        checked={floorsToRemove.includes(config.floorNumber)}
-                        onCheckedChange={() => toggleFloorForRemoval(config.floorNumber)}
-                      />
-                      <Label 
-                        htmlFor={`remove-floor-${config.floorNumber}`}
-                        className="flex-1 cursor-pointer text-sm flex items-center justify-between"
-                      >
-                        <span>Floor {config.floorNumber}</span>
-                        <span className="text-muted-foreground text-xs capitalize">
-                          {config.primaryUse}
-                        </span>
-                      </Label>
-                    </div>
-                  ))}
-                  
-                  {belowGroundConfigs.length > 0 && (
-                    <>
-                      <div className="pt-2 pb-1 border-t">
-                        <span className="text-xs font-medium text-muted-foreground">Below Ground Floors</span>
-                      </div>
-                      {belowGroundConfigs.map((config) => (
-                        <div 
-                          key={`remove-${config.floorNumber}`} 
-                          className="flex items-center space-x-2 py-1 px-1 hover:bg-muted/40 rounded"
-                        >
-                          <Checkbox 
-                            id={`remove-floor-${config.floorNumber}`}
-                            checked={floorsToRemove.includes(config.floorNumber)}
-                            onCheckedChange={() => toggleFloorForRemoval(config.floorNumber)}
-                          />
-                          <Label 
-                            htmlFor={`remove-floor-${config.floorNumber}`}
-                            className="flex-1 cursor-pointer text-sm flex items-center justify-between"
-                          >
-                            <span>Floor B{Math.abs(config.floorNumber)}</span>
-                            <span className="text-muted-foreground text-xs capitalize">
-                              {config.primaryUse}
-                            </span>
-                          </Label>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-              </ScrollArea>
-              
-              {floorsToRemove.length > 0 && (
-                <div className="mt-3">
-                  <Badge variant="outline">
-                    {floorsToRemove.length} floor{floorsToRemove.length > 1 ? 's' : ''} selected
-                  </Badge>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setRemoveFloorsDialogOpen(false);
-                  setFloorsToRemove([]);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button 
-                variant="destructive" 
-                onClick={() => setConfirmRemoveOpen(true)}
-                disabled={floorsToRemove.length === 0}
-              >
-                Remove Selected
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
-        <DialogContent className="sm:max-w-[550px]">
-          <DialogHeader>
-            <DialogTitle>Copy Floor Configuration</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Source Floor</Label>
-              <Select value={copySourceFloor} onValueChange={(value) => {
-                setCopySourceFloor(value);
-                if (copyTargetFloors.includes(parseInt(value))) {
-                  setCopyTargetFloors(copyTargetFloors.filter(f => f !== parseInt(value)));
-                }
-              }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select source floor" />
+                  <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
-                  {floorConfigurations.map((config) => (
-                    <SelectItem key={config.floorNumber} value={config.floorNumber.toString()}>
-                      Floor {config.floorNumber < 0 ? `B${Math.abs(config.floorNumber)}` : config.floorNumber}
+                  <SelectItem value="">None (Custom)</SelectItem>
+                  {floorTemplates.map(template => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name} ({parseInt(template.squareFootage || "0").toLocaleString()} sf)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label>Target Floors</Label>
-                <div className="space-x-2 text-xs">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 text-xs"
-                    onClick={selectAllTargetFloors}
-                  >
-                    Select All
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 text-xs"
-                    onClick={clearAllTargetFloors}
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="border rounded-md">
-                <div className="flex justify-between items-center p-2 bg-muted/40 border-b">
-                  <span className="text-sm font-medium">Select target floors</span>
-                  {copyTargetFloors.length > 0 && (
-                    <Badge variant="secondary">
-                      {copyTargetFloors.length} floor{copyTargetFloors.length > 1 ? 's' : ''} selected
-                    </Badge>
-                  )}
-                </div>
+            <div>
+              <Label>Position</Label>
+              <Tabs 
+                value={position} 
+                onValueChange={(value) => setPosition(value as "top" | "bottom" | "specific")}
+                className="w-full"
+              >
+                <TabsList className="grid grid-cols-3 mb-2">
+                  <TabsTrigger value={isUnderground ? "bottom" : "top"}>
+                    {isUnderground ? "Bottom" : "Top"}
+                  </TabsTrigger>
+                  <TabsTrigger value={isUnderground ? "top" : "bottom"}>
+                    {isUnderground ? "Top" : "Bottom"}
+                  </TabsTrigger>
+                  <TabsTrigger value="specific">Specific</TabsTrigger>
+                </TabsList>
                 
-                <ScrollArea className="h-[180px] p-2">
-                  <div className="space-y-1">
-                    {floorConfigurations
-                      .filter(config => config.floorNumber !== parseInt(copySourceFloor))
-                      .sort((a, b) => b.floorNumber - a.floorNumber)
-                      .map((config) => (
-                        <div 
-                          key={`target-${config.floorNumber}`}
-                          className="flex items-center space-x-2 py-1 px-1 hover:bg-muted/40 rounded"
-                        >
-                          <Checkbox 
-                            id={`floor-${config.floorNumber}`}
-                            checked={copyTargetFloors.includes(config.floorNumber)}
-                            onCheckedChange={() => toggleTargetFloorSelection(config.floorNumber)}
-                          />
-                          <Label 
-                            htmlFor={`floor-${config.floorNumber}`}
-                            className="flex-1 cursor-pointer text-sm flex items-center justify-between"
-                          >
-                            <span>
-                              Floor {config.floorNumber < 0 ? `B${Math.abs(config.floorNumber)}` : config.floorNumber}
-                            </span>
-                            <span className="text-muted-foreground text-xs capitalize">
-                              {config.primaryUse}
-                            </span>
-                          </Label>
-                        </div>
-                      ))
-                    }
+                <TabsContent value="specific" className="mt-1">
+                  <div>
+                    <Label htmlFor="specific-position">Floor Number</Label>
+                    <Input
+                      id="specific-position"
+                      type="number"
+                      value={specificPosition}
+                      onChange={(e) => setSpecificPosition(e.target.value)}
+                      placeholder={isUnderground ? "-1, -2, etc." : "1, 2, etc."}
+                    />
                   </div>
-                </ScrollArea>
-              </div>
-              
-              <div className="pt-2 space-y-3">
-                <div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full justify-between"
-                    onClick={() => setShowRangeSelector(!showRangeSelector)}
-                  >
-                    <span>Select Floor Range</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${showRangeSelector ? 'rotate-180' : ''}`} />
-                  </Button>
-                  
-                  {showRangeSelector && (
-                    <div className="border rounded-md mt-2 p-3 space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label htmlFor="range-start" className="text-xs">Start Floor</Label>
-                          <Input 
-                            id="range-start" 
-                            value={rangeStart}
-                            onChange={e => setRangeStart(e.target.value)}
-                            placeholder="e.g., 1 or -1"
-                            className="h-8"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="range-end" className="text-xs">End Floor</Label>
-                          <Input 
-                            id="range-end" 
-                            value={rangeEnd}
-                            onChange={e => setRangeEnd(e.target.value)}
-                            placeholder="e.g., 10 or -3"
-                            className="h-8"
-                          />
-                        </div>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        className="w-full"
-                        onClick={selectTargetFloorsInRange}
-                      >
-                        Add Range to Selection
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="space-y-1">
-                  <Label className="text-xs">Select by Use Type</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(floorsByUse).map(([use, floors]) => (
-                      <Badge 
-                        key={use}
-                        variant="outline" 
-                        className="cursor-pointer hover:bg-muted/60 capitalize"
-                        onClick={() => selectTargetFloorsByUse(use)}
-                      >
-                        All {use} ({floors.length})
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              
-              {copyTargetFloors.length > 0 && (
-                <div className="pt-2">
-                  <Label className="text-sm">Selected Floors</Label>
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    {copyTargetFloors
-                      .sort((a, b) => b - a)
-                      .map(floorNum => (
-                        <Badge
-                          key={`selected-${floorNum}`}
-                          variant="secondary"
-                          className="pl-2 flex items-center gap-1 bg-muted/60 hover:bg-muted"
-                        >
-                          {formatFloorNumber(floorNum)}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-4 w-4 p-0 hover:bg-transparent hover:text-destructive"
-                            onClick={() => toggleTargetFloorSelection(floorNum)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      ))
-                    }
-                  </div>
-                </div>
-              )}
+                </TabsContent>
+              </Tabs>
             </div>
             
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => {
-                setCopyDialogOpen(false);
-                setCopyTargetFloors([]);
-                setShowRangeSelector(false);
-              }}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleOpenConfirmCopy}
-                disabled={copyTargetFloors.length === 0 || !copySourceFloor}
+            <div>
+              <Label>Numbering Pattern</Label>
+              <Tabs 
+                value={numberingPattern} 
+                onValueChange={(value) => setNumberingPattern(value as "consecutive" | "skip")}
+                className="w-full"
               >
-                Copy to {copyTargetFloors.length} Floor{copyTargetFloors.length !== 1 ? 's' : ''}
-              </Button>
+                <TabsList className="grid grid-cols-2 mb-2">
+                  <TabsTrigger value="consecutive">Consecutive</TabsTrigger>
+                  <TabsTrigger value="skip">Skip Numbers</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="consecutive" className="text-muted-foreground text-xs mt-1">
+                  Example: 1, 2, 3, 4, 5
+                </TabsContent>
+                <TabsContent value="skip" className="text-muted-foreground text-xs mt-1">
+                  Example: 1, 3, 5, 7, 9
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddFloorDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddFloors}>
+              Add Floors
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
-      <AlertDialog open={confirmCopyOpen} onOpenChange={setConfirmCopyOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Floor Configuration Copy</AlertDialogTitle>
-            <AlertDialogDescription>
-              <p>
-                You are about to copy the configuration from Floor {formatFloorNumber(parseInt(copySourceFloor))} 
-                to {copyTargetFloors.length} floor{copyTargetFloors.length !== 1 ? 's' : ''}.
-              </p>
-              {copyTargetFloors.length > 0 && (
-                <div className="mt-2">
-                  <p className="font-medium text-sm mb-1">Target floors:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {copyTargetFloors
-                      .sort((a, b) => b - a)
-                      .map(floorNum => (
-                        <Badge key={`confirm-${floorNum}`} variant="outline">
-                          Floor {formatFloorNumber(floorNum)}
-                        </Badge>
-                      ))
-                    }
-                  </div>
-                </div>
-              )}
-              <p className="mt-3 text-amber-600 flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4" />
-                <span>This will overwrite any existing configurations on the target floors.</span>
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCopy}>
-              <Check className="h-4 w-4 mr-2" /> Confirm Copy
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
-      <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Floor Removal</AlertDialogTitle>
-            <AlertDialogDescription>
-              <p>
-                You are about to remove {floorsToRemove.length} floor{floorsToRemove.length !== 1 ? 's' : ''}.
-              </p>
-              {floorsToRemove.length > 0 && (
-                <div className="mt-2">
-                  <p className="font-medium text-sm mb-1">Floors to be removed:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {floorsToRemove
-                      .sort((a, b) => b - a)
-                      .map(floorNum => (
-                        <Badge key={`confirm-remove-${floorNum}`} variant="outline">
-                          Floor {formatFloorNumber(floorNum)}
-                        </Badge>
-                      ))
-                    }
-                  </div>
-                </div>
-              )}
-              <p className="mt-3 text-destructive flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4" />
-                <span>This action cannot be undone. All data for these floors will be lost.</span>
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemoveFloors} className="bg-destructive hover:bg-destructive/90">
-              <Trash className="h-4 w-4 mr-2" /> Remove Floors
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
+      {/* Template Manager Dialog */}
       <FloorTemplateManager
-        isOpen={templateManagerOpen}
-        onClose={() => setTemplateManagerOpen(false)}
+        isOpen={addTemplateDialogOpen}
+        onClose={() => setAddTemplateDialogOpen(false)}
         templates={floorTemplates}
         addTemplate={addFloorTemplate}
         updateTemplate={updateFloorTemplate}
         removeTemplate={removeFloorTemplate}
       />
+      
+      {/* Copy Configuration Dialog */}
+      <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copy Floor Configuration</DialogTitle>
+            <DialogDescription>Copy settings from one floor to others</DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div>
+              <Label htmlFor="source-floor">Source Floor</Label>
+              <Select 
+                value={selectedFloorForCopy?.toString() || ""} 
+                onValueChange={(value) => setSelectedFloorForCopy(parseInt(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select source floor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedFloors.map(floor => (
+                    <SelectItem key={`source-${floor.floorNumber}`} value={floor.floorNumber.toString()}>
+                      Floor {floor.floorNumber} {floor.isUnderground ? '(Underground)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label>Target Floors</Label>
+              <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
+                {selectedRows.length === 0 ? (
+                  <div className="text-muted-foreground text-center py-2">
+                    No floors selected
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedRows.map(floorNum => (
+                      <Badge key={`target-${floorNum}`} variant="secondary">
+                        Floor {floorNum}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Select floors from the table to copy configuration to
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCopyFloorConfig}>
+              Copy Configuration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Bulk Edit Dialog */}
+      <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bulk Edit Floors</DialogTitle>
+            <DialogDescription>Apply changes to multiple floors at once</DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div>
+              <Label htmlFor="bulk-edit-field">Field to Edit</Label>
+              <Select 
+                value={bulkEditField} 
+                onValueChange={(value) => setBulkEditField(value as keyof FloorConfiguration)}
+              >
+                <SelectTrigger id="bulk-edit-field">
+                  <SelectValue placeholder="Select field" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="templateId">Template</SelectItem>
+                  <SelectItem value="floorToFloorHeight">Floor Height</SelectItem>
+                  <SelectItem value="efficiencyFactor">Efficiency Factor</SelectItem>
+                  <SelectItem value="primaryUse">Primary Use</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="bulk-edit-value">New Value</Label>
+              {bulkEditField === "templateId" ? (
+                <Select 
+                  value={bulkEditValue} 
+                  onValueChange={setBulkEditValue}
+                >
+                  <SelectTrigger id="bulk-edit-value">
+                    <SelectValue placeholder="Select template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {floorTemplates.map(template => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : bulkEditField === "primaryUse" ? (
+                <Select 
+                  value={bulkEditValue} 
+                  onValueChange={setBulkEditValue}
+                >
+                  <SelectTrigger id="bulk-edit-value">
+                    <SelectValue placeholder="Select use" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="residential">Residential</SelectItem>
+                    <SelectItem value="office">Office</SelectItem>
+                    <SelectItem value="retail">Retail</SelectItem>
+                    <SelectItem value="parking">Parking</SelectItem>
+                    <SelectItem value="hotel">Hotel</SelectItem>
+                    <SelectItem value="amenities">Amenities</SelectItem>
+                    <SelectItem value="storage">Storage</SelectItem>
+                    <SelectItem value="mechanical">Mechanical</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="bulk-edit-value"
+                  value={bulkEditValue}
+                  onChange={(e) => setBulkEditValue(e.target.value)}
+                  placeholder={
+                    bulkEditField === "floorToFloorHeight" ? "12" : 
+                    bulkEditField === "efficiencyFactor" ? "85" : ""
+                  }
+                />
+              )}
+            </div>
+            
+            <div>
+              <Label>Floors to Edit</Label>
+              <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
+                {selectedRows.length === 0 ? (
+                  <div className="text-muted-foreground text-center py-2">
+                    No floors selected
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedRows.map(floorNum => (
+                      <Badge key={`edit-${floorNum}`} variant="secondary">
+                        Floor {floorNum}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkEdit}>
+              Apply Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Floor Editor Dialog */}
+      {currentFloor !== null && (
+        <FloorEditor
+          open={floorEditorOpen}
+          onOpenChange={setFloorEditorOpen}
+          floorNumber={currentFloor}
+          floorConfiguration={floorConfigurations.find(f => f.floorNumber === currentFloor)}
+          floorTemplates={floorTemplates}
+          updateFloorConfiguration={updateFloorConfiguration}
+          updateFloorSpaces={updateFloorSpaces}
+        />
+      )}
+      
+      {/* Confirmation Dialog for Floor Deletion */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Floor</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete Floor {floorToDelete}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDeleteFloor}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
-};
-
-const getUseColor = (spaceType: string) => {
-  const colors: Record<string, string> = {
-    "residential": "#3B82F6",
-    "office": "#10B981",
-    "retail": "#F59E0B",
-    "parking": "#6B7280",
-    "hotel": "#8B5CF6",
-    "amenities": "#EC4899",
-    "storage": "#78716C",
-    "mechanical": "#475569",
-  };
-  
-  return colors[spaceType] || "#9CA3AF";
 };
 
 export default FloorConfigurationManager;
