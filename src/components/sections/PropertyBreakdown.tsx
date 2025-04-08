@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -518,8 +519,8 @@ const PropertyBreakdown = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <SpaceSummaryDashboard
-          totalBuildableArea={totalBuildableArea}
-          totalAllocatedArea={totalAllocatedArea}
+          totalBuildableArea={parseFloat(totalBuildableArea) || 0}
+          totalAllocatedArea={parseFloat(totalAllocatedArea) || 0}
           spaceBreakdown={spaceBreakdown}
           issues={issues}
         />
