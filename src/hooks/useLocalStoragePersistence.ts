@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 type StorageValue<T> = T | null;
@@ -19,14 +18,18 @@ export const useLocalStoragePersistence = <T>(
     try {
       const storedValue = localStorage.getItem(key);
       if (storedValue !== null) {
-        setValue(JSON.parse(storedValue));
+        const parsedValue = JSON.parse(storedValue);
+        setValue(parsedValue);
+        console.log(`Loaded data from localStorage (${key}):`, parsedValue);
+      } else {
+        console.log(`No data found in localStorage for key (${key}), using default value:`, initialValue);
       }
       setIsInitialized(true);
     } catch (error) {
       console.error(`Error loading data from localStorage (${key}):`, error);
       setIsInitialized(true);
     }
-  }, [key]);
+  }, [key, initialValue]);
 
   // Save to localStorage whenever value changes
   useEffect(() => {
@@ -45,6 +48,7 @@ export const useLocalStoragePersistence = <T>(
     try {
       localStorage.removeItem(key);
       setValue(initialValue);
+      console.log(`Reset data in localStorage (${key}) to:`, initialValue);
     } catch (error) {
       console.error(`Error resetting data in localStorage (${key}):`, error);
     }
@@ -58,6 +62,11 @@ export const useLocalStoragePersistence = <T>(
  */
 export const saveToLocalStorage = <T>(key: string, data: T): void => {
   try {
+    if (data === undefined) {
+      console.warn(`Attempted to save undefined data to localStorage (${key})`);
+      return;
+    }
+    
     localStorage.setItem(key, JSON.stringify(data));
     console.log(`Data saved to localStorage (${key})`, data);
   } catch (error) {
@@ -72,7 +81,7 @@ export const loadFromLocalStorage = <T>(key: string, defaultValue: T): T => {
   try {
     const storedValue = localStorage.getItem(key);
     if (storedValue === null) {
-      console.log(`No data found in localStorage for key (${key}), using default value`);
+      console.log(`No data found in localStorage for key (${key}), using default value:`, defaultValue);
       return defaultValue;
     }
     
@@ -83,6 +92,13 @@ export const loadFromLocalStorage = <T>(key: string, defaultValue: T): T => {
     console.error(`Error loading data from localStorage (${key}):`, error);
     return defaultValue;
   }
+};
+
+/**
+ * Helper to verify if a key exists in localStorage
+ */
+export const existsInLocalStorage = (key: string): boolean => {
+  return localStorage.getItem(key) !== null;
 };
 
 /**
@@ -99,7 +115,7 @@ export const clearAllModelData = (): void => {
     // Remove each model key
     modelKeys.forEach(key => localStorage.removeItem(key));
     
-    console.log('All model data cleared from localStorage');
+    console.log('All model data cleared from localStorage. Removed keys:', modelKeys);
   } catch (error) {
     console.error('Error clearing model data from localStorage:', error);
   }

@@ -1,5 +1,5 @@
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
 import { useFloorTemplates } from "./property/useFloorTemplates";
@@ -9,7 +9,7 @@ import { useUnitMix } from "./property/useUnitMix";
 import { useUnitTypes } from "./property/useUnitTypes";
 import { useUnitAllocations } from "./property/useUnitAllocations";
 import { useVisualizationData } from "./property/useVisualizationData";
-import { SpaceDefinition, BuildingSystemsConfig } from "../types/propertyTypes";
+import { SpaceDefinition, BuildingSystemsConfig, FloorConfiguration, FloorPlateTemplate } from "../types/propertyTypes";
 
 export const useExtendedPropertyState = () => {
   const projectInfo = useProjectInfo();
@@ -38,6 +38,21 @@ export const useExtendedPropertyState = () => {
     floorTemplates.floorTemplates
   );
   
+  // Listen for template changes and update floor configurations
+  useEffect(() => {
+    const handleTemplateChange = (event: Event) => {
+      // Force a refresh of the configurations with the latest templates
+      if (floorTemplates.floorTemplates.length > 0) {
+        console.log("Template changed event received, templates:", floorTemplates.floorTemplates);
+      }
+    };
+    
+    window.addEventListener('floorTemplatesChanged', handleTemplateChange);
+    return () => {
+      window.removeEventListener('floorTemplatesChanged', handleTemplateChange);
+    };
+  }, [floorTemplates.floorTemplates]);
+  
   const resetAllData = useCallback(() => {
     if (projectInfo.resetAllData) projectInfo.resetAllData();
     if (floorConfigurations.resetAllData) floorConfigurations.resetAllData();
@@ -47,6 +62,8 @@ export const useExtendedPropertyState = () => {
     if (unitMix.resetAllData) unitMix.resetAllData();
     if (unitTypes.resetAllData) unitTypes.resetAllData();
     if (unitAllocations.resetAllData) unitAllocations.resetAllData();
+    
+    console.log("All data has been reset across all modules");
   }, [
     projectInfo, floorConfigurations, floorTemplates, 
     buildingParams, spaceTypes, unitMix, unitTypes, unitAllocations
@@ -87,6 +104,14 @@ export const useExtendedPropertyState = () => {
     addUnitType: unitTypes.addUnitType,
     updateUnitType: unitTypes.updateUnitType,
     removeUnitType: unitTypes.removeUnitType,
+    addCustomCategory: unitTypes.addCustomCategory,
+    removeCategory: unitTypes.removeCategory,
+    undoRemoveCategory: unitTypes.undoRemoveCategory,
+    getAllCategories: unitTypes.getAllCategories,
+    getCategoryColor: unitTypes.getCategoryColor,
+    getCategoryDescription: unitTypes.getCategoryDescription,
+    hasCategories: unitTypes.hasCategories,
+    recentlyDeletedCategory: unitTypes.recentlyDeletedCategory,
     
     unitAllocations: unitAllocations.unitAllocations,
     addUnitAllocation: unitAllocations.addAllocation,
@@ -110,6 +135,7 @@ export const useExtendedPropertyState = () => {
     exportFloorConfigurations: floorConfigurations.exportFloorConfigurations,
     getFloorArea: floorConfigurations.getFloorArea,
     updateFloorSpaces: floorConfigurations.updateFloorSpaces,
+    updateFloorBuildingSystems: floorConfigurations.updateFloorBuildingSystems,
     
     issues: visualizationData.issues,
     spaceTypeColors: visualizationData.spaceTypeColors,

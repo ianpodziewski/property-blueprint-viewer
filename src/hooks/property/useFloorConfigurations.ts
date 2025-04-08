@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
@@ -21,7 +20,6 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load floor configurations from localStorage on mount
   useEffect(() => {
     const storedFloorConfigurations = loadFromLocalStorage<FloorConfiguration[]>(STORAGE_KEY, []);
     
@@ -40,7 +38,6 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     setIsInitialized(true);
   }, []);
 
-  // Save floor configurations to localStorage whenever they change
   useEffect(() => {
     if (isInitialized) {
       saveToLocalStorage(STORAGE_KEY, floorConfigurations);
@@ -205,25 +202,9 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
         floor => !floorNumbers.includes(floor.floorNumber)
       );
       
-      if (remainingFloors.length === 0) {
-        const defaultFloor: FloorConfiguration = {
-          floorNumber: 1,
-          isUnderground: false,
-          templateId: floorTemplatesInput.length > 0 ? floorTemplatesInput[0]?.id || null : null,
-          customSquareFootage: "",
-          floorToFloorHeight: "12",
-          corePercentage: "15",
-          primaryUse: "office",
-          secondaryUse: null,
-          secondaryUsePercentage: "0"
-        };
-        
-        setFloorConfigurations([defaultFloor]);
-      } else {
-        setFloorConfigurations(remainingFloors);
-      }
+      setFloorConfigurations(remainingFloors);
     }
-  }, [floorConfigurations, floorTemplatesInput]);
+  }, [floorConfigurations]);
 
   const reorderFloor = useCallback((floorNumber: number, direction: "up" | "down") => {
     const sortedFloors = [...floorConfigurations].sort((a, b) => b.floorNumber - a.floorNumber);

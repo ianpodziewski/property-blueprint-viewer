@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { UnitType } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
@@ -45,7 +44,9 @@ export const useUnitTypes = () => {
     
     console.log("Loaded unit types data from localStorage:", {
       unitTypes: storedUnitTypes,
-      categories: storedCategories
+      categories: storedCategories,
+      colors: storedColors,
+      descriptions: storedDescriptions
     });
   }, []);
 
@@ -54,6 +55,12 @@ export const useUnitTypes = () => {
     if (isInitialized) {
       saveToLocalStorage(STORAGE_KEY, unitTypes);
       console.log("Saved unit types to localStorage:", unitTypes);
+      
+      // Dispatch event to notify other components
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('unitTypesChanged', { detail: unitTypes });
+        window.dispatchEvent(event);
+      }
     }
   }, [unitTypes, isInitialized]);
   
@@ -61,6 +68,12 @@ export const useUnitTypes = () => {
     if (isInitialized) {
       saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
       console.log("Saved categories to localStorage:", customCategories);
+      
+      // Dispatch event to notify other components
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('unitCategoriesChanged', { detail: customCategories });
+        window.dispatchEvent(event);
+      }
     }
   }, [customCategories, isInitialized]);
 

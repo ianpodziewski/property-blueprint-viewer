@@ -32,6 +32,12 @@ export const useFloorTemplates = () => {
     if (isInitialized) {
       saveToLocalStorage(STORAGE_KEY, floorTemplates);
       console.log("Saved floor templates to localStorage:", floorTemplates);
+      
+      // Dispatch a custom event to notify other components that templates have changed
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('floorTemplatesChanged', { detail: floorTemplates });
+        window.dispatchEvent(event);
+      }
     }
   }, [floorTemplates, isInitialized]);
 
