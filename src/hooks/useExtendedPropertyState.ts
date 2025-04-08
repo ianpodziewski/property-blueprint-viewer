@@ -1,4 +1,3 @@
-
 import { useCallback } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
@@ -13,17 +12,16 @@ import { SpaceDefinition, BuildingSystemsConfig } from "../types/propertyTypes";
 
 export const useExtendedPropertyState = () => {
   const projectInfo = useProjectInfo();
-  const floorConfigurations = useFloorConfigurations(
-    projectInfo.projectName ? [] : [] // This is just to satisfy the dependency, will be fixed below
-  );
-  const floorTemplates = useFloorTemplates(
-    floorConfigurations.floorConfigurations, 
-    floorConfigurations.setFloorConfigurations
-  );
+  
+  const floorTemplates = useFloorTemplates();
+  
+  const floorConfigurations = useFloorConfigurations(floorTemplates.floorTemplates);
+  
   const buildingParams = useBuildingParameters(
     floorConfigurations.floorConfigurations, 
     floorTemplates.floorTemplates
   );
+  
   const spaceTypes = useSpaceTypes();
   const unitMix = useUnitMix();
   const unitTypes = useUnitTypes();

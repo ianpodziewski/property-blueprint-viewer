@@ -16,8 +16,9 @@ const dispatchFloorConfigSavedEvent = () => {
   }
 };
 
-export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => {
+export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]) => {
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     const storedFloorConfigurations = loadFromLocalStorage<FloorConfiguration[]>(STORAGE_KEY, []);
@@ -33,11 +34,15 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
       
       setFloorConfigurations(migratedConfigs);
     }
+    setIsInitialized(true);
   }, []);
 
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, floorConfigurations);
-  }, [floorConfigurations]);
+    if (isInitialized) {
+      saveToLocalStorage(STORAGE_KEY, floorConfigurations);
+      console.log("Saved floor configurations to localStorage:", floorConfigurations);
+    }
+  }, [floorConfigurations, isInitialized]);
 
   const updateFloorConfiguration = useCallback((
     floorNumber: number, 
@@ -200,7 +205,7 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
         const defaultFloor: FloorConfiguration = {
           floorNumber: 1,
           isUnderground: false,
-          templateId: floorTemplates[0]?.id || null,
+          templateId: floorTemplatesInput.length > 0 ? floorTemplatesInput[0]?.id || null : null,
           customSquareFootage: "",
           floorToFloorHeight: "12",
           corePercentage: "15",
@@ -214,7 +219,7 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
         setFloorConfigurations(remainingFloors);
       }
     }
-  }, [floorConfigurations, floorTemplates]);
+  }, [floorConfigurations, floorTemplatesInput]);
 
   const reorderFloor = useCallback((floorNumber: number, direction: "up" | "down") => {
     const sortedFloors = [...floorConfigurations].sort((a, b) => b.floorNumber - a.floorNumber);
@@ -289,14 +294,14 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
     }
     
     if (floor.templateId) {
-      const template = floorTemplates.find(t => t.id === floor.templateId);
+      const template = floorTemplatesInput.find(t => t.id === floor.templateId);
       if (template) {
         return parseInt(template.squareFootage) || 0;
       }
     }
     
     return 0;
-  }, [floorConfigurations, floorTemplates]);
+  }, [floorConfigurations, floorTemplatesInput]);
 
   const resetAllData = useCallback(() => {
     setFloorConfigurations([]);

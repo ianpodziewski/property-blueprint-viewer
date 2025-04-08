@@ -1,12 +1,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
-import { FloorPlateTemplate, FloorConfiguration } from "@/types/propertyTypes";
+import { FloorPlateTemplate } from "@/types/propertyTypes";
 
 const STORAGE_KEY = "realEstateModel_floorTemplates";
 
-export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], setFloorConfigurations: React.Dispatch<React.SetStateAction<FloorConfiguration[]>>) => {
+export const useFloorTemplates = () => {
   const [floorTemplates, setFloorTemplates] = useState<FloorPlateTemplate[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load floor templates from localStorage on mount
   useEffect(() => {
@@ -22,12 +23,16 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
     });
     
     setFloorTemplates(migratedTemplates);
+    setIsInitialized(true);
   }, []);
 
   // Save floor templates to localStorage whenever they change
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, floorTemplates);
-  }, [floorTemplates]);
+    if (isInitialized) {
+      saveToLocalStorage(STORAGE_KEY, floorTemplates);
+      console.log("Saved floor templates to localStorage:", floorTemplates);
+    }
+  }, [floorTemplates, isInitialized]);
 
   const addFloorTemplate = useCallback((template: Omit<FloorPlateTemplate, "id">) => {
     const newId = `template-${Date.now()}`;
@@ -58,13 +63,9 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
   const removeFloorTemplate = useCallback((id: string) => {
     setFloorTemplates(floorTemplates.filter(template => template.id !== id));
     
-    // Update any floors using this template to have no template
-    setFloorConfigurations(
-      floorConfigurations.map(floor => 
-        floor.templateId === id ? { ...floor, templateId: null } : floor
-      )
-    );
-  }, [floorTemplates, floorConfigurations, setFloorConfigurations]);
+    // Note: Floor configurations using this template will need to be updated separately
+    // This is now handled in the component that calls this function
+  }, [floorTemplates]);
 
   // Reset all floor templates
   const resetAllData = useCallback(() => {

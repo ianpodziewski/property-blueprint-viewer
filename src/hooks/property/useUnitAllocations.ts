@@ -7,18 +7,23 @@ const STORAGE_KEY = "realEstateModel_unitAllocations";
 
 export const useUnitAllocations = () => {
   const [unitAllocations, setUnitAllocations] = useState<UnitAllocation[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
 
   // Load from localStorage on mount
   useEffect(() => {
     const storedAllocations = loadFromLocalStorage(STORAGE_KEY, []);
     setUnitAllocations(storedAllocations);
+    setIsInitialized(true);
   }, []);
 
   // Save to localStorage when updated
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, unitAllocations);
-  }, [unitAllocations]);
+    if (isInitialized) {
+      saveToLocalStorage(STORAGE_KEY, unitAllocations);
+      console.log("Saved unit allocations to localStorage:", unitAllocations);
+    }
+  }, [unitAllocations, isInitialized]);
 
   const addAllocation = useCallback((allocation: Omit<UnitAllocation, "id">) => {
     // Check if already exists, if so update it instead
