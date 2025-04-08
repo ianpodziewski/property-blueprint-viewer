@@ -2,9 +2,6 @@
  * Utility functions for exporting model data
  */
 
-import { useModelState } from "@/hooks/useModelState";
-import { useProjectInfo } from "@/hooks/property/useProjectInfo";
-
 // Format currency values for export
 export const formatCurrency = (value: string | number): string => {
   if (value === '' || value === undefined || value === null) return '';
@@ -36,28 +33,59 @@ export const formatNumber = (value: string | number): string => {
 
 // Structure data for Excel export
 export const prepareDataForExport = (): Record<string, any> => {
-  const modelState = useModelState();
-  const projectInfo = useProjectInfo();
+  // Import these directly from localStorage instead of using hooks
+  // since this function might be called outside of a component
+  let modelState: Record<string, any> = {};
+  let projectInfo: Record<string, any> = {};
+  
+  try {
+    // Safely get model state from localStorage
+    const modelStateRaw = localStorage.getItem("realEstateModel_modelState");
+    if (modelStateRaw) {
+      modelState = JSON.parse(modelStateRaw);
+    }
+    
+    // Safely get project info from localStorage
+    const projectInfoRaw = localStorage.getItem("realEstateModel_extendedProjectInfo");
+    if (projectInfoRaw) {
+      projectInfo = JSON.parse(projectInfoRaw);
+    } else {
+      // Fallback to legacy storage key
+      const legacyProjectInfoRaw = localStorage.getItem("realEstateModel_projectInfo");
+      if (legacyProjectInfoRaw) {
+        projectInfo = JSON.parse(legacyProjectInfoRaw);
+      }
+    }
+    
+    // Default values if not found
+    if (!projectInfo) projectInfo = {};
+    if (!modelState) modelState = {};
+    if (!modelState.property) modelState.property = {};
+  } catch (error) {
+    console.error("Error loading data for export:", error);
+    modelState = {};
+    projectInfo = {};
+  }
   
   return {
     projectInformation: {
-      projectName: projectInfo.projectName,
-      projectLocation: projectInfo.projectLocation,
-      projectType: projectInfo.projectType,
-      totalLandArea: modelState.property.totalLandArea,
+      projectName: projectInfo.projectName || "",
+      projectLocation: projectInfo.projectLocation || "",
+      projectType: projectInfo.projectType || "",
+      totalLandArea: modelState.property?.totalLandArea || "",
     },
     
-    spaceTypes: modelState.property.spaceTypes?.map(space => ({
-      type: space.type,
-      squareFootage: formatNumber(space.squareFootage),
-      units: formatNumber(space.units),
-      phase: space.phase
+    spaceTypes: modelState.property?.spaceTypes?.map((space: any) => ({
+      type: space.type || "",
+      squareFootage: formatNumber(space.squareFootage || ""),
+      units: formatNumber(space.units || ""),
+      phase: space.phase || ""
     })) || [],
     
-    unitMix: modelState.property.unitMixes?.map(unit => ({
-      type: unit.type,
-      count: formatNumber(unit.count),
-      squareFootage: formatNumber(unit.squareFootage)
+    unitMix: modelState.property?.unitMixes?.map((unit: any) => ({
+      type: unit.type || "",
+      count: formatNumber(unit.count || ""),
+      squareFootage: formatNumber(unit.squareFootage || "")
     })) || [],
     
     developmentCosts: {
