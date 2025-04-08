@@ -24,7 +24,7 @@ const DialogOverlay = React.forwardRef<
       className
     )}
     onClick={(e) => {
-      // Ensure event doesn't propagate to parent elements
+      // Always stop propagation and prevent default
       e.preventDefault();
       e.stopPropagation();
       
@@ -49,7 +49,7 @@ const DialogContent = React.forwardRef<
         className
       )}
       onClick={(e) => {
-        // Prevent click propagation to avoid closing parent dialogs
+        // Always stop propagation to prevent closing dialog when clicking inside
         e.stopPropagation();
         
         // Call the original onClick handler if provided

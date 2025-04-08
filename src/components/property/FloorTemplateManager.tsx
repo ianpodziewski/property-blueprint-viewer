@@ -326,21 +326,21 @@ const FloorTemplateManager = ({
     setSaveSuccessful(false);
     
     try {
-      // Create a new object to avoid reference issues - CRITICAL FIX
+      // Create a new object with explicit string conversions for every field to avoid reference issues
       const templateToSave = {
-        name: String(currentTemplate.name),
-        squareFootage: String(currentTemplate.squareFootage),
-        floorToFloorHeight: String(currentTemplate.floorToFloorHeight),
-        primaryUse: String(currentTemplate.primaryUse),
-        efficiencyFactor: String(currentTemplate.efficiencyFactor),
-        corePercentage: String(currentTemplate.corePercentage),
+        name: String(currentTemplate.name || ""),
+        squareFootage: String(currentTemplate.squareFootage || "10000"),
+        floorToFloorHeight: String(currentTemplate.floorToFloorHeight || "12"),
+        primaryUse: String(currentTemplate.primaryUse || "office"),
+        efficiencyFactor: String(currentTemplate.efficiencyFactor || "85"),
+        corePercentage: String(currentTemplate.corePercentage || "15"),
         description: String(currentTemplate.description || "")
       };
       
       addDebugLog(`Saving template data: ${JSON.stringify(templateToSave)}`);
       
       if (editMode === "create") {
-        // Add the new template - explicit values to ensure they're saved properly
+        // Add the new template with explicit string conversions for every value
         addTemplate({
           name: templateToSave.name,
           squareFootage: templateToSave.squareFootage,
@@ -355,9 +355,9 @@ const FloorTemplateManager = ({
           title: "Template created",
           description: "New floor template has been created successfully.",
         });
-        addDebugLog("New template created successfully");
+        addDebugLog(`New template created successfully with data: ${JSON.stringify(templateToSave)}`);
       } else if (editMode === "edit" && currentTemplate.id) {
-        // Update the existing template
+        // Update the existing template with explicit values
         updateTemplate(currentTemplate.id, {
           name: templateToSave.name,
           squareFootage: templateToSave.squareFootage,

@@ -50,8 +50,11 @@ const AlertDialogContent = React.forwardRef<
         className
       )}
       onClick={(e) => {
+        // Always stop propagation
         e.preventDefault();
         e.stopPropagation();
+        
+        // Call the original onClick handler if provided
         if (props.onClick) props.onClick(e);
       }}
       {...props}
@@ -140,7 +143,7 @@ const AlertDialogAction = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
 >(({ className, onClick, ...props }, ref) => {
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Stop propagation to prevent closing parent dialogs
+    // Always stop propagation to prevent closing parent dialogs
     e.preventDefault();
     e.stopPropagation();
     
@@ -166,7 +169,7 @@ const AlertDialogCancel = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Cancel>
 >(({ className, onClick, ...props }, ref) => {
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Stop propagation to prevent closing parent dialogs
+    // Always stop propagation to prevent closing parent dialogs
     e.preventDefault();
     e.stopPropagation();
     
