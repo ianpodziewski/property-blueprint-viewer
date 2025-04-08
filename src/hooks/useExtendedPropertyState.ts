@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
@@ -16,65 +17,76 @@ export const useExtendedPropertyState = () => {
   // Track if update is in progress to prevent circular updates
   const isUpdating = useRef(false);
   
+  // Store last calculation values to prevent unnecessary rerenders
+  const lastCalculationRef = useRef({
+    spaceTypes: "[]",
+    actualFar: 0,
+    farAllowance: "0",
+    totalBuildableArea: 0,
+    totalAllocatedArea: 0,
+    floorConfigurations: "[]",
+    floorTemplates: "[]"
+  });
+  
+  // Initialize hooks at the top level (required by React's Rules of Hooks)
   const projectInfo = useProjectInfo();
-  const floorTemplates = useFloorTemplates();
-  
-  // Pass floorTemplates.floorTemplates directly to ensure it's available immediately
-  // Add a safety check to ensure floorTemplates.floorTemplates exists
-  const floorConfigurations = useFloorConfigurations(
-    floorTemplates.floorTemplates || []
-  );
-  
-  const buildingParams = useBuildingParameters(
-    floorConfigurations.floorConfigurations || [], 
-    floorTemplates.floorTemplates || []
-  );
-  
   const spaceTypes = useSpaceTypes();
   const unitMix = useUnitMix();
   const unitTypes = useUnitTypes();
   const unitAllocations = useUnitAllocations();
+  const floorTemplates = useFloorTemplates();
   
-  // Use ref to prevent updates from visualization data changes triggering new visualizations
-  const lastVisualizationData = useRef({
-    spaceTypes: JSON.stringify(spaceTypes.spaceTypes || []),
-    actualFar: buildingParams.actualFar || 0,
-    farAllowance: buildingParams.farAllowance || "0",
-    totalBuildableArea: buildingParams.totalBuildableArea || 0,
-    totalAllocatedArea: spaceTypes.totalAllocatedArea || 0,
-    floorConfigurations: JSON.stringify(floorConfigurations.floorConfigurations || []),
-    floorTemplates: JSON.stringify(floorTemplates.floorTemplates || [])
-  });
+  // Get default empty arrays for safety
+  const safeFloorTemplates = useMemo(() => floorTemplates?.floorTemplates || [], [floorTemplates]);
+  
+  // Pass safe values to the dependent hooks
+  const floorConfigurations = useFloorConfigurations(safeFloorTemplates);
+  
+  // Get safe floor configurations
+  const safeFloorConfigurations = useMemo(
+    () => floorConfigurations?.floorConfigurations || [], 
+    [floorConfigurations]
+  );
+  
+  const buildingParams = useBuildingParameters(
+    safeFloorConfigurations, 
+    safeFloorTemplates
+  );
+  
+  // Pre-calculate safe values for visualization data
+  const safeSpaceTypesArray = useMemo(() => spaceTypes?.spaceTypes || [], [spaceTypes]);
+  const safeActualFar = useMemo(() => buildingParams?.actualFar || 0, [buildingParams]);
+  const safeFarAllowance = useMemo(() => buildingParams?.farAllowance || "0", [buildingParams]);
+  const safeTotalBuildableArea = useMemo(() => buildingParams?.totalBuildableArea || 0, [buildingParams]);
+  const safeTotalAllocatedArea = useMemo(() => spaceTypes?.totalAllocatedArea || 0, [spaceTypes]);
   
   // Memoize the check for whether visualization needs to update
   const shouldUpdateVisualization = useMemo(() => {
     // Skip if an update is in progress
     if (isUpdating.current) return false;
     
-    // Safely handle potential undefined values
-    const currentSpaceTypes = spaceTypes.spaceTypes || [];
-    const currentFarAllowance = buildingParams.farAllowance || "0";
-    const currentFloorConfigs = floorConfigurations.floorConfigurations || [];
-    const currentFloorTemplates = floorTemplates.floorTemplates || [];
+    const currentSpaceTypesJSON = JSON.stringify(safeSpaceTypesArray);
+    const currentFloorConfigsJSON = JSON.stringify(safeFloorConfigurations);
+    const currentFloorTemplatesJSON = JSON.stringify(safeFloorTemplates);
     
     const result = 
-      JSON.stringify(currentSpaceTypes) !== lastVisualizationData.current.spaceTypes ||
-      (buildingParams.actualFar || 0) !== lastVisualizationData.current.actualFar ||
-      currentFarAllowance !== lastVisualizationData.current.farAllowance ||
-      (buildingParams.totalBuildableArea || 0) !== lastVisualizationData.current.totalBuildableArea ||
-      (spaceTypes.totalAllocatedArea || 0) !== lastVisualizationData.current.totalAllocatedArea ||
-      JSON.stringify(currentFloorConfigs) !== lastVisualizationData.current.floorConfigurations ||
-      JSON.stringify(currentFloorTemplates) !== lastVisualizationData.current.floorTemplates;
+      currentSpaceTypesJSON !== lastCalculationRef.current.spaceTypes ||
+      safeActualFar !== lastCalculationRef.current.actualFar ||
+      safeFarAllowance !== lastCalculationRef.current.farAllowance ||
+      safeTotalBuildableArea !== lastCalculationRef.current.totalBuildableArea ||
+      safeTotalAllocatedArea !== lastCalculationRef.current.totalAllocatedArea ||
+      currentFloorConfigsJSON !== lastCalculationRef.current.floorConfigurations ||
+      currentFloorTemplatesJSON !== lastCalculationRef.current.floorTemplates;
       
     return result;
   }, [
-    spaceTypes.spaceTypes, 
-    buildingParams.actualFar,
-    buildingParams.farAllowance,
-    buildingParams.totalBuildableArea,
-    spaceTypes.totalAllocatedArea,
-    floorConfigurations.floorConfigurations,
-    floorTemplates.floorTemplates
+    safeSpaceTypesArray, 
+    safeActualFar,
+    safeFarAllowance,
+    safeTotalBuildableArea,
+    safeTotalAllocatedArea,
+    safeFloorConfigurations,
+    safeFloorTemplates
   ]);
   
   // Only get new visualization data when needed - with memoization
@@ -82,13 +94,13 @@ export const useExtendedPropertyState = () => {
     if (!shouldUpdateVisualization) {
       try {
         return useVisualizationData(
-          JSON.parse(lastVisualizationData.current.spaceTypes),
-          lastVisualizationData.current.actualFar,
-          lastVisualizationData.current.farAllowance,
-          lastVisualizationData.current.totalBuildableArea,
-          lastVisualizationData.current.totalAllocatedArea,
-          JSON.parse(lastVisualizationData.current.floorConfigurations),
-          JSON.parse(lastVisualizationData.current.floorTemplates)
+          JSON.parse(lastCalculationRef.current.spaceTypes),
+          lastCalculationRef.current.actualFar,
+          lastCalculationRef.current.farAllowance,
+          lastCalculationRef.current.totalBuildableArea,
+          lastCalculationRef.current.totalAllocatedArea,
+          JSON.parse(lastCalculationRef.current.floorConfigurations),
+          JSON.parse(lastCalculationRef.current.floorTemplates)
         );
       } catch (err) {
         console.error("Error parsing visualization data:", err);
@@ -98,59 +110,58 @@ export const useExtendedPropertyState = () => {
     }
     
     return useVisualizationData(
-      spaceTypes.spaceTypes || [],
-      buildingParams.actualFar || 0,
-      buildingParams.farAllowance || "0",
-      buildingParams.totalBuildableArea || 0,
-      spaceTypes.totalAllocatedArea || 0,
-      floorConfigurations.floorConfigurations || [],
-      floorTemplates.floorTemplates || []
+      safeSpaceTypesArray,
+      safeActualFar,
+      safeFarAllowance,
+      safeTotalBuildableArea,
+      safeTotalAllocatedArea,
+      safeFloorConfigurations,
+      safeFloorTemplates
     );
   }, [
     shouldUpdateVisualization,
-    spaceTypes.spaceTypes,
-    buildingParams.actualFar,
-    buildingParams.farAllowance,
-    buildingParams.totalBuildableArea,
-    spaceTypes.totalAllocatedArea,
-    floorConfigurations.floorConfigurations,
-    floorTemplates.floorTemplates
+    safeSpaceTypesArray,
+    safeActualFar,
+    safeFarAllowance,
+    safeTotalBuildableArea,
+    safeTotalAllocatedArea,
+    safeFloorConfigurations,
+    safeFloorTemplates
   ]);
   
   // Update reference when visualization data inputs change - with controlled updates
   useEffect(() => {
-    // CRITICAL FIX: Ensure all dependency array items exist before proceeding
-    if (!spaceTypes.spaceTypes || !buildingParams || !floorConfigurations.floorConfigurations || !floorTemplates.floorTemplates) {
-      return;
-    }
-    
     if (shouldUpdateVisualization && !isUpdating.current) {
       isUpdating.current = true;
       
       // Use setTimeout to ensure this happens outside the current render cycle
       setTimeout(() => {
-        lastVisualizationData.current = {
-          spaceTypes: JSON.stringify(spaceTypes.spaceTypes || []),
-          actualFar: buildingParams.actualFar || 0,
-          farAllowance: buildingParams.farAllowance || "0",
-          totalBuildableArea: buildingParams.totalBuildableArea || 0,
-          totalAllocatedArea: spaceTypes.totalAllocatedArea || 0,
-          floorConfigurations: JSON.stringify(floorConfigurations.floorConfigurations || []),
-          floorTemplates: JSON.stringify(floorTemplates.floorTemplates || [])
+        lastCalculationRef.current = {
+          spaceTypes: JSON.stringify(safeSpaceTypesArray),
+          actualFar: safeActualFar,
+          farAllowance: safeFarAllowance,
+          totalBuildableArea: safeTotalBuildableArea,
+          totalAllocatedArea: safeTotalAllocatedArea,
+          floorConfigurations: JSON.stringify(safeFloorConfigurations),
+          floorTemplates: JSON.stringify(safeFloorTemplates)
         };
         
         isUpdating.current = false;
       }, 0);
     }
-  }, [shouldUpdateVisualization, spaceTypes.spaceTypes, buildingParams, spaceTypes.totalAllocatedArea, floorConfigurations.floorConfigurations, floorTemplates.floorTemplates]);
+  }, [
+    shouldUpdateVisualization, 
+    safeSpaceTypesArray, 
+    safeActualFar,
+    safeFarAllowance,
+    safeTotalBuildableArea, 
+    safeTotalAllocatedArea, 
+    safeFloorConfigurations, 
+    safeFloorTemplates
+  ]);
   
-  // Listen for template changes and update floor configurations - with protection
+  // Listen for template changes and update floor configurations
   useEffect(() => {
-    // CRITICAL FIX: Return early if floorTemplates is undefined
-    if (!floorTemplates || !floorTemplates.floorTemplates) {
-      return;
-    }
-    
     if (!isMounted.current) {
       isMounted.current = true;
       return;
@@ -158,10 +169,10 @@ export const useExtendedPropertyState = () => {
     
     if (typeof window === 'undefined') return; // Check if running in browser
     
-    const handleTemplateChange = (event: Event) => {
-      // Force a refresh of the configurations with the latest templates
-      if (floorTemplates.floorTemplates && floorTemplates.floorTemplates.length > 0) {
-        console.log("Template changed event received, templates:", floorTemplates.floorTemplates);
+    const handleTemplateChange = () => {
+      // Only log if templates exist to prevent console spam
+      if (safeFloorTemplates.length > 0) {
+        console.log("Template changed event received, templates:", safeFloorTemplates);
       }
     };
     
@@ -171,7 +182,7 @@ export const useExtendedPropertyState = () => {
         window.removeEventListener('floorTemplatesChanged', handleTemplateChange);
       }
     };
-  }, [floorTemplates, floorTemplates?.floorTemplates]); // Add floorTemplates itself as a dependency
+  }, [safeFloorTemplates]); // Depend only on the safe values
   
   const resetAllData = useCallback(() => {
     if (projectInfo.resetAllData) projectInfo.resetAllData();
@@ -239,12 +250,12 @@ export const useExtendedPropertyState = () => {
     removeUnitAllocation: unitAllocations.removeAllocation,
     calculateAllocatedAreaByFloor: unitAllocations.calculateAllocatedAreaByFloor,
     
-    floorTemplates: floorTemplates.floorTemplates,
+    floorTemplates: safeFloorTemplates,
     addFloorTemplate: floorTemplates.addFloorTemplate,
     updateFloorTemplate: floorTemplates.updateFloorTemplate,
     removeFloorTemplate: floorTemplates.removeFloorTemplate,
     
-    floorConfigurations: floorConfigurations.floorConfigurations,
+    floorConfigurations: safeFloorConfigurations,
     updateFloorConfiguration: floorConfigurations.updateFloorConfiguration,
     copyFloorConfiguration: floorConfigurations.copyFloorConfiguration,
     bulkEditFloorConfigurations: floorConfigurations.bulkEditFloorConfigurations,

@@ -20,7 +20,7 @@ const ModelingTabs = () => {
   const handlersRegistered = useRef(false);
   const eventTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Use debounced event handlers to prevent rapid re-renders
+  // Define callbacks outside of useEffect to prevent dependency issues
   const handleFloorConfigSave = useCallback(() => {
     console.log('Floor configuration save event detected');
     
@@ -51,31 +51,24 @@ const ModelingTabs = () => {
     }, 300); // 300ms debounce
   }, []);
   
+  // Register event handlers only once
   useEffect(() => {
-    // Skip if handlers are already registered
-    if (handlersRegistered.current) return;
-    
-    // Only register handlers if window is defined (to handle SSR)
-    if (typeof window === 'undefined') return;
+    // Skip if handlers are already registered or if not in browser
+    if (handlersRegistered.current || typeof window === 'undefined') return;
     
     // Set flag to indicate handlers are registered
     handlersRegistered.current = true;
     
-    // Define event handlers
-    const floorConfigHandler = () => {
-      handleFloorConfigSave();
-    };
-    
-    const unitAllocationHandler = () => {
-      handleUnitAllocationSave();
-    };
+    console.log('Registering event handlers for floor config and unit allocation');
     
     // Add event listeners
-    window.addEventListener('floorConfigSaved', floorConfigHandler);
-    window.addEventListener('unitAllocationChanged', unitAllocationHandler);
+    window.addEventListener('floorConfigSaved', handleFloorConfigSave);
+    window.addEventListener('unitAllocationChanged', handleUnitAllocationSave);
     
     // Cleanup function
     return () => {
+      console.log('Cleaning up event handlers');
+      
       // Clean up timeouts to prevent memory leaks
       if (eventTimeoutRef.current) {
         clearTimeout(eventTimeoutRef.current);
@@ -83,11 +76,11 @@ const ModelingTabs = () => {
       
       // Remove event listeners if window exists
       if (typeof window !== 'undefined') {
-        window.removeEventListener('floorConfigSaved', floorConfigHandler);
-        window.removeEventListener('unitAllocationChanged', unitAllocationHandler);
+        window.removeEventListener('floorConfigSaved', handleFloorConfigSave);
+        window.removeEventListener('unitAllocationChanged', handleUnitAllocationSave);
       }
     };
-  }, [handleFloorConfigSave, handleUnitAllocationSave]); // Safely depend on these callbacks
+  }, []); // Empty dependency array since callbacks are stable
 
   return (
     <div className="w-full space-y-4">
