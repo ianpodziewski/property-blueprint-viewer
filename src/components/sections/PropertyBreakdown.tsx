@@ -19,12 +19,16 @@ import { SpaceDefinition, FloorPlateTemplate, FloorConfiguration, BuildingSystem
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/components/ui/use-toast";
 import { useEffect, useCallback, useMemo, useState } from "react";
+import { FLOOR_CONFIG_EVENT } from "@/hooks/property/useFloorConfigurations";
+import { useUIRecovery } from "@/App";
 
 const PropertyBreakdown = () => {
   const { toast } = useToast();
+  const { isProcessing: isGlobalProcessing, forceUIRecovery } = useUIRecovery();
   
   // Track if we're in an operation to prevent UI interactions
   const [isSafeToInteract, setIsSafeToInteract] = useState(true);
+  const [lastInteractionTime, setLastInteractionTime] = useState(0);
   
   const {
     // Project Information
@@ -87,44 +91,145 @@ const PropertyBreakdown = () => {
 
   // Function to create adapter for FloorStackingDiagram component
   const adaptedUpdateFloorConfiguration = useCallback((floorNumber: number, field: keyof FloorConfiguration, value: any) => {
+    console.log(`adaptedUpdateFloorConfiguration called for floor ${floorNumber}, field ${String(field)}`);
+    // Record interaction time for debounce tracking
+    setLastInteractionTime(Date.now());
     // This adapter handles the different function signature expected by FloorStackingDiagram
     updateFloorConfiguration(floorNumber, field, value);
   }, [updateFloorConfiguration]);
 
+  // Enhanced removeFloors function with robust error handling
+  const safeRemoveFloors = useCallback((floorNumbers: number[]) => {
+    console.log(`safeRemoveFloors called for floors ${floorNumbers.join(', ')}`);
+    try {
+      // Block immediate interaction
+      setIsSafeToInteract(false);
+      setLastInteractionTime(Date.now());
+      
+      // Create a wrapped operation inside a promise
+      const deleteOperation = new Promise<void>((resolve, reject) => {
+        try {
+          // Execute the delete
+          removeFloors(floorNumbers);
+          
+          // Schedule notification of operation completion
+          setTimeout(() => {
+            console.log("Floor deletion completed successfully");
+            resolve();
+          }, 300);
+          
+        } catch (error) {
+          console.error("Error in delete operation:", error);
+          reject(error);
+        }
+      });
+      
+      // Handle operation completion
+      deleteOperation
+        .then(() => {
+          console.log("Restoring UI interactivity after remove floors");
+          // Allow a brief pause to ensure all updates have propagated
+          setTimeout(() => {
+            setIsSafeToInteract(true);
+          }, 500);
+        })
+        .catch(error => {
+          console.error("Failed to remove floors:", error);
+          toast({
+            title: "Error removing floors",
+            description: "There was a problem removing the selected floors. The UI will be refreshed to recover.",
+            variant: "destructive"
+          });
+          
+          // Force recovery on error
+          setTimeout(() => {
+            forceUIRecovery();
+            setIsSafeToInteract(true);
+          }, 200);
+        });
+      
+    } catch (outer) {
+      console.error("Outer error in safeRemoveFloors:", outer);
+      // Emergency recovery
+      setIsSafeToInteract(true);
+      forceUIRecovery();
+    }
+  }, [removeFloors, toast, forceUIRecovery]);
+
   // Adapter for reorderFloor to match the expected signature
   const adaptedReorderFloor = useCallback((floorNumber: number, direction: "up" | "down") => {
+    console.log(`adaptedReorderFloor called for floor ${floorNumber}, direction ${direction}`);
+    setLastInteractionTime(Date.now());
     reorderFloor(floorNumber, direction);
   }, [reorderFloor]);
   
   // Ensure we don't interact with UI during processing operations
   useEffect(() => {
-    setIsSafeToInteract(!isProcessingOperation);
-  }, [isProcessingOperation]);
-  
-  // Ensure clean-up of any global event listeners when component unmounts
-  useEffect(() => {
-    // Listen for FloorConfig events to handle any UI updates needed
-    const handleFloorConfigSaved = () => {
-      // This helps refresh UI components after floor operations
-      console.log("Floor configuration saved event detected");
-      setTimeout(() => {
+    const isCurrentlyProcessing = isProcessingOperation || isGlobalProcessing;
+    console.log(`Processing state: ${isCurrentlyProcessing ? 'active' : 'inactive'}`);
+    
+    if (isCurrentlyProcessing) {
+      setIsSafeToInteract(false);
+    } else {
+      // Wait a brief moment before enabling interaction
+      const timer = setTimeout(() => {
         setIsSafeToInteract(true);
       }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isProcessingOperation, isGlobalProcessing]);
+  
+  // Listen for floor configuration events
+  useEffect(() => {
+    // Listen for FloorConfig events to handle any UI updates needed
+    const handleFloorConfigEvent = (event: Event) => {
+      if (event instanceof CustomEvent) {
+        console.log("Floor configuration event detected:", event.detail);
+        
+        // Auto-refresh the UI
+        setTimeout(() => {
+          console.log("Auto-refreshing UI after floor configuration event");
+          setIsSafeToInteract(true);
+        }, 400);
+        
+        // Check for certain operations that need special attention
+        if (event.detail?.operation === "remove") {
+          console.log("Remove operation detected, ensuring UI cleanup");
+          // Clean up any event listeners or DOM elements
+          document.querySelectorAll('[role="dialog"]').forEach(dialog => {
+            if (dialog.getAttribute('data-state') === 'open') {
+              console.log("Found open dialog after operation, closing");
+              dialog.setAttribute('data-state', 'closed');
+            }
+          });
+        }
+      }
     };
     
-    window.addEventListener('floorConfigSaved', handleFloorConfigSaved);
+    window.addEventListener(FLOOR_CONFIG_EVENT, handleFloorConfigEvent);
     
+    // Cleanup function
     return () => {
-      // Clean up the event listener
-      window.removeEventListener('floorConfigSaved', handleFloorConfigSaved);
+      window.removeEventListener(FLOOR_CONFIG_EVENT, handleFloorConfigEvent);
       
       // Clean up any global event listeners to prevent memory leaks
-      const modals = document.querySelectorAll('[role="dialog"]');
-      modals.forEach(modal => {
+      document.querySelectorAll('[role="dialog"]').forEach(modal => {
         modal.removeAttribute('data-state');
       });
     };
   }, []);
+
+  // Periodic safety check for stuck UI states
+  useEffect(() => {
+    const safetyCheck = setInterval(() => {
+      if (!isSafeToInteract && Date.now() - lastInteractionTime > 5000) {
+        console.log("Safety check: UI has been locked for >5s, force-enabling interaction");
+        setIsSafeToInteract(true);
+      }
+    }, 2000);
+    
+    return () => clearInterval(safetyCheck);
+  }, [isSafeToInteract, lastInteractionTime]);
 
   // Generate data for visualizations
   const floorsData = useMemo(() => generateFloorsData(), [generateFloorsData]);
@@ -204,15 +309,33 @@ const PropertyBreakdown = () => {
     }
   }, [addUnitMix, stopPropagation, isSafeToInteract, toast]);
   
+  // Manually trigger UI recovery if needed
+  const triggerManualUIRecovery = useCallback(() => {
+    forceUIRecovery();
+    toast({
+      title: "UI Reset",
+      description: "The interface has been reset and should now be responsive.",
+      duration: 3000,
+    });
+  }, [forceUIRecovery, toast]);
+
   return (
     <div 
       className="space-y-6"
       onClick={(e) => stopPropagation(e)}
     >
-      <div>
+      <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold text-blue-700 mb-4">Property Breakdown</h2>
-        <p className="text-gray-600 mb-6">Define the basic characteristics and mix of your development project.</p>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={triggerManualUIRecovery}
+          className="text-xs text-gray-500"
+        >
+          Reset UI
+        </Button>
       </div>
+      <p className="text-gray-600 mb-6">Define the basic characteristics and mix of your development project.</p>
       
       <Card>
         <CardHeader>
@@ -274,7 +397,7 @@ const PropertyBreakdown = () => {
         removeFloorTemplate={removeFloorTemplate}
       />
       
-      {/* Floor Configuration Manager */}
+      {/* Floor Configuration Manager with enhanced remove floors */}
       <FloorConfigurationManager 
         floorConfigurations={floorConfigurations}
         floorTemplates={floorTemplates}
@@ -283,7 +406,7 @@ const PropertyBreakdown = () => {
         bulkEditFloorConfigurations={bulkEditFloorConfigurations}
         updateFloorSpaces={updateFloorSpaces}
         addFloors={addFloors}
-        removeFloors={removeFloors}
+        removeFloors={safeRemoveFloors}
         reorderFloor={adaptedReorderFloor}
         addFloorTemplate={adaptedAddFloorTemplate}
         updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
