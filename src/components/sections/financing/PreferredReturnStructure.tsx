@@ -7,14 +7,14 @@ import { useModelState } from "@/hooks/useModelState";
 const PreferredReturnStructure = () => {
   const { financing, handleNumberChange, handleSelectChange } = useModelState();
   const {
-    preferredReturn,
-    setPreferredReturn,
-    preferredStructure,
-    setPreferredStructure,
-    gpCatchup,
-    setGpCatchup,
-    paymentFrequency,
-    setPaymentFrequency
+    preferredReturnRate: preferredReturn,
+    setPreferredReturnRate: setPreferredReturn,
+    preferredStructureType: preferredStructure,
+    setPreferredStructureType: setPreferredStructure,
+    gpCatchupPercentage: gpCatchup,
+    setGpCatchupPercentage: setGpCatchup,
+    preferredPaymentFrequency: paymentFrequency,
+    setPreferredPaymentFrequency: setPaymentFrequency
   } = financing;
 
   return (
