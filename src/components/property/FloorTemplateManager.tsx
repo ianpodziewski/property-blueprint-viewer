@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Copy, Plus, Trash, AlertTriangle } from "lucide-react";
+import { Edit, Copy, Plus, Trash, AlertTriangle, Loader } from "lucide-react";
 import { FloorPlateTemplate } from "@/types/propertyTypes";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
 interface FloorTemplateManagerProps {
   isOpen: boolean;
@@ -51,18 +52,40 @@ const FloorTemplateManager = ({
   updateTemplate,
   removeTemplate
 }: FloorTemplateManagerProps) => {
+  // Add toast for user feedback
+  const { toast } = useToast();
+  
   const [editMode, setEditMode] = useState<"create" | "edit" | "view">("view");
   const [currentTemplate, setCurrentTemplate] = useState<TemplateFormData>(defaultTemplateData);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleCreateNew = () => {
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setEditMode("view");
+      setCurrentTemplate(defaultTemplateData);
+    }
+  }, [isOpen]);
+
+  // Clean up state when component unmounts
+  useEffect(() => {
+    return () => {
+      setDeleteConfirmOpen(false);
+      setTemplateToDelete(null);
+      setSelectedTemplateId(null);
+      setIsProcessing(false);
+    };
+  }, []);
+
+  const handleCreateNew = useCallback(() => {
     setCurrentTemplate(defaultTemplateData);
     setEditMode("create");
-  };
+  }, []);
 
-  const handleEdit = (template: FloorPlateTemplate) => {
+  const handleEdit = useCallback((template: FloorPlateTemplate) => {
     setCurrentTemplate({
       id: template.id,
       name: template.name,
@@ -74,9 +97,9 @@ const FloorTemplateManager = ({
       description: template.description || ""
     });
     setEditMode("edit");
-  };
+  }, []);
 
-  const handleDuplicate = (template: FloorPlateTemplate) => {
+  const handleDuplicate = useCallback((template: FloorPlateTemplate) => {
     setCurrentTemplate({
       name: `${template.name} (Copy)`,
       squareFootage: template.squareFootage,
@@ -87,54 +110,129 @@ const FloorTemplateManager = ({
       description: template.description || ""
     });
     setEditMode("create");
-  };
+  }, []);
 
-  const handleDelete = (templateId: string) => {
+  const handleDelete = useCallback((templateId: string, event?: React.MouseEvent) => {
+    // Prevent event propagation to parent elements
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     setTemplateToDelete(templateId);
     setDeleteConfirmOpen(true);
-  };
+  }, []);
 
-  const confirmDelete = () => {
-    if (templateToDelete) {
+  const confirmDelete = useCallback(() => {
+    if (!templateToDelete) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      // If the template being deleted is currently selected, deselect it
+      if (selectedTemplateId === templateToDelete) {
+        setSelectedTemplateId(null);
+      }
+      
       removeTemplate(templateToDelete);
+      
+      toast({
+        title: "Template deleted",
+        description: "The floor template has been successfully removed.",
+      });
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the template. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setDeleteConfirmOpen(false);
       setTemplateToDelete(null);
+      setIsProcessing(false);
     }
-  };
+  }, [templateToDelete, selectedTemplateId, removeTemplate, toast]);
 
-  const handleSave = () => {
-    if (editMode === "create") {
-      addTemplate({
-        name: currentTemplate.name || "New Template",
-        squareFootage: currentTemplate.squareFootage,
-        floorToFloorHeight: currentTemplate.floorToFloorHeight,
-        primaryUse: currentTemplate.primaryUse,
-        efficiencyFactor: currentTemplate.efficiencyFactor,
-        corePercentage: currentTemplate.corePercentage,
-        description: currentTemplate.description
+  const cancelDelete = useCallback(() => {
+    setDeleteConfirmOpen(false);
+    setTemplateToDelete(null);
+  }, []);
+
+  const handleSave = useCallback(() => {
+    setIsProcessing(true);
+    
+    try {
+      if (editMode === "create") {
+        addTemplate({
+          name: currentTemplate.name || "New Template",
+          squareFootage: currentTemplate.squareFootage,
+          floorToFloorHeight: currentTemplate.floorToFloorHeight,
+          primaryUse: currentTemplate.primaryUse,
+          efficiencyFactor: currentTemplate.efficiencyFactor,
+          corePercentage: currentTemplate.corePercentage,
+          description: currentTemplate.description
+        });
+        toast({
+          title: "Template created",
+          description: "New floor template has been created successfully.",
+        });
+      } else if (editMode === "edit" && currentTemplate.id) {
+        updateTemplate(currentTemplate.id, {
+          name: currentTemplate.name || "Updated Template",
+          squareFootage: currentTemplate.squareFootage,
+          floorToFloorHeight: currentTemplate.floorToFloorHeight,
+          primaryUse: currentTemplate.primaryUse,
+          efficiencyFactor: currentTemplate.efficiencyFactor,
+          corePercentage: currentTemplate.corePercentage,
+          description: currentTemplate.description
+        });
+        toast({
+          title: "Template updated",
+          description: "The floor template has been updated successfully.",
+        });
+      }
+      
+      setEditMode("view");
+    } catch (error) {
+      console.error("Error saving template:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save the template. Please try again.",
+        variant: "destructive",
       });
-    } else if (editMode === "edit" && currentTemplate.id) {
-      updateTemplate(currentTemplate.id, {
-        name: currentTemplate.name || "Updated Template",
-        squareFootage: currentTemplate.squareFootage,
-        floorToFloorHeight: currentTemplate.floorToFloorHeight,
-        primaryUse: currentTemplate.primaryUse,
-        efficiencyFactor: currentTemplate.efficiencyFactor,
-        corePercentage: currentTemplate.corePercentage,
-        description: currentTemplate.description
-      });
+    } finally {
+      setIsProcessing(false);
     }
-    setEditMode("view");
-  };
+  }, [editMode, currentTemplate, addTemplate, updateTemplate, toast]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setEditMode("view");
     setCurrentTemplate(defaultTemplateData);
-  };
+  }, []);
 
-  const handleTemplateSelect = (templateId: string) => {
+  const handleTemplateSelect = useCallback((templateId: string, event?: React.MouseEvent) => {
+    // Prevent event bubbling if event is provided
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     setSelectedTemplateId(templateId === selectedTemplateId ? null : templateId);
-  };
+  }, [selectedTemplateId]);
+
+  const handleModalClose = useCallback(() => {
+    // Prevent closing if in middle of an operation
+    if (isProcessing) return;
+    
+    // If in edit/create mode, confirm before closing
+    if (editMode !== "view") {
+      if (confirm("You have unsaved changes. Are you sure you want to close?")) {
+        onClose();
+      }
+    } else {
+      onClose();
+    }
+  }, [onClose, editMode, isProcessing]);
 
   const renderForm = () => (
     <div className="space-y-4">
@@ -145,6 +243,7 @@ const FloorTemplateManager = ({
           value={currentTemplate.name}
           onChange={(e) => setCurrentTemplate({ ...currentTemplate, name: e.target.value })}
           placeholder="Standard Office Floor"
+          disabled={isProcessing}
         />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -156,6 +255,7 @@ const FloorTemplateManager = ({
             value={currentTemplate.squareFootage}
             onChange={(e) => setCurrentTemplate({ ...currentTemplate, squareFootage: e.target.value })}
             placeholder="10000"
+            disabled={isProcessing}
           />
         </div>
         <div className="space-y-2">
@@ -166,6 +266,7 @@ const FloorTemplateManager = ({
             value={currentTemplate.floorToFloorHeight}
             onChange={(e) => setCurrentTemplate({ ...currentTemplate, floorToFloorHeight: e.target.value })}
             placeholder="12"
+            disabled={isProcessing}
           />
         </div>
       </div>
@@ -175,6 +276,7 @@ const FloorTemplateManager = ({
           <Select
             value={currentTemplate.primaryUse}
             onValueChange={(value) => setCurrentTemplate({ ...currentTemplate, primaryUse: value })}
+            disabled={isProcessing}
           >
             <SelectTrigger id="template-use">
               <SelectValue placeholder="Select use" />
@@ -199,6 +301,7 @@ const FloorTemplateManager = ({
             value={currentTemplate.efficiencyFactor}
             onChange={(e) => setCurrentTemplate({ ...currentTemplate, efficiencyFactor: e.target.value })}
             placeholder="85"
+            disabled={isProcessing}
           />
         </div>
       </div>
@@ -209,14 +312,29 @@ const FloorTemplateManager = ({
           value={currentTemplate.description}
           onChange={(e) => setCurrentTemplate({ ...currentTemplate, description: e.target.value })}
           placeholder="Description of this template"
+          disabled={isProcessing}
         />
       </div>
       <div className="flex justify-end space-x-2 pt-4">
-        <Button variant="outline" onClick={handleCancel}>
+        <Button 
+          variant="outline" 
+          onClick={handleCancel}
+          disabled={isProcessing}
+        >
           Cancel
         </Button>
-        <Button onClick={handleSave}>
-          {editMode === "create" ? "Create Template" : "Update Template"}
+        <Button 
+          onClick={handleSave}
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <>
+              <Loader className="mr-2 h-4 w-4 animate-spin" />
+              <span>{editMode === "create" ? "Creating..." : "Updating..."}</span>
+            </>
+          ) : (
+            editMode === "create" ? "Create Template" : "Update Template"
+          )}
         </Button>
       </div>
     </div>
@@ -231,6 +349,7 @@ const FloorTemplateManager = ({
           size="sm" 
           onClick={handleCreateNew}
           className="flex items-center gap-2"
+          disabled={isProcessing}
         >
           <Plus className="h-4 w-4" /> New Template
         </Button>
@@ -243,6 +362,7 @@ const FloorTemplateManager = ({
             variant="outline" 
             className="mt-4"
             onClick={handleCreateNew}
+            disabled={isProcessing}
           >
             Create Your First Template
           </Button>
@@ -256,7 +376,7 @@ const FloorTemplateManager = ({
                 className={`overflow-hidden transition-colors ${
                   selectedTemplateId === template.id ? 'border-primary' : ''
                 }`}
-                onClick={() => handleTemplateSelect(template.id)}
+                onClick={(e) => handleTemplateSelect(template.id, e)}
               >
                 <CardContent className="p-0">
                   <div className="flex justify-between items-center p-4 cursor-pointer">
@@ -290,6 +410,7 @@ const FloorTemplateManager = ({
                           handleEdit(template);
                         }}
                         className="px-2 h-8"
+                        disabled={isProcessing}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -301,17 +422,17 @@ const FloorTemplateManager = ({
                           handleDuplicate(template);
                         }}
                         className="px-2 h-8"
+                        disabled={isProcessing}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(template.id);
-                        }}
+                        onClick={(e) => handleDelete(template.id, e)}
                         className="px-2 h-8 text-red-500 hover:text-red-700"
+                        disabled={isProcessing}
+                        type="button"
                       >
                         <Trash className="h-4 w-4" />
                       </Button>
@@ -391,16 +512,24 @@ const FloorTemplateManager = ({
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => handleEdit(template)}
+            onClick={(e) => {
+              e.preventDefault();
+              handleEdit(template);
+            }}
             className="flex items-center gap-2"
+            disabled={isProcessing}
           >
             <Edit className="h-4 w-4" /> Edit Template
           </Button>
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => handleDuplicate(template)}
+            onClick={(e) => {
+              e.preventDefault();
+              handleDuplicate(template);
+            }}
             className="flex items-center gap-2"
+            disabled={isProcessing}
           >
             <Copy className="h-4 w-4" /> Duplicate
           </Button>
@@ -411,7 +540,7 @@ const FloorTemplateManager = ({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
+      <Dialog open={isOpen} onOpenChange={handleModalClose}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage Floor Templates</DialogTitle>
@@ -434,24 +563,36 @@ const FloorTemplateManager = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Template</AlertDialogTitle>
             <AlertDialogDescription>
-              <p>
-                Are you sure you want to delete this template? This action cannot be undone.
-              </p>
+              Are you sure you want to delete this template? This action cannot be undone.
+              
               {templateToDelete && templates.some(t => t.id === templateToDelete) && (
-                <p className="mt-2 font-medium">
+                <div className="mt-2 font-medium">
                   "{templates.find(t => t.id === templateToDelete)?.name}"
-                </p>
+                </div>
               )}
-              <p className="mt-3 text-amber-600 flex items-center gap-1.5">
+              
+              <div className="mt-3 text-amber-600 flex items-center gap-1.5">
                 <AlertTriangle className="h-4 w-4" />
                 <span>Floors currently using this template will not be affected.</span>
-              </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
-              <Trash className="h-4 w-4 mr-2" /> Delete Template
+            <AlertDialogCancel onClick={cancelDelete} disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <>
+                  <Loader className="h-4 w-4 mr-2 animate-spin" /> Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash className="h-4 w-4 mr-2" /> Delete Template
+                </>
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -477,3 +618,4 @@ const getUseColor = (spaceType: string) => {
 };
 
 export default FloorTemplateManager;
+
