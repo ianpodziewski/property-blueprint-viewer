@@ -544,14 +544,14 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
             <div>
               <Label htmlFor="floor-template">Floor Template</Label>
               <Select 
-                value={selectedTemplateId || ""} 
+                value={selectedTemplateId || undefined} 
                 onValueChange={setSelectedTemplateId}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None (Custom)</SelectItem>
+                  <SelectItem value="none">None (Custom)</SelectItem>
                   {floorTemplates.map(template => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.name} ({parseInt(template.squareFootage || "0").toLocaleString()} sf)
@@ -726,7 +726,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
               <Label htmlFor="bulk-edit-value">New Value</Label>
               {bulkEditField === "templateId" ? (
                 <Select 
-                  value={bulkEditValue} 
+                  value={bulkEditValue || undefined} 
                   onValueChange={setBulkEditValue}
                 >
                   <SelectTrigger id="bulk-edit-value">
@@ -742,7 +742,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                 </Select>
               ) : bulkEditField === "primaryUse" ? (
                 <Select 
-                  value={bulkEditValue} 
+                  value={bulkEditValue || undefined} 
                   onValueChange={setBulkEditValue}
                 >
                   <SelectTrigger id="bulk-edit-value">
