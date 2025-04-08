@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,8 +29,6 @@ const PropertyBreakdown = () => {
     farAllowance, setFarAllowance,
     totalLandArea, setTotalLandArea,
     buildingFootprint, setBuildingFootprint,
-    numberOfFloors, setNumberOfFloors,
-    numberOfUndergroundFloors, setNumberOfUndergroundFloors,
     totalBuildableArea,
     totalAboveGroundArea,
     totalBelowGroundArea,
@@ -47,6 +46,10 @@ const PropertyBreakdown = () => {
     updateFloorConfiguration,
     copyFloorConfiguration,
     bulkEditFloorConfigurations,
+    addFloors,
+    removeFloors,
+    reorderFloor,
+    updateFloorSpaces,
     
     // Space Types
     spaceTypes, 
@@ -78,15 +81,6 @@ const PropertyBreakdown = () => {
   const floorsData = generateFloorsData();
   const spaceBreakdown = generateSpaceBreakdown();
   const phasesData = generatePhasesData();
-
-  // Define floor space update function
-  const updateFloorSpaces = (floorNumber: number, spaces: SpaceDefinition[]) => {
-    // Pass the update through to the appropriate floor configuration
-    const floorIndex = floorConfigurations.findIndex(fc => fc.floorNumber === floorNumber);
-    if (floorIndex >= 0) {
-      updateFloorConfiguration(floorNumber, "spaces", spaces);
-    }
-  };
   
   return (
     
@@ -146,14 +140,6 @@ const PropertyBreakdown = () => {
         setBuildingFootprint={(value) => {
           setBuildingFootprint(value);
         }}
-        numberOfFloors={numberOfFloors}
-        setNumberOfFloors={(value) => {
-          setNumberOfFloors(value);
-        }}
-        numberOfUndergroundFloors={numberOfUndergroundFloors}
-        setNumberOfUndergroundFloors={(value) => {
-          setNumberOfUndergroundFloors(value);
-        }}
         totalBuildableArea={totalBuildableArea}
         totalAboveGroundArea={totalAboveGroundArea}
         totalBelowGroundArea={totalBelowGroundArea}
@@ -178,8 +164,8 @@ const PropertyBreakdown = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <BuildingMassingVisualization 
           buildingFootprint={parseFloat(buildingFootprint) || 0}
-          numberOfFloors={parseInt(numberOfFloors) || 0}
-          numberOfUndergroundFloors={parseInt(numberOfUndergroundFloors) || 0}
+          numberOfFloors={floorConfigurations.filter(f => !f.isUnderground).length}
+          numberOfUndergroundFloors={floorConfigurations.filter(f => f.isUnderground).length}
           spaceBreakdown={spaceBreakdown}
           floorConfigurations={floorConfigurations}
           floorTemplates={floorTemplates}
@@ -193,6 +179,9 @@ const PropertyBreakdown = () => {
           updateFloorConfiguration={updateFloorConfiguration}
           copyFloorConfiguration={copyFloorConfiguration}
           bulkEditFloorConfigurations={bulkEditFloorConfigurations}
+          addFloors={addFloors}
+          removeFloors={removeFloors}
+          reorderFloor={reorderFloor}
         />
       </div>
       
@@ -230,7 +219,7 @@ const PropertyBreakdown = () => {
                       updateSpaceTypeFloorAllocation(id, floor, value);
                     }}
                     onRemove={removeSpaceType}
-                    availableFloors={parseInt(numberOfFloors) || 1}
+                    availableFloors={floorConfigurations.length}
                   />
                 ))}
                 
