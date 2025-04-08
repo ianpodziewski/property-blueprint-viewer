@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { UnitType } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
 
@@ -17,12 +16,28 @@ const generateRandomColor = (): string => {
   return `hsl(${hue}, 70%, 80%)`;
 };
 
+// Track update operations to prevent cycles
+const updateTracker = {
+  inProgress: false,
+  lastUpdate: 0,
+  updateCount: 0
+};
+
 export const useUnitTypes = () => {
+  const isFirstRender = useRef(true);
+  const lastValuesRef = useRef({
+    unitTypes: '',
+    categories: '',
+    colors: '',
+    descriptions: ''
+  });
+  
   // Initialize state directly with data from localStorage
   const [unitTypes, setUnitTypes] = useState<UnitType[]>(() => {
     try {
       const storedTypes = loadFromLocalStorage(STORAGE_KEY, []);
       console.log("Loaded unit types from localStorage:", storedTypes);
+      lastValuesRef.current.unitTypes = JSON.stringify(storedTypes);
       return storedTypes;
     } catch (error) {
       console.error("Error loading unit types from localStorage:", error);
@@ -34,6 +49,7 @@ export const useUnitTypes = () => {
     try {
       const storedCategories = loadFromLocalStorage(CATEGORIES_STORAGE_KEY, []);
       console.log("Loaded unit categories from localStorage:", storedCategories);
+      lastValuesRef.current.categories = JSON.stringify(storedCategories);
       return storedCategories;
     } catch (error) {
       console.error("Error loading unit categories from localStorage:", error);
@@ -45,6 +61,7 @@ export const useUnitTypes = () => {
     try {
       const storedColors = loadFromLocalStorage(CATEGORY_COLORS_KEY, {});
       console.log("Loaded category colors from localStorage:", storedColors);
+      lastValuesRef.current.colors = JSON.stringify(storedColors);
       return storedColors;
     } catch (error) {
       console.error("Error loading category colors from localStorage:", error);
@@ -56,6 +73,7 @@ export const useUnitTypes = () => {
     try {
       const storedDescriptions = loadFromLocalStorage(CATEGORY_DESCRIPTIONS_KEY, {});
       console.log("Loaded category descriptions from localStorage:", storedDescriptions);
+      lastValuesRef.current.descriptions = JSON.stringify(storedDescriptions);
       return storedDescriptions;
     } catch (error) {
       console.error("Error loading category descriptions from localStorage:", error);
@@ -70,34 +88,72 @@ export const useUnitTypes = () => {
     description: string;
   } | null>(null);
   
-  // Save data to localStorage whenever they change
+  // Save data to localStorage only when it actually changes
   useEffect(() => {
-    try {
-      saveToLocalStorage(STORAGE_KEY, unitTypes);
-      console.log("Saved unit types to localStorage:", unitTypes);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    
+    const currentValue = JSON.stringify(unitTypes);
+    if (currentValue !== lastValuesRef.current.unitTypes) {
+      lastValuesRef.current.unitTypes = currentValue;
       
-      // Dispatch event to notify other components
-      if (typeof window !== 'undefined') {
-        const event = new CustomEvent('unitTypesChanged', { detail: unitTypes });
-        window.dispatchEvent(event);
+      try {
+        saveToLocalStorage(STORAGE_KEY, unitTypes);
+        console.log("Saved unit types to localStorage:", unitTypes);
+        
+        // Use skipNotification for these events to prevent notification spam
+        if (typeof window !== 'undefined' && !updateTracker.inProgress) {
+          updateTracker.inProgress = true;
+          
+          // Dispatch event with skipNotification flag
+          const event = new CustomEvent('unitTypesChanged', { 
+            detail: { unitTypes, skipNotification: true } 
+          });
+          window.dispatchEvent(event);
+          
+          // Reset update tracker
+          setTimeout(() => {
+            updateTracker.inProgress = false;
+          }, 100);
+        }
+      } catch (error) {
+        console.error("Error saving unit types to localStorage:", error);
       }
-    } catch (error) {
-      console.error("Error saving unit types to localStorage:", error);
     }
   }, [unitTypes]);
   
   useEffect(() => {
-    try {
-      saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
-      console.log("Saved categories to localStorage:", customCategories);
+    if (isFirstRender.current) {
+      return;
+    }
+    
+    const currentValue = JSON.stringify(customCategories);
+    if (currentValue !== lastValuesRef.current.categories) {
+      lastValuesRef.current.categories = currentValue;
       
-      // Dispatch event to notify other components
-      if (typeof window !== 'undefined') {
-        const event = new CustomEvent('unitCategoriesChanged', { detail: customCategories });
-        window.dispatchEvent(event);
+      try {
+        saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
+        console.log("Saved categories to localStorage:", customCategories);
+        
+        // Dispatch event with skipNotification flag
+        if (typeof window !== 'undefined' && !updateTracker.inProgress) {
+          updateTracker.inProgress = true;
+          
+          const event = new CustomEvent('unitCategoriesChanged', { 
+            detail: { categories: customCategories, skipNotification: true } 
+          });
+          window.dispatchEvent(event);
+          
+          // Reset update tracker
+          setTimeout(() => {
+            updateTracker.inProgress = false;
+          }, 100);
+        }
+      } catch (error) {
+        console.error("Error saving categories to localStorage:", error);
       }
-    } catch (error) {
-      console.error("Error saving categories to localStorage:", error);
     }
   }, [customCategories]);
 
@@ -117,10 +173,15 @@ export const useUnitTypes = () => {
     }
   }, [categoryDescriptions]);
 
-  // Get color for a specific category
+  // Get color for a specific category - memoized for performance
   const getCategoryColor = useCallback((category: string): string => {
     return categoryColors[category] || generateRandomColor();
   }, [categoryColors]);
+
+  // Use memoization for derived values
+  const allCategories = useMemo(() => {
+    return [...DEFAULT_CATEGORIES, ...customCategories];
+  }, [customCategories]);
 
   const addUnitType = useCallback(() => {
     // If there are no categories, we can't add unit types
@@ -274,7 +335,7 @@ export const useUnitTypes = () => {
     getAllCategories,
     getCategoryColor,
     getCategoryDescription,
-    hasCategories: [...DEFAULT_CATEGORIES, ...customCategories].length > 0,
+    hasCategories: allCategories.length > 0,
     recentlyDeletedCategory,
     resetAllData
   };

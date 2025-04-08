@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import Header from "@/components/Header";
 import ModelingTabs from "@/components/ModelingTabs";
 import SaveNotification from "@/components/SaveNotification";
@@ -20,21 +20,12 @@ import {
 import { isLocalStorageAvailable } from "@/hooks/useLocalStoragePersistence";
 import { Toaster } from "@/components/ui/toaster";
 
-// Simple render counter for debugging
-const useRenderCount = (componentName: string) => {
-  const renderCount = useRef(0);
-  
-  useEffect(() => {
-    renderCount.current += 1;
-    console.log(`${componentName} render count: ${renderCount.current}`);
-  });
-  
-  return renderCount.current;
-};
+// Maximum render count before warning
+const MAX_RENDERS = 100;
 
 const Index = () => {
   // Track render count for debugging
-  const renderCount = useRenderCount('Index');
+  const renderCount = useRef(0);
   
   // Track if the component is mounted
   const isMounted = useRef(false);
@@ -46,6 +37,31 @@ const Index = () => {
   // Check localStorage availability once
   const [isStorageAvailable, setIsStorageAvailable] = useState<boolean | null>(null);
   
+  // Track scroll position
+  const scrollPositionRef = useRef(0);
+  
+  useEffect(() => {
+    // Save scroll position before updates
+    const saveScrollPosition = () => {
+      scrollPositionRef.current = window.scrollY;
+    };
+    
+    // Restore scroll position after updates
+    const restoreScrollPosition = () => {
+      if (scrollPositionRef.current > 0) {
+        window.scrollTo(0, scrollPositionRef.current);
+      }
+    };
+    
+    window.addEventListener('beforeunload', saveScrollPosition);
+    window.addEventListener('load', restoreScrollPosition);
+    
+    return () => {
+      window.removeEventListener('beforeunload', saveScrollPosition);
+      window.removeEventListener('load', restoreScrollPosition);
+    };
+  }, []);
+  
   useEffect(() => {
     // Only check localStorage once
     if (isStorageAvailable === null) {
@@ -55,19 +71,29 @@ const Index = () => {
     // Mark component as mounted
     isMounted.current = true;
     
+    // Count render and warn if excessive
+    renderCount.current += 1;
+    if (renderCount.current % 10 === 0) {
+      console.log(`Index render count: ${renderCount.current}`);
+    }
+    
+    if (renderCount.current > MAX_RENDERS) {
+      console.warn(`Excessive renders detected: ${renderCount.current} renders in Index component`);
+    }
+    
     // Cleanup on unmount
     return () => {
       isMounted.current = false;
     };
   }, [isStorageAvailable]);
 
-  const handleImportClick = () => {
+  const handleImportClick = useCallback(() => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
-  };
+  }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       importAllData(files[0]);
@@ -76,7 +102,7 @@ const Index = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+  }, [importAllData]);
 
   // Show fallback while checking localStorage
   if (isStorageAvailable === null) {
@@ -107,9 +133,9 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <Header />
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 py-6 relative overflow-visible">
         <div className="flex justify-end mb-4 gap-2">
           <Button
             variant="outline"
@@ -159,10 +185,14 @@ const Index = () => {
             </AlertDialogContent>
           </AlertDialog>
         </div>
-        <ModelingTabs />
+        <div className="overflow-visible">
+          <ModelingTabs />
+        </div>
       </main>
       {/* Save notification */}
-      <SaveNotification status={saveStatus} onClose={clearSaveStatus} />
+      <div className="fixed bottom-4 right-4 z-50 pointer-events-none">
+        <SaveNotification status={saveStatus} onClose={clearSaveStatus} />
+      </div>
       {/* Global toast provider */}
       <Toaster />
     </div>

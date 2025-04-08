@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { isLocalStorageAvailable } from "./hooks/useLocalStoragePersistence";
@@ -22,10 +22,15 @@ const queryClient = new QueryClient({
 const App = () => {
   // State to track initialization
   const [isInitialized, setIsInitialized] = useState(false);
+  const renderCountRef = useRef(0);
   
   // Add a log to track full page loads and check localStorage availability
   useEffect(() => {
     console.log("App mounted - full browser refresh detected");
+    
+    // Track render counts
+    renderCountRef.current += 1;
+    console.log(`App render count: ${renderCountRef.current}`);
     
     // Check if localStorage is accessible
     if (isLocalStorageAvailable()) {
@@ -53,6 +58,14 @@ const App = () => {
       setIsInitialized(true); // Still mark as initialized to prevent blocking the UI
     }
   }, []);
+
+  // Emergency circuit breaker for infinite rendering
+  if (renderCountRef.current > 50) {
+    console.error("Emergency circuit breaker: Too many renders detected in App component");
+    return <div className="p-8 text-red-500">
+      Error: Excessive rendering detected. Please reload the page.
+    </div>;
+  }
 
   // Show loading state until initialization is complete
   if (!isInitialized) {

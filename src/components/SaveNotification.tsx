@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Check, AlertCircle, Upload, Download, RefreshCw } from 'lucide-react';
 import { Toast, ToastProvider, ToastTitle, ToastViewport } from '@/components/ui/toast';
@@ -9,16 +8,43 @@ interface SaveNotificationProps {
   onClose: () => void;
 }
 
+// Keep track of recent notifications to prevent duplicates
+const recentNotifications = new Map<string, number>();
+const NOTIFICATION_EXPIRY = 5000; // 5 seconds
+
 const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) => {
   const [visible, setVisible] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const notificationIdRef = useRef<string | null>(null);
   
   // Use centralized toast system for notifications
   const { toast } = useToast();
   
-  // Only show important notifications as toasts
+  // Only show important notifications as toasts with deduplication
   useEffect(() => {
-    if (status === 'error' || status === 'reset' || status === 'exported' || status === 'imported') {
+    if (!status) return;
+    
+    // Create a unique key for this notification type
+    const notificationKey = `notification-${status}-${Date.now()}`;
+    notificationIdRef.current = notificationKey;
+    
+    // Check if we've shown this type of notification recently
+    const now = Date.now();
+    const lastShown = recentNotifications.get(status);
+    const isDuplicate = lastShown && (now - lastShown < NOTIFICATION_EXPIRY);
+    
+    // Update the last shown time for this notification type
+    recentNotifications.set(status, now);
+    
+    // Clean up old notifications from the tracking map
+    for (const [key, timestamp] of recentNotifications.entries()) {
+      if (now - timestamp > NOTIFICATION_EXPIRY) {
+        recentNotifications.delete(key);
+      }
+    }
+    
+    // Only show toast for important events and avoid duplicates
+    if ((status === 'error' || status === 'reset' || status === 'exported' || status === 'imported') && !isDuplicate) {
       const title = {
         error: 'Error',
         reset: 'Reset Complete',
@@ -42,7 +68,7 @@ const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) 
     }
   }, [status, toast]);
   
-  // Handle visibility of notification
+  // Handle visibility of notification with debouncing
   useEffect(() => {
     if (status) {
       setVisible(true);

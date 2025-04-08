@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from "react";
 import { usePropertyState } from "./usePropertyState";
 import { useDevelopmentCosts } from "./useDevelopmentCosts";
@@ -12,6 +11,10 @@ import { clearAllModelData, exportAllModelData, importAllModelData } from "./use
 import { unstable_batchedUpdates } from "react-dom";
 import { useToast } from "@/hooks/use-toast";
 
+// Keep track of recent notifications to prevent duplicates
+const notificationHistory = new Map<string, number>();
+const NOTIFICATION_DEBOUNCE_TIME = 2000; // 2 seconds
+
 // This is a master hook that combines all the section hooks
 export const useModelState = () => {
   // Use a ref to track save operations to prevent notification spam
@@ -22,6 +25,7 @@ export const useModelState = () => {
   
   const [saveStatus, setSaveStatus] = useState<'saved' | 'error' | 'reset' | 'exported' | 'imported' | null>(null);
   const { toast } = useToast();
+  const updatingRef = useRef(false);
   
   // Create stable refs to all state objects to prevent recursive updates
   const propertyState = usePropertyState();
@@ -33,43 +37,87 @@ export const useModelState = () => {
   const dispositionState = useDispositionState();
   const sensitivityState = useSensitivityState();
   
-  // Centralized save status management with debouncing
-  const updateSaveStatus = useCallback((status: 'saved' | 'error' | 'reset' | 'exported' | 'imported') => {
-    // Prevent duplicate notifications for the same operation
-    if (saveOperationRef.current.lastOperation === status) {
-      // Just extend the timeout
-      if (saveOperationRef.current.timeout) {
-        clearTimeout(saveOperationRef.current.timeout);
-      }
-    } else {
-      // Show notification for new operation
-      setSaveStatus(status);
-      
-      // Track last operation
-      saveOperationRef.current.lastOperation = status;
-      
-      // Show toast for important operations
-      if (status === 'exported' || status === 'imported' || status === 'reset') {
-        const messages = {
-          exported: "Data successfully exported",
-          imported: "Data successfully imported",
-          reset: "All data has been reset"
-        };
-        
-        toast({
-          title: messages[status],
-          duration: 3000,
-        });
+  // Prevent duplicate notifications
+  const shouldShowNotification = useCallback((status: string): boolean => {
+    const now = Date.now();
+    const lastShown = notificationHistory.get(status);
+    
+    if (lastShown && now - lastShown < NOTIFICATION_DEBOUNCE_TIME) {
+      return false;
+    }
+    
+    // Record this notification
+    notificationHistory.set(status, now);
+    
+    // Clean up old entries
+    for (const [key, time] of notificationHistory.entries()) {
+      if (now - time > NOTIFICATION_DEBOUNCE_TIME) {
+        notificationHistory.delete(key);
       }
     }
     
-    // Set timeout to clear status
-    saveOperationRef.current.timeout = setTimeout(() => {
-      setSaveStatus(null);
-      saveOperationRef.current.lastOperation = null;
-      saveOperationRef.current.timeout = null;
-    }, 3000);
-  }, [toast]);
+    return true;
+  }, []);
+  
+  // Centralized save status management with debouncing
+  const updateSaveStatus = useCallback((status: 'saved' | 'error' | 'reset' | 'exported' | 'imported') => {
+    // Prevent updates if we're in the middle of another update
+    if (updatingRef.current) {
+      return;
+    }
+    
+    // Check for duplicate notification
+    if (!shouldShowNotification(status)) {
+      return;
+    }
+    
+    // Set updating flag
+    updatingRef.current = true;
+    
+    // Batch updates
+    unstable_batchedUpdates(() => {
+      // Prevent duplicate notifications for the same operation
+      if (saveOperationRef.current.lastOperation === status) {
+        // Just extend the timeout
+        if (saveOperationRef.current.timeout) {
+          clearTimeout(saveOperationRef.current.timeout);
+        }
+      } else {
+        // Show notification for new operation
+        setSaveStatus(status);
+        
+        // Track last operation
+        saveOperationRef.current.lastOperation = status;
+        
+        // Show toast for important operations
+        if (status === 'exported' || status === 'imported' || status === 'reset') {
+          const messages = {
+            exported: "Data successfully exported",
+            imported: "Data successfully imported",
+            reset: "All data has been reset"
+          };
+          
+          toast({
+            title: messages[status],
+            duration: 3000,
+          });
+        }
+      }
+      
+      // Set timeout to clear status
+      saveOperationRef.current.timeout = setTimeout(() => {
+        setSaveStatus(null);
+        saveOperationRef.current.lastOperation = null;
+        saveOperationRef.current.timeout = null;
+        updatingRef.current = false;
+      }, 3000);
+    });
+    
+    // Reset updating flag after a short delay
+    setTimeout(() => {
+      updatingRef.current = false;
+    }, 100);
+  }, [toast, shouldShowNotification]);
   
   // Clear notification on component unmount
   useEffect(() => {
@@ -170,16 +218,30 @@ export const useModelState = () => {
       return;
     }
     
-    updateSaveStatus(status);
-  }, [saveStatus, updateSaveStatus]);
+    // Only update if this notification type hasn't been shown recently
+    if (shouldShowNotification(status)) {
+      updateSaveStatus(status);
+    }
+  }, [saveStatus, updateSaveStatus, shouldShowNotification]);
 
-  // Master handlers with batched updates
+  // Master handlers with batched updates - using debouncing and batched updates
   const handleTextChange = useCallback((
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, 
     setter: (value: string) => void
   ) => {
-    setter(e.target.value);
-    debouncedSetSaveStatus('saved');
+    // Set updating flag
+    updatingRef.current = true;
+    
+    // Batch updates
+    unstable_batchedUpdates(() => {
+      setter(e.target.value);
+      debouncedSetSaveStatus('saved');
+    });
+    
+    // Reset updating flag after a short delay
+    setTimeout(() => {
+      updatingRef.current = false;
+    }, 100);
   }, [debouncedSetSaveStatus]);
   
   const handleNumberChange = useCallback((
