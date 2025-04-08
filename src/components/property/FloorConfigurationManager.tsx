@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ interface FloorConfigurationManagerProps {
     field: keyof FloorConfiguration, 
     value: any
   ) => void;
-  copyFloorConfiguration: (sourceFloorNumber: number, targetFloorNumber: number) => void;
+  copyFloorConfiguration: (sourceFloorNumber: number, targetFloorNumbers: number[]) => void;
   bulkEditFloorConfigurations: (
     floorNumbers: number[], 
     field: keyof FloorConfiguration, 
