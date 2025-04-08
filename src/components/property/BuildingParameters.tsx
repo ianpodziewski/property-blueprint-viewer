@@ -62,6 +62,14 @@ const BuildingParameters = ({
   removeFloorTemplate
 }: BuildingParametersProps) => {
   const [farUtilization, setFarUtilization] = useState(0);
+  const [maxAllowableBuildableArea, setMaxAllowableBuildableArea] = useState(0);
+  
+  // Calculate maximum allowable buildable area based on FAR
+  useEffect(() => {
+    const farValue = parseFloat(farAllowance) || 0;
+    const landAreaValue = parseFloat(totalLandArea) || 0;
+    setMaxAllowableBuildableArea(farValue * landAreaValue);
+  }, [farAllowance, totalLandArea]);
   
   // Calculate FAR utilization percentage
   useEffect(() => {
@@ -147,14 +155,17 @@ const BuildingParameters = ({
               <Separator className="my-4" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Total Buildable Area (sq ft)</Label>
+                  <div className="flex justify-between">
+                    <Label>Maximum Allowable Area (sq ft)</Label>
+                    <span className="text-sm text-muted-foreground">FAR × Land Area</span>
+                  </div>
                   <div className="text-xl font-semibold bg-gray-50 py-2 px-3 rounded-md border border-gray-200">
-                    {totalBuildableArea.toLocaleString()}
+                    {maxAllowableBuildableArea.toLocaleString()}
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Above Ground Area (sq ft)</Label>
+                  <Label>Actual Above Ground Area (sq ft)</Label>
                   <div className="text-xl font-semibold bg-gray-50 py-2 px-3 rounded-md border border-gray-200">
                     {totalAboveGroundArea.toLocaleString()}
                   </div>
@@ -164,6 +175,13 @@ const BuildingParameters = ({
                   <Label>Below Ground Area (sq ft)</Label>
                   <div className="text-xl font-semibold bg-gray-50 py-2 px-3 rounded-md border border-gray-200">
                     {totalBelowGroundArea.toLocaleString()}
+                  </div>
+                </div>
+                
+                <div className="space-y-2 md:col-span-3">
+                  <Label>Total Configured Building Area (sq ft)</Label>
+                  <div className="text-xl font-semibold bg-gray-50 py-2 px-3 rounded-md border border-gray-200">
+                    {totalBuildableArea.toLocaleString()}
                   </div>
                 </div>
               </div>
