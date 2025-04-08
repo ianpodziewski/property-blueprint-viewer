@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,6 +40,7 @@ const FloorConfigurationManager = ({
   bulkEditFloorConfigurations
 }: FloorConfigurationManagerProps) => {
   const [selectedFloor, setSelectedFloor] = useState<FloorConfiguration | null>(null);
+  const [isFloorEditorOpen, setIsFloorEditorOpen] = useState(false);
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
   const [groupStartFloor, setGroupStartFloor] = useState<string>("");
@@ -47,6 +48,14 @@ const FloorConfigurationManager = ({
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copySourceFloor, setCopySourceFloor] = useState<string>("");
   const [copyTargetFloor, setCopyTargetFloor] = useState<string>("");
+
+  // Clean up state when component unmounts
+  useEffect(() => {
+    return () => {
+      setSelectedFloor(null);
+      setIsFloorEditorOpen(false);
+    };
+  }, []);
 
   const aboveGroundConfigs = floorConfigurations
     .filter(config => !config.isUnderground)
@@ -63,7 +72,18 @@ const FloorConfigurationManager = ({
   };
   
   const handleEditFloor = (floor: FloorConfiguration) => {
+    console.log("Opening floor editor for floor:", floor.floorNumber);
     setSelectedFloor(floor);
+    setIsFloorEditorOpen(true);
+  };
+
+  const handleCloseFloorEditor = () => {
+    console.log("Closing floor editor");
+    setIsFloorEditorOpen(false);
+    // Use a timeout to ensure React has time to process state updates
+    setTimeout(() => {
+      setSelectedFloor(null);
+    }, 100);
   };
   
   const toggleFloorSelection = (floorNumber: number) => {
@@ -435,10 +455,11 @@ const FloorConfigurationManager = ({
         )}
       </CardContent>
       
-      {selectedFloor && (
+      {selectedFloor && isFloorEditorOpen && (
         <FloorEditor
-          isOpen={true}
-          onClose={() => setSelectedFloor(null)}
+          key={`floor-editor-${selectedFloor.floorNumber}-${Date.now()}`}
+          isOpen={isFloorEditorOpen}
+          onClose={handleCloseFloorEditor}
           floorConfig={selectedFloor}
           floorTemplates={floorTemplates}
           updateFloorConfiguration={updateFloorConfiguration}

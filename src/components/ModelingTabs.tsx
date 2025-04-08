@@ -14,12 +14,14 @@ import SensitivityAnalysis from "./sections/SensitivityAnalysis";
 
 const ModelingTabs = () => {
   const [activeTab, setActiveTab] = useState("property");
+  const [floorConfigSaved, setFloorConfigSaved] = useState(0);
   
-  // Add an event listener for the custom save event
+  // Add an event listener for the custom save event with improved cleanup
   useEffect(() => {
     const handleFloorConfigSave = () => {
       console.log('Floor configuration save event detected');
-      // This event will help trigger state updates in components that need it
+      // Increment counter to trigger re-renders in components that depend on this state
+      setFloorConfigSaved(prev => prev + 1);
     };
     
     window.addEventListener('floorConfigSaved', handleFloorConfigSave);
@@ -38,7 +40,7 @@ const ModelingTabs = () => {
       <Tabs value={activeTab} className="w-full" onValueChange={(value) => setActiveTab(value)}>
         <div className="mt-4 bg-white rounded-md p-6 border border-gray-200">
           <TabsContent value="property" className="space-y-4">
-            <PropertyBreakdown />
+            <PropertyBreakdown key={`property-breakdown-${floorConfigSaved}`} />
           </TabsContent>
           
           <TabsContent value="devCosts" className="space-y-4">

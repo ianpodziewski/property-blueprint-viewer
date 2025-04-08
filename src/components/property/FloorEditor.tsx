@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +102,21 @@ const FloorEditor = ({
   const [currentSpaces, setCurrentSpaces] = useState<SpaceDefinition[]>(
     convertSpaces(floorConfig.spaces)
   );
+
+  // Reset currentSpaces when floorConfig changes
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentSpaces(convertSpaces(floorConfig.spaces));
+      setActiveTab("basic");
+    }
+  }, [floorConfig, isOpen]);
+
+  // Cleanup function when dialog closes
+  useEffect(() => {
+    return () => {
+      console.log("FloorEditor component cleanup");
+    };
+  }, []);
 
   const getGrossArea = () => {
     if (floorConfig.customSquareFootage) {
@@ -297,6 +312,7 @@ const FloorEditor = ({
       );
     }
 
+    // Reset and close the editor
     onClose();
     
     if (window.localStorage) {
@@ -306,8 +322,20 @@ const FloorEditor = ({
     }
   };
 
+  const handleClose = () => {
+    console.log("Floor editor close button clicked");
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <Dialog 
+      open={isOpen} 
+      onOpenChange={(open) => {
+        if (!open) {
+          handleClose();
+        }
+      }}
+    >
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -619,7 +647,7 @@ const FloorEditor = ({
                               <SelectTrigger className="h-9 w-full min-w-[140px] text-left">
                                 <SelectValue placeholder="Select type" />
                               </SelectTrigger>
-                              <SelectContent position="popper" className="bg-white">
+                              <SelectContent position="popper" className="bg-white z-50">
                                 <SelectItem value="office">Office</SelectItem>
                                 <SelectItem value="residential">Residential</SelectItem>
                                 <SelectItem value="retail">Retail</SelectItem>
@@ -640,7 +668,7 @@ const FloorEditor = ({
                               <SelectTrigger className="h-9 w-full min-w-[160px] text-left">
                                 <SelectValue placeholder="Select subtype" />
                               </SelectTrigger>
-                              <SelectContent position="popper" className="bg-white">
+                              <SelectContent position="popper" className="bg-white z-50">
                                 <SelectItem value="null">None</SelectItem>
                                 {space.type && USE_TYPE_OPTIONS[space.type] ? (
                                   USE_TYPE_OPTIONS[space.type].map(subType => (
@@ -784,7 +812,7 @@ const FloorEditor = ({
         </Tabs>
 
         <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={handleClose}>
             <X className="h-4 w-4 mr-2" /> Cancel
           </Button>
           <Button onClick={handleSave}>
