@@ -1,129 +1,83 @@
 
 import { useCallback } from "react";
-import { useProjectInfo } from "./property/useProjectInfo";
-import { useBuildingParameters } from "./property/useBuildingParameters";
-import { useFloorTemplates } from "./property/useFloorTemplates";
-import { useFloorConfigurations } from "./property/useFloorConfigurations";
-import { useSpaceTypes } from "./property/useSpaceTypes";
-import { useUnitMix } from "./property/useUnitMix";
+import { useProperty } from "@/contexts/PropertyContext";
 import { useVisualizationData } from "./property/useVisualizationData";
-import { SpaceDefinition, BuildingSystemsConfig } from "../types/propertyTypes";
 
+/**
+ * Enhanced hook that combines PropertyContext with visualization data
+ * This maintains API compatibility with the previous implementation
+ */
 export const useExtendedPropertyState = () => {
-  // Use individual hooks for better organization
-  const projectInfo = useProjectInfo();
-  const floorConfigurations = useFloorConfigurations(
-    projectInfo.projectName ? [] : [] // This is just to satisfy the dependency, will be fixed below
-  );
-  const floorTemplates = useFloorTemplates(
-    floorConfigurations.floorConfigurations, 
-    floorConfigurations.setFloorConfigurations
-  );
-  const buildingParams = useBuildingParameters(
-    floorConfigurations.floorConfigurations, 
-    floorTemplates.floorTemplates
-  );
-  const spaceTypes = useSpaceTypes();
-  const unitMix = useUnitMix();
+  // Use the property context
+  const property = useProperty();
   
-  // Visualization data depends on all other hooks
+  // Visualization data depends on all other state
   const visualizationData = useVisualizationData(
-    spaceTypes.spaceTypes,
-    buildingParams.actualFar,
-    buildingParams.farAllowance,
-    buildingParams.totalBuildableArea,
-    spaceTypes.totalAllocatedArea,
-    floorConfigurations.floorConfigurations,
-    floorTemplates.floorTemplates
+    property.spaceTypes,
+    property.actualFar,
+    property.farAllowance,
+    property.totalBuildableArea,
+    property.totalAllocatedArea,
+    property.floorConfigurations,
+    property.floorTemplates
   );
   
-  // Function to reset all data
-  const resetAllData = useCallback(() => {
-    // Reset individual state hooks with their respective reset functions
-    projectInfo.setProjectName("");
-    projectInfo.setProjectLocation("");
-    projectInfo.setProjectType("");
-    
-    buildingParams.setFarAllowance("0");
-    buildingParams.setTotalLandArea("0");
-    buildingParams.setBuildingFootprint("0");
-    
-    // Clear floor configurations
-    floorConfigurations.resetFloorConfigurations();
-    
-    // Reset other state
-    floorTemplates.resetFloorTemplates();
-    spaceTypes.resetSpaceTypes && spaceTypes.resetSpaceTypes();
-    unitMix.resetUnitMix && unitMix.resetUnitMix();
-  }, [
-    projectInfo, 
-    buildingParams, 
-    floorConfigurations, 
-    floorTemplates,
-    spaceTypes,
-    unitMix
-  ]);
-
-  // Return all the properties and methods from individual hooks
   return {
     // Project Information
-    projectName: projectInfo.projectName, 
-    setProjectName: projectInfo.setProjectName,
-    projectLocation: projectInfo.projectLocation, 
-    setProjectLocation: projectInfo.setProjectLocation,
-    projectType: projectInfo.projectType, 
-    setProjectType: projectInfo.setProjectType,
+    projectName: property.projectName, 
+    setProjectName: property.setProjectName,
+    projectLocation: property.projectLocation, 
+    setProjectLocation: property.setProjectLocation,
+    projectType: property.projectType, 
+    setProjectType: property.setProjectType,
     
     // Building Parameters
-    farAllowance: buildingParams.farAllowance, 
-    setFarAllowance: buildingParams.setFarAllowance,
-    totalLandArea: buildingParams.totalLandArea, 
-    setTotalLandArea: buildingParams.setTotalLandArea,
-    buildingFootprint: buildingParams.buildingFootprint, 
-    setBuildingFootprint: buildingParams.setBuildingFootprint,
-    totalBuildableArea: buildingParams.totalBuildableArea,
-    totalAboveGroundArea: buildingParams.totalAboveGroundArea,
-    totalBelowGroundArea: buildingParams.totalBelowGroundArea,
-    actualFar: buildingParams.actualFar,
+    farAllowance: property.farAllowance, 
+    setFarAllowance: property.setFarAllowance,
+    totalLandArea: property.totalLandArea, 
+    setTotalLandArea: property.setTotalLandArea,
+    buildingFootprint: property.buildingFootprint, 
+    setBuildingFootprint: property.setBuildingFootprint,
+    totalBuildableArea: property.totalBuildableArea,
+    totalAboveGroundArea: property.totalAboveGroundArea,
+    totalBelowGroundArea: property.totalBelowGroundArea,
+    actualFar: property.actualFar,
     
     // Space Types
-    spaceTypes: spaceTypes.spaceTypes,
-    addSpaceType: spaceTypes.addSpaceType,
-    removeSpaceType: spaceTypes.removeSpaceType,
-    updateSpaceType: spaceTypes.updateSpaceType,
-    updateSpaceTypeFloorAllocation: spaceTypes.updateSpaceTypeFloorAllocation,
-    totalAllocatedArea: spaceTypes.totalAllocatedArea,
-    resetSpaceTypes: spaceTypes.resetSpaceTypes,
+    spaceTypes: property.spaceTypes,
+    addSpaceType: property.addSpaceType,
+    removeSpaceType: property.removeSpaceType,
+    updateSpaceType: property.updateSpaceType,
+    updateSpaceTypeFloorAllocation: property.updateSpaceTypeFloorAllocation,
+    totalAllocatedArea: property.totalAllocatedArea,
+    resetSpaceTypes: property.resetSpaceTypes,
     
     // Unit Mix
-    unitMixes: unitMix.unitMixes,
-    addUnitMix: unitMix.addUnitMix,
-    removeUnitMix: unitMix.removeUnitMix,
-    updateUnitMix: unitMix.updateUnitMix,
-    resetUnitMix: unitMix.resetUnitMix,
+    unitMixes: property.unitMixes,
+    addUnitMix: property.addUnitMix,
+    removeUnitMix: property.removeUnitMix,
+    updateUnitMix: property.updateUnitMix,
+    resetUnitMix: property.resetUnitMix,
     
     // Floor Templates
-    floorTemplates: floorTemplates.floorTemplates,
-    addFloorTemplate: floorTemplates.addFloorTemplate,
-    updateFloorTemplate: floorTemplates.updateFloorTemplate,
-    removeFloorTemplate: floorTemplates.removeFloorTemplate,
-    resetFloorTemplates: floorTemplates.resetFloorTemplates,
+    floorTemplates: property.floorTemplates,
+    addFloorTemplate: property.addFloorTemplate,
+    updateFloorTemplate: property.updateFloorTemplate,
+    removeFloorTemplate: property.removeFloorTemplate,
+    resetFloorTemplates: property.resetFloorTemplates,
     
     // Floor Configurations
-    floorConfigurations: floorConfigurations.floorConfigurations,
-    updateFloorConfiguration: floorConfigurations.updateFloorConfiguration,
-    copyFloorConfiguration: floorConfigurations.copyFloorConfiguration,
-    bulkEditFloorConfigurations: floorConfigurations.bulkEditFloorConfigurations,
-    addFloors: floorConfigurations.addFloors,
-    removeFloors: floorConfigurations.removeFloors,
-    reorderFloor: floorConfigurations.reorderFloor,
-    importFloorConfigurations: floorConfigurations.importFloorConfigurations,
-    exportFloorConfigurations: floorConfigurations.exportFloorConfigurations,
-    resetFloorConfigurations: floorConfigurations.resetFloorConfigurations,
-    
-    // Floor space management
-    updateFloorSpaces: floorConfigurations.updateFloorSpaces,
-    updateFloorBuildingSystems: floorConfigurations.updateFloorBuildingSystems,
+    floorConfigurations: property.floorConfigurations,
+    updateFloorConfiguration: property.updateFloorConfiguration,
+    copyFloorConfiguration: property.copyFloorConfiguration,
+    bulkEditFloorConfigurations: property.bulkEditFloorConfigurations,
+    addFloors: property.addFloors,
+    removeFloors: property.removeFloors,
+    reorderFloor: property.reorderFloor,
+    updateFloorSpaces: property.updateFloorSpaces,
+    updateFloorBuildingSystems: property.updateFloorBuildingSystems,
+    resetFloorConfigurations: property.resetFloorConfigurations,
+    isProcessingOperation: property.isProcessingOperation,
     
     // Visualization and issues
     issues: visualizationData.issues,
@@ -133,6 +87,6 @@ export const useExtendedPropertyState = () => {
     generatePhasesData: visualizationData.generatePhasesData,
     
     // Reset function
-    resetAllData
+    resetAllData: property.resetAllData
   };
 };

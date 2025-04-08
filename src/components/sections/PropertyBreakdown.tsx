@@ -18,10 +18,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpaceDefinition, FloorPlateTemplate, FloorConfiguration, BuildingSystemsConfig } from "@/types/propertyTypes";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/components/ui/use-toast";
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 
 const PropertyBreakdown = () => {
   const { toast } = useToast();
+  
+  // Track if we're in an operation to prevent UI interactions
+  const [isSafeToInteract, setIsSafeToInteract] = useState(true);
   
   const {
     // Project Information
@@ -54,6 +57,7 @@ const PropertyBreakdown = () => {
     removeFloors,
     reorderFloor,
     updateFloorSpaces,
+    isProcessingOperation,
     
     // Space Types
     spaceTypes, 
@@ -82,7 +86,7 @@ const PropertyBreakdown = () => {
   const { handleTextChange, handleNumberChange } = useModelState();
 
   // Function to create adapter for FloorStackingDiagram component
-  const adaptedUpdateFloorConfiguration = useCallback((floorNumber: number, field: keyof FloorConfiguration, value: string | boolean | null | SpaceDefinition[] | BuildingSystemsConfig) => {
+  const adaptedUpdateFloorConfiguration = useCallback((floorNumber: number, field: keyof FloorConfiguration, value: any) => {
     // This adapter handles the different function signature expected by FloorStackingDiagram
     updateFloorConfiguration(floorNumber, field, value);
   }, [updateFloorConfiguration]);
@@ -92,12 +96,20 @@ const PropertyBreakdown = () => {
     reorderFloor(floorNumber, direction);
   }, [reorderFloor]);
   
+  // Ensure we don't interact with UI during processing operations
+  useEffect(() => {
+    setIsSafeToInteract(!isProcessingOperation);
+  }, [isProcessingOperation]);
+  
   // Ensure clean-up of any global event listeners when component unmounts
   useEffect(() => {
     // Listen for FloorConfig events to handle any UI updates needed
     const handleFloorConfigSaved = () => {
       // This helps refresh UI components after floor operations
       console.log("Floor configuration saved event detected");
+      setTimeout(() => {
+        setIsSafeToInteract(true);
+      }, 200);
     };
     
     window.addEventListener('floorConfigSaved', handleFloorConfigSaved);
@@ -159,6 +171,38 @@ const PropertyBreakdown = () => {
     
     return true;
   }, []);
+  
+  // Safely add a space type with error handling
+  const safeAddSpaceType = useCallback((e: React.MouseEvent) => {
+    try {
+      stopPropagation(e);
+      if (!isSafeToInteract) return;
+      addSpaceType();
+    } catch (error) {
+      console.error("Error adding space type:", error);
+      toast({
+        title: "Error adding space type",
+        description: "There was an error adding a new space type. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [addSpaceType, stopPropagation, isSafeToInteract, toast]);
+  
+  // Safely add a unit mix with error handling
+  const safeAddUnitMix = useCallback((e: React.MouseEvent) => {
+    try {
+      stopPropagation(e);
+      if (!isSafeToInteract) return;
+      addUnitMix();
+    } catch (error) {
+      console.error("Error adding unit mix:", error);
+      toast({
+        title: "Error adding unit type",
+        description: "There was an error adding a new unit type. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [addUnitMix, stopPropagation, isSafeToInteract, toast]);
   
   return (
     <div 
@@ -309,11 +353,9 @@ const PropertyBreakdown = () => {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={(e) => {
-                      stopPropagation(e);
-                      addSpaceType();
-                    }}
+                    onClick={safeAddSpaceType}
                     className="flex items-center gap-2"
+                    disabled={!isSafeToInteract}
                   >
                     <PlusCircle className="h-4 w-4" /> Add Another Space Type
                   </Button>
@@ -344,6 +386,7 @@ const PropertyBreakdown = () => {
                         value={unit.type}
                         onChange={(e) => updateUnitMix(unit.id, "type", e.target.value)}
                         className="w-full rounded-md border border-gray-300 px-3 py-2"
+                        disabled={!isSafeToInteract}
                       >
                         <option value="Studio">Studio</option>
                         <option value="1-bed">1 Bedroom</option>
@@ -361,6 +404,7 @@ const PropertyBreakdown = () => {
                         type="number"
                         value={unit.count}
                         onChange={(e) => updateUnitMix(unit.id, "count", e.target.value)}
+                        disabled={!isSafeToInteract}
                       />
                     </div>
                     
@@ -372,6 +416,7 @@ const PropertyBreakdown = () => {
                         type="number"
                         value={unit.squareFootage}
                         onChange={(e) => updateUnitMix(unit.id, "squareFootage", e.target.value)}
+                        disabled={!isSafeToInteract}
                       />
                     </div>
 
@@ -382,9 +427,11 @@ const PropertyBreakdown = () => {
                           variant="outline" 
                           onClick={(e) => {
                             stopPropagation(e);
+                            if (!isSafeToInteract) return;
                             removeUnitMix(unit.id);
                           }}
                           className="text-red-500 hover:text-red-700"
+                          disabled={!isSafeToInteract}
                         >
                           Remove
                         </Button>
@@ -397,11 +444,9 @@ const PropertyBreakdown = () => {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={(e) => {
-                      stopPropagation(e);
-                      addUnitMix();
-                    }}
+                    onClick={safeAddUnitMix}
                     className="flex items-center gap-2"
+                    disabled={!isSafeToInteract}
                   >
                     <PlusCircle className="h-4 w-4" /> Add Another Unit Type
                   </Button>

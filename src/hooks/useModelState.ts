@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from "react";
-import { usePropertyState } from "./usePropertyState";
+import { useProperty } from "@/contexts/PropertyContext";
 import { useDevelopmentCosts } from "./useDevelopmentCosts";
 import { useDevelopmentTimeline } from "./useDevelopmentTimeline";
 import { useExpensesState } from "./useExpensesState";
@@ -14,7 +14,7 @@ import { clearAllModelData } from "./useLocalStoragePersistence";
 export const useModelState = () => {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'error' | 'reset' | null>(null);
   
-  const propertyState = usePropertyState();
+  const propertyState = useProperty();
   const developmentCostsState = useDevelopmentCosts();
   const timelineState = useDevelopmentTimeline();
   const expensesState = useExpensesState();
@@ -48,15 +48,15 @@ export const useModelState = () => {
   }, []);
 
   // Master handlers
-  const handleTextChange = (
+  const handleTextChange = useCallback((
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, 
     setter: (value: string) => void
   ) => {
     setter(e.target.value);
     setSaveStatus('saved');
-  };
+  }, []);
   
-  const handleNumberChange = (
+  const handleNumberChange = useCallback((
     e: React.ChangeEvent<HTMLInputElement>, 
     setter: (value: string) => void, 
     min: number = 0, 
@@ -74,38 +74,38 @@ export const useModelState = () => {
         setSaveStatus('saved');
       }
     }
-  };
+  }, []);
   
-  const handlePercentageChange = (
+  const handlePercentageChange = useCallback((
     e: React.ChangeEvent<HTMLInputElement>,
     setter: (value: string) => void
   ) => {
     handleNumberChange(e, setter, 0, 100);
-  };
+  }, [handleNumberChange]);
   
-  const handleSelectChange = (
+  const handleSelectChange = useCallback((
     value: string, 
     setter: (value: string) => void
   ) => {
     setter(value);
     setSaveStatus('saved');
-  };
+  }, []);
   
-  const handleBooleanChange = (
+  const handleBooleanChange = useCallback((
     value: boolean,
     setter: (value: boolean) => void
   ) => {
     setter(value);
     setSaveStatus('saved');
-  };
+  }, []);
   
-  const handleDateChange = (
+  const handleDateChange = useCallback((
     date: Date | undefined,
     setter: (date: Date | undefined) => void
   ) => {
     setter(date);
     setSaveStatus('saved');
-  };
+  }, []);
   
   return {
     property: propertyState,
