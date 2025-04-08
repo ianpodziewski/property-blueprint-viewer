@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -68,6 +67,7 @@ const FloorTemplateManager = ({
   
   const [formModified, setFormModified] = useState(false);
   const originalTemplateRef = useRef<TemplateFormData>(defaultTemplateData);
+  const dialogWasClosedRef = useRef<boolean>(false);
   
   const addDebugLog = (message: string) => {
     setDebugLogs(prev => [...prev, `${new Date().toISOString()}: ${message}`]);
@@ -84,6 +84,7 @@ const FloorTemplateManager = ({
       setValidationMessages({});
       originalTemplateRef.current = {...defaultTemplateData};
       setRecoveryMode(false);
+      dialogWasClosedRef.current = false;
       addDebugLog("Modal opened, state reset");
     }
   }, [isOpen]);
@@ -229,18 +230,26 @@ const FloorTemplateManager = ({
         setSelectedTemplateId(null);
       }
       
+      const templateName = templates.find(t => t.id === templateToDelete)?.name || "Template";
+      
       removeTemplate(templateToDelete);
       
       toast({
         title: "Template deleted",
-        description: "The floor template has been successfully removed.",
+        description: `${templateName} has been successfully removed.`,
       });
       
       addDebugLog(`Template ID: ${templateToDelete} deleted successfully`);
       
-      // Close just the delete confirmation dialog, not the main modal
+      const tempId = templateToDelete;
+      
       setDeleteConfirmOpen(false);
       setTemplateToDelete(null);
+      
+      setTimeout(() => {
+        addDebugLog(`Post-deletion UI update for template: ${tempId}`);
+        setIsProcessing(false);
+      }, 50);
     } catch (error) {
       console.error("Error deleting template:", error);
       
@@ -257,10 +266,9 @@ const FloorTemplateManager = ({
       });
       
       addDebugLog(`Error deleting template: ${error}`);
-    } finally {
       setIsProcessing(false);
     }
-  }, [templateToDelete, selectedTemplateId, removeTemplate, toast]);
+  }, [templateToDelete, selectedTemplateId, removeTemplate, toast, templates]);
 
   const cancelDelete = useCallback((e?: React.MouseEvent) => {
     if (e) {
@@ -378,18 +386,25 @@ const FloorTemplateManager = ({
       return;
     }
     
+    if (deleteConfirmOpen) {
+      addDebugLog("Main modal close prevented - delete dialog is open");
+      return;
+    }
+    
     if (editMode !== "view" && formModified) {
       if (confirm("You have unsaved changes. Are you sure you want to close?")) {
         addDebugLog("Modal closed with unsaved changes");
+        dialogWasClosedRef.current = true;
         onClose();
       } else {
         addDebugLog("Modal close cancelled - unsaved changes");
       }
     } else {
       addDebugLog("Modal closed normally");
+      dialogWasClosedRef.current = true;
       onClose();
     }
-  }, [onClose, editMode, isProcessing, formModified]);
+  }, [onClose, editMode, isProcessing, formModified, deleteConfirmOpen]);
 
   const handleInputChange = useCallback((
     field: keyof TemplateFormData,
@@ -826,7 +841,14 @@ const FloorTemplateManager = ({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={handleModalClose}>
+      <Dialog 
+        open={isOpen} 
+        onOpenChange={(open) => {
+          if (!open && !dialogWasClosedRef.current) {
+            handleModalClose();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>Manage Floor Templates</DialogTitle>
@@ -848,7 +870,7 @@ const FloorTemplateManager = ({
       </Dialog>
 
       <AlertDialog 
-        open={deleteConfirmOpen} 
+        open={deleteConfirmOpen}
         onOpenChange={(open) => {
           if (!open && !isProcessing) {
             cancelDelete();
@@ -878,9 +900,7 @@ const FloorTemplateManager = ({
           <AlertDialogFooter>
             <AlertDialogCancel 
               onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                cancelDelete();
+                cancelDelete(e);
               }} 
               disabled={isProcessing}
               type="button"
@@ -889,8 +909,6 @@ const FloorTemplateManager = ({
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
                 confirmDelete(e);
               }} 
               className="bg-destructive hover:bg-destructive/90"

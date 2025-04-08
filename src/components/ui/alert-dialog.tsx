@@ -28,6 +28,10 @@ const AlertDialogOverlay = React.forwardRef<
     )}
     {...props}
     ref={ref}
+    onClick={(e) => {
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
   />
 ))
 AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
@@ -44,6 +48,10 @@ const AlertDialogContent = React.forwardRef<
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
         className
       )}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (props.onClick) props.onClick(e);
+      }}
       {...props}
     />
   </AlertDialogPortal>
@@ -60,6 +68,10 @@ const AlertDialogHeader = ({
       className
     )}
     {...props}
+    onClick={(e) => {
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
   />
 )
 AlertDialogHeader.displayName = "AlertDialogHeader"
@@ -74,6 +86,10 @@ const AlertDialogFooter = ({
       className
     )}
     {...props}
+    onClick={(e) => {
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
   />
 )
 AlertDialogFooter.displayName = "AlertDialogFooter"
@@ -90,7 +106,6 @@ const AlertDialogTitle = React.forwardRef<
 ))
 AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
 
-// Fix: The Description component to handle text content properly
 const AlertDialogDescription = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
@@ -99,6 +114,10 @@ const AlertDialogDescription = React.forwardRef<
     ref={ref}
     className={cn("text-sm text-muted-foreground", className)}
     asChild={React.isValidElement(children)}
+    onClick={(e) => {
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
     {...props}
   >
     {React.isValidElement(children) ? children : <span>{children}</span>}

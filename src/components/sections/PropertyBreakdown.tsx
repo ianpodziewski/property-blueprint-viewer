@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpaceDefinition, FloorPlateTemplate } from "@/types/propertyTypes";
 import { Toaster } from "@/components/ui/toaster";
+import { useEffect, useCallback } from "react";
 
 const PropertyBreakdown = () => {
   
@@ -78,6 +79,17 @@ const PropertyBreakdown = () => {
   // Get common handlers from the model state to ensure persistence
   const { handleTextChange, handleNumberChange } = useModelState();
 
+  // Ensure clean-up of any global event listeners when component unmounts
+  useEffect(() => {
+    return () => {
+      // Clean up any global event listeners to prevent memory leaks
+      const modals = document.querySelectorAll('[role="dialog"]');
+      modals.forEach(modal => {
+        modal.removeAttribute('data-state');
+      });
+    };
+  }, []);
+
   // Generate data for visualizations
   const floorsData = generateFloorsData();
   const spaceBreakdown = generateSpaceBreakdown();
@@ -85,17 +97,28 @@ const PropertyBreakdown = () => {
   
   // Create adapter functions to convert between the two function signatures
   // For BuildingParameters component (expects id, field, value)
-  const adaptedUpdateFloorTemplateForBuildingParams = (id: string, field: keyof FloorPlateTemplate, value: string) => {
+  const adaptedUpdateFloorTemplateForBuildingParams = useCallback((id: string, field: keyof FloorPlateTemplate, value: string) => {
     updateFloorTemplate(id, { [field]: value });
-  };
+  }, [updateFloorTemplate]);
   
   // For FloorConfigurationManager component (expects id, template)
-  const adaptedUpdateFloorTemplateForConfigManager = (id: string, template: Partial<FloorPlateTemplate>) => {
+  const adaptedUpdateFloorTemplateForConfigManager = useCallback((id: string, template: Partial<FloorPlateTemplate>) => {
     updateFloorTemplate(id, template);
-  };
+  }, [updateFloorTemplate]);
+  
+  // Safely stop event propagation to prevent unexpected behavior
+  const stopPropagation = useCallback((e: React.MouseEvent<Element, MouseEvent>) => {
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
+    return true;
+  }, []);
   
   return (
-    <div className="space-y-6">
+    <div 
+      className="space-y-6"
+      onClick={(e) => stopPropagation(e)}
+    >
       <div>
         <h2 className="text-2xl font-semibold text-blue-700 mb-4">Property Breakdown</h2>
         <p className="text-gray-600 mb-6">Define the basic characteristics and mix of your development project.</p>
@@ -240,7 +263,10 @@ const PropertyBreakdown = () => {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={addSpaceType}
+                    onClick={(e) => {
+                      stopPropagation(e);
+                      addSpaceType();
+                    }}
                     className="flex items-center gap-2"
                   >
                     <PlusCircle className="h-4 w-4" /> Add Another Space Type
@@ -308,7 +334,10 @@ const PropertyBreakdown = () => {
                         <Button 
                           type="button" 
                           variant="outline" 
-                          onClick={() => removeUnitMix(unit.id)}
+                          onClick={(e) => {
+                            stopPropagation(e);
+                            removeUnitMix(unit.id);
+                          }}
                           className="text-red-500 hover:text-red-700"
                         >
                           Remove
@@ -322,7 +351,10 @@ const PropertyBreakdown = () => {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={addUnitMix}
+                    onClick={(e) => {
+                      stopPropagation(e);
+                      addUnitMix();
+                    }}
                     className="flex items-center gap-2"
                   >
                     <PlusCircle className="h-4 w-4" /> Add Another Unit Type
