@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
@@ -11,15 +12,22 @@ import CapExAssumptions from "./sections/CapExAssumptions";
 import Financing from "./sections/Financing";
 import Disposition from "./sections/Disposition";
 import SensitivityAnalysis from "./sections/SensitivityAnalysis";
+import { useToast } from "@/hooks/use-toast";
 
 const ModelingTabs = () => {
   const [activeTab, setActiveTab] = useState("property");
   const [floorConfigSaved, setFloorConfigSaved] = useState(0);
+  const { toast } = useToast();
   
   const handleFloorConfigSave = useCallback(() => {
     console.log('Floor configuration save event detected');
     setFloorConfigSaved(prev => prev + 1);
-  }, []);
+    
+    toast({
+      title: "Floor configuration saved",
+      description: "All changes to the floor configuration have been saved."
+    });
+  }, [toast]);
   
   useEffect(() => {
     let timeoutId: number | undefined;

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { UnitAllocation } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
@@ -21,7 +22,9 @@ export const useUnitAllocations = () => {
     console.log("Saved unit allocations to localStorage:", unitAllocations);
   }, [unitAllocations]);
 
-  const addAllocation = useCallback((allocation: Omit<UnitAllocation, "id">) => {
+  const addAllocation = useCallback((allocation: Omit<UnitAllocation, "id">, forceAllocate: boolean = false) => {
+    console.log("Adding allocation:", allocation, "Force allocate:", forceAllocate);
+    
     // Check if already exists, if so update it instead
     const existingAllocation = unitAllocations.find(
       a => a.unitTypeId === allocation.unitTypeId && a.floorNumber === allocation.floorNumber
@@ -229,6 +232,50 @@ export const useUnitAllocations = () => {
     return (allocatedArea / totalFloorArea) * 100;
   }, [calculateAllocatedAreaByFloor]);
 
+  const checkEnoughSpaceForAllocation = useCallback((
+    floorNumber: number, 
+    unitSize: number,
+    unitCount: number, 
+    totalFloorArea: number,
+    existingAllocationToUpdateId?: string
+  ) => {
+    console.log(`Checking space for floor ${floorNumber}:`, {
+      unitSize,
+      unitCount,
+      totalFloorArea,
+      existingAllocationToUpdateId
+    });
+
+    // Calculate already allocated area on this floor, excluding the allocation being updated
+    const currentAllocatedArea = unitAllocations
+      .filter(a => a.floorNumber === floorNumber && a.id !== existingAllocationToUpdateId)
+      .reduce((sum, a) => {
+        const count = parseInt(a.count as string) || 0;
+        const size = parseInt(a.squareFootage as string) || 0;
+        return sum + (count * size);
+      }, 0);
+
+    // Calculate space needed for the new allocation
+    const spaceNeeded = unitSize * unitCount;
+    
+    // Calculate available space
+    const availableSpace = Math.max(0, totalFloorArea - currentAllocatedArea);
+    
+    console.log(`Floor ${floorNumber} allocation check:`, {
+      currentAllocatedArea,
+      spaceNeeded,
+      availableSpace,
+      hasEnoughSpace: availableSpace >= spaceNeeded
+    });
+    
+    return {
+      hasEnoughSpace: availableSpace >= spaceNeeded,
+      availableSpace,
+      spaceNeeded,
+      currentAllocatedArea
+    };
+  }, [unitAllocations]);
+
   const resetAllData = useCallback(() => {
     setUnitAllocations([]);
   }, []);
@@ -248,6 +295,7 @@ export const useUnitAllocations = () => {
     calculateAllocationStats,
     suggestAllocations,
     getFloorUtilization,
+    checkEnoughSpaceForAllocation,
     resetAllData
   };
 };

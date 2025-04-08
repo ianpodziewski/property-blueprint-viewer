@@ -7,13 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Settings, Plus, ArrowRight, Edit } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Settings, Plus, ArrowRight, Edit, AlertTriangle, Check, Info } from "lucide-react";
 import { FloorConfiguration, FloorPlateTemplate, SpaceDefinition } from "@/types/propertyTypes";
 import FloorEditor from "./FloorEditor";
 import { useUnitTypes } from "@/hooks/property/useUnitTypes";
 import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
 import { UnitAllocation } from "@/types/unitMixTypes";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Progress } from "@/components/ui/progress";
 
 interface FloorDetailViewProps {
   floor: FloorConfiguration;
@@ -27,6 +30,13 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
   updateFloorConfiguration
 }) => {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [overrideConfirmOpen, setOverrideConfirmOpen] = useState(false);
+  const [pendingAllocation, setPendingAllocation] = useState<{
+    unitTypeId: string;
+    count: string;
+    squareFootage: string;
+  } | null>(null);
+  
   const { unitTypes, getUnitTypeById } = useUnitTypes();
   const { 
     unitAllocations, 
@@ -34,7 +44,8 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
     updateAllocation, 
     removeAllocation,
     getAllocationsByFloor,
-    calculateAllocatedAreaByFloor
+    calculateAllocatedAreaByFloor,
+    checkEnoughSpaceForAllocation
   } = useUnitAllocations();
   
   // Get the floor template
@@ -79,13 +90,52 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
     const unitType = getUnitTypeById(unitTypeId);
     if (!unitType) return;
     
+    const unitSize = parseInt(unitType.typicalSize) || 0;
+    
+    // Validate space before allocation
+    const spaceCheck = checkEnoughSpaceForAllocation(
+      floor.floorNumber,
+      unitSize,
+      1,
+      floorArea
+    );
+    
+    console.log(`Adding unit type ${unitTypeId} to floor ${floor.floorNumber}:`, spaceCheck);
+
+    if (!spaceCheck.hasEnoughSpace) {
+      setPendingAllocation({
+        unitTypeId,
+        count: "1",
+        squareFootage: unitType.typicalSize
+      });
+      setOverrideConfirmOpen(true);
+      return;
+    }
+    
     addAllocation({
       unitTypeId: unitTypeId,
       floorNumber: floor.floorNumber,
       count: "1",
       squareFootage: unitType.typicalSize,
-      status: "planned"
+      status: "planned",
+      notes: `Allocated ${new Date().toLocaleDateString()}`
     });
+  };
+  
+  const handleForceAddUnit = () => {
+    if (!pendingAllocation) return;
+    
+    addAllocation({
+      unitTypeId: pendingAllocation.unitTypeId,
+      floorNumber: floor.floorNumber,
+      count: pendingAllocation.count,
+      squareFootage: pendingAllocation.squareFootage,
+      status: "planned",
+      notes: `Force allocated ${new Date().toLocaleDateString()} (exceeded floor space)`
+    }, true);
+    
+    setOverrideConfirmOpen(false);
+    setPendingAllocation(null);
   };
   
   const handleRemoveAllocation = (allocationId: string) => {
@@ -93,11 +143,47 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
   };
   
   const handleUpdateAllocationCount = (allocationId: string, value: string) => {
+    const allocation = floorAllocations.find(a => a.id === allocationId);
+    if (!allocation) return;
+    
+    const newCount = parseInt(value) || 0;
+    const oldCount = parseInt(allocation.count as string) || 0;
+    const unitSize = parseInt(allocation.squareFootage as string) || 0;
+    
+    // Only validate if increasing count
+    if (newCount > oldCount) {
+      // Validate space for the additional units
+      const additionalUnits = newCount - oldCount;
+      const spaceCheck = checkEnoughSpaceForAllocation(
+        floor.floorNumber,
+        unitSize,
+        additionalUnits,
+        floorArea,
+        allocationId // Exclude this allocation from the calculation
+      );
+      
+      if (!spaceCheck.hasEnoughSpace) {
+        setPendingAllocation({
+          unitTypeId: allocation.unitTypeId,
+          count: value,
+          squareFootage: allocation.squareFootage as string
+        });
+        setOverrideConfirmOpen(true);
+        return;
+      }
+    }
+    
     updateAllocation(allocationId, "count", value);
   };
   
   const handleOpenDetailEditor = () => {
     setDetailsDialogOpen(true);
+  };
+
+  const getSpaceColor = (remainingPercent: number) => {
+    if (remainingPercent < 0) return "bg-red-500";
+    if (remainingPercent < 10) return "bg-amber-500";
+    return "bg-green-500";
   };
   
   return (
@@ -226,6 +312,20 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* Space utilization indicator */}
+            <div className="mb-4">
+              <Progress 
+                value={utilization} 
+                className="h-2" 
+                indicatorClassName={getSpaceColor(100 - utilization)}
+              />
+              <div className="flex justify-between text-xs mt-1">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
+              </div>
+            </div>
             
             <div className="space-y-4">
               {floorAllocations.length > 0 ? (
@@ -307,20 +407,39 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
                       <SelectValue placeholder="Select a unit type to add..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {unitTypes.map(unitType => (
-                        <SelectItem key={unitType.id} value={unitType.id}>
-                          <div className="flex items-center">
-                            <div 
-                              className="w-2 h-2 rounded-full mr-2" 
-                              style={{ backgroundColor: unitType.color }}
-                            ></div>
-                            <span>{unitType.name}</span>
-                            <span className="ml-2 text-muted-foreground text-xs">
-                              ({unitType.typicalSize} sf)
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {unitTypes.map(unitType => {
+                        const unitSize = parseInt(unitType.typicalSize) || 0;
+                        const hasSpace = remainingArea >= unitSize;
+                        
+                        return (
+                          <SelectItem key={unitType.id} value={unitType.id}>
+                            <div className="flex items-center">
+                              <div 
+                                className="w-2 h-2 rounded-full mr-2" 
+                                style={{ backgroundColor: unitType.color }}
+                              ></div>
+                              <span>{unitType.name}</span>
+                              <span className="ml-2 text-muted-foreground text-xs">
+                                ({unitType.typicalSize} sf)
+                              </span>
+                              {!hasSpace && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <span className="ml-2">
+                                        <AlertTriangle className="h-3 w-3 text-amber-500 inline" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Insufficient floor space: {unitType.typicalSize} sf needed, {remainingArea} sf available</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -345,6 +464,47 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
           />
         </DialogContent>
       </Dialog>
+
+      {/* Space Override Confirmation */}
+      <AlertDialog open={overrideConfirmOpen} onOpenChange={setOverrideConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Insufficient Space Warning</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              {pendingAllocation && (
+                <>
+                  <p>
+                    <span className="font-semibold">Not enough space available on Floor {floor.floorNumber}</span>
+                  </p>
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-md text-sm space-y-1">
+                    <p>
+                      <span className="font-medium">Required:</span> {
+                        (parseInt(pendingAllocation.count) * parseInt(pendingAllocation.squareFootage)).toLocaleString()
+                      } sq ft
+                    </p>
+                    <p><span className="font-medium">Available:</span> {remainingArea.toLocaleString()} sq ft</p>
+                    <p><span className="font-medium">Deficit:</span> {
+                      Math.abs(remainingArea - (parseInt(pendingAllocation.count) * parseInt(pendingAllocation.squareFootage))).toLocaleString()
+                    } sq ft</p>
+                  </div>
+                  <p>Do you want to force this allocation anyway? This will exceed the available space on this floor.</p>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setOverrideConfirmOpen(false);
+              setPendingAllocation(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleForceAddUnit} className="bg-amber-500 hover:bg-amber-600">
+              Force Allocate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
