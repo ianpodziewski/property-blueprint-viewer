@@ -29,6 +29,7 @@ interface TemplateFormData {
   floorToFloorHeight: string;
   primaryUse: string;
   efficiencyFactor: string;
+  corePercentage: string;
   description: string;
 }
 
@@ -38,6 +39,7 @@ const defaultTemplateData: TemplateFormData = {
   floorToFloorHeight: "12",
   primaryUse: "office",
   efficiencyFactor: "85",
+  corePercentage: "15",
   description: ""
 };
 
@@ -68,6 +70,7 @@ const FloorTemplateManager = ({
       floorToFloorHeight: template.floorToFloorHeight || "12",
       primaryUse: template.primaryUse || "office",
       efficiencyFactor: template.efficiencyFactor || "85",
+      corePercentage: template.corePercentage || "15",
       description: template.description || ""
     });
     setEditMode("edit");
@@ -80,6 +83,7 @@ const FloorTemplateManager = ({
       floorToFloorHeight: template.floorToFloorHeight || "12",
       primaryUse: template.primaryUse || "office",
       efficiencyFactor: template.efficiencyFactor || "85",
+      corePercentage: template.corePercentage || "15",
       description: template.description || ""
     });
     setEditMode("create");
@@ -106,6 +110,7 @@ const FloorTemplateManager = ({
         floorToFloorHeight: currentTemplate.floorToFloorHeight,
         primaryUse: currentTemplate.primaryUse,
         efficiencyFactor: currentTemplate.efficiencyFactor,
+        corePercentage: currentTemplate.corePercentage,
         description: currentTemplate.description
       });
     } else if (editMode === "edit" && currentTemplate.id) {
@@ -115,6 +120,7 @@ const FloorTemplateManager = ({
         floorToFloorHeight: currentTemplate.floorToFloorHeight,
         primaryUse: currentTemplate.primaryUse,
         efficiencyFactor: currentTemplate.efficiencyFactor,
+        corePercentage: currentTemplate.corePercentage,
         description: currentTemplate.description
       });
     }
