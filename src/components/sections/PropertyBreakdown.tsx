@@ -82,9 +82,15 @@ const PropertyBreakdown = () => {
   const spaceBreakdown = generateSpaceBreakdown();
   const phasesData = generatePhasesData();
   
-  // Create an adapter function to convert between the two function signatures
-  const adaptedUpdateFloorTemplate = (id: string, field: keyof FloorPlateTemplate, value: string) => {
+  // Create adapter functions to convert between the two function signatures
+  // For BuildingParameters component (expects id, field, value)
+  const adaptedUpdateFloorTemplateForBuildingParams = (id: string, field: keyof FloorPlateTemplate, value: string) => {
     updateFloorTemplate(id, { [field]: value });
+  };
+  
+  // For FloorConfigurationManager component (expects id, template)
+  const adaptedUpdateFloorTemplateForConfigManager = (id: string, template: Partial<FloorPlateTemplate>) => {
+    updateFloorTemplate(id, template);
   };
   
   return (
@@ -150,7 +156,7 @@ const PropertyBreakdown = () => {
         actualFar={actualFar}
         floorTemplates={floorTemplates}
         addFloorTemplate={addFloorTemplate}
-        updateFloorTemplate={adaptedUpdateFloorTemplate}
+        updateFloorTemplate={adaptedUpdateFloorTemplateForBuildingParams}
         removeFloorTemplate={removeFloorTemplate}
       />
       
@@ -166,7 +172,7 @@ const PropertyBreakdown = () => {
         removeFloors={removeFloors}
         reorderFloor={reorderFloor}
         addFloorTemplate={addFloorTemplate}
-        updateFloorTemplate={adaptedUpdateFloorTemplate}
+        updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
         removeFloorTemplate={removeFloorTemplate}
       />
       
