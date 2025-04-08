@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,7 @@ import FloorConfigurationManager from "@/components/property/FloorConfigurationM
 import { useModelState } from "@/hooks/useModelState";
 import { Separator } from "@/components/ui/separator"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SpaceDefinition } from "@/types/propertyTypes";
+import { SpaceDefinition, FloorPlateTemplate } from "@/types/propertyTypes";
 
 const PropertyBreakdown = () => {
   
@@ -81,6 +82,11 @@ const PropertyBreakdown = () => {
   const spaceBreakdown = generateSpaceBreakdown();
   const phasesData = generatePhasesData();
   
+  // Create an adapter function to convert between the two function signatures
+  const adaptedUpdateFloorTemplate = (id: string, field: keyof FloorPlateTemplate, value: string) => {
+    updateFloorTemplate(id, { [field]: value });
+  };
+  
   return (
     <div className="space-y-6">
       <div>
@@ -144,7 +150,7 @@ const PropertyBreakdown = () => {
         actualFar={actualFar}
         floorTemplates={floorTemplates}
         addFloorTemplate={addFloorTemplate}
-        updateFloorTemplate={updateFloorTemplate}
+        updateFloorTemplate={adaptedUpdateFloorTemplate}
         removeFloorTemplate={removeFloorTemplate}
       />
       
@@ -160,7 +166,7 @@ const PropertyBreakdown = () => {
         removeFloors={removeFloors}
         reorderFloor={reorderFloor}
         addFloorTemplate={addFloorTemplate}
-        updateFloorTemplate={updateFloorTemplate}
+        updateFloorTemplate={adaptedUpdateFloorTemplate}
         removeFloorTemplate={removeFloorTemplate}
       />
       
