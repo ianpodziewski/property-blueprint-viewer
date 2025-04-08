@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -114,7 +113,6 @@ const PropertyBreakdown = () => {
       name: "New Template",
       squareFootage: "10000",
       floorToFloorHeight: "12",
-      efficiencyFactor: "85",
       corePercentage: "15",
       primaryUse: "office",
       description: ""
@@ -270,7 +268,6 @@ const PropertyBreakdown = () => {
                     squareFootage={space.squareFootage}
                     units={space.units}
                     phase={space.phase}
-                    efficiencyFactor={space.efficiencyFactor}
                     floorAllocation={space.floorAllocation}
                     onUpdate={(id, field, value) => {
                       updateSpaceType(id, field as keyof typeof space, value);

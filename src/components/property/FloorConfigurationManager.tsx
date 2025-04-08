@@ -726,7 +726,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                 <SelectContent>
                   <SelectItem value="templateId">Template</SelectItem>
                   <SelectItem value="floorToFloorHeight">Floor Height</SelectItem>
-                  <SelectItem value="efficiencyFactor">Efficiency Factor</SelectItem>
                   <SelectItem value="primaryUse">Primary Use</SelectItem>
                 </SelectContent>
               </Select>
@@ -775,8 +774,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                   value={bulkEditValue}
                   onChange={(e) => setBulkEditValue(e.target.value)}
                   placeholder={
-                    bulkEditField === "floorToFloorHeight" ? "12" : 
-                    bulkEditField === "efficiencyFactor" ? "85" : ""
+                    bulkEditField === "floorToFloorHeight" ? "12" : ""
                   }
                 />
               )}

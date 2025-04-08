@@ -13,7 +13,6 @@ export const useSpaceTypes = () => {
       squareFootage: "0", 
       units: "", 
       phase: "phase1",
-      efficiencyFactor: "85",
       floorAllocation: { 1: "100" }
     }
   ]);
@@ -29,11 +28,20 @@ export const useSpaceTypes = () => {
         squareFootage: "0", 
         units: "", 
         phase: "phase1",
-        efficiencyFactor: "85",
         floorAllocation: { 1: "100" }
       }
     ]);
-    setSpaceTypes(storedSpaceTypes);
+    
+    // Migrate stored data to remove efficiency factor if it exists
+    const migratedSpaceTypes = storedSpaceTypes.map(space => {
+      if ('efficiencyFactor' in space) {
+        const { efficiencyFactor, ...rest } = space as any;
+        return rest;
+      }
+      return space;
+    });
+    
+    setSpaceTypes(migratedSpaceTypes);
   }, []);
 
   // Save space types to localStorage whenever they change
@@ -64,7 +72,6 @@ export const useSpaceTypes = () => {
         squareFootage: "0", 
         units: "", 
         phase: "phase1",
-        efficiencyFactor: "85",
         floorAllocation
       }
     ]);

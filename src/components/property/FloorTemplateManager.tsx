@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,6 @@ interface TemplateFormData {
   squareFootage: string;
   floorToFloorHeight: string;
   primaryUse: string;
-  efficiencyFactor: string;
   corePercentage: string;
   description: string;
 }
@@ -39,7 +37,6 @@ const defaultTemplateData: TemplateFormData = {
   squareFootage: "10000",
   floorToFloorHeight: "12",
   primaryUse: "office",
-  efficiencyFactor: "85",
   corePercentage: "15",
   description: ""
 };
@@ -76,7 +73,7 @@ const FloorTemplateManager = ({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasFormErrors, setHasFormErrors] = useState(false);
-  const [validationMessages, setValidationMessages] = useState<{[key: string]: string}>({});
+  const [validationMessages, setValidationMessages: React.Dispatch<React.SetStateAction<{[key: string]: string}>>] = useState<{[key: string]: string}>({});
   const [saveSuccessful, setSaveSuccessful] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
@@ -139,10 +136,10 @@ const FloorTemplateManager = ({
       errors.primaryUse = "Primary use is required";
     }
     
-    if (!currentTemplate.efficiencyFactor || 
-        parseFloat(currentTemplate.efficiencyFactor) < 0 || 
-        parseFloat(currentTemplate.efficiencyFactor) > 100) {
-      errors.efficiencyFactor = "Efficiency factor must be between 0-100%";
+    if (!currentTemplate.corePercentage || 
+        parseFloat(currentTemplate.corePercentage) < 0 || 
+        parseFloat(currentTemplate.corePercentage) > 100) {
+      errors.corePercentage = "Core percentage must be between 0-100%";
     }
     
     setValidationMessages(errors);
@@ -157,7 +154,6 @@ const FloorTemplateManager = ({
       squareFootage: "10000",
       floorToFloorHeight: "12",
       primaryUse: "office",
-      efficiencyFactor: "85",
       corePercentage: "15",
       description: ""
     };
@@ -179,7 +175,6 @@ const FloorTemplateManager = ({
       squareFootage: template.squareFootage || "10000",
       floorToFloorHeight: template.floorToFloorHeight || "12",
       primaryUse: template.primaryUse || "office",
-      efficiencyFactor: template.efficiencyFactor || "85",
       corePercentage: template.corePercentage || "15",
       description: template.description || ""
     };
@@ -200,7 +195,6 @@ const FloorTemplateManager = ({
       squareFootage: template.squareFootage || "10000",
       floorToFloorHeight: template.floorToFloorHeight || "12",
       primaryUse: template.primaryUse || "office",
-      efficiencyFactor: template.efficiencyFactor || "85",
       corePercentage: template.corePercentage || "15",
       description: template.description || ""
     };
@@ -324,7 +318,6 @@ const FloorTemplateManager = ({
         squareFootage: String(currentTemplate.squareFootage || "10000"),
         floorToFloorHeight: String(currentTemplate.floorToFloorHeight || "12"),
         primaryUse: String(currentTemplate.primaryUse || "office"),
-        efficiencyFactor: String(currentTemplate.efficiencyFactor || "85"),
         corePercentage: String(currentTemplate.corePercentage || "15"),
         description: String(currentTemplate.description || "")
       };
@@ -346,7 +339,6 @@ const FloorTemplateManager = ({
           squareFootage: templateToSave.squareFootage,
           floorToFloorHeight: templateToSave.floorToFloorHeight,
           primaryUse: templateToSave.primaryUse,
-          efficiencyFactor: templateToSave.efficiencyFactor,
           corePercentage: templateToSave.corePercentage,
           description: templateToSave.description
         });
@@ -577,21 +569,21 @@ const FloorTemplateManager = ({
           )}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="template-efficiency">Efficiency Factor (%)</Label>
+          <Label htmlFor="template-core">Core Percentage (%)</Label>
           <Input
-            id="template-efficiency"
+            id="template-core"
             type="number"
-            value={currentTemplate.efficiencyFactor}
-            onChange={(e) => handleInputChange('efficiencyFactor', e.target.value)}
-            placeholder="85"
+            value={currentTemplate.corePercentage}
+            onChange={(e) => handleInputChange('corePercentage', e.target.value)}
+            placeholder="15"
             disabled={isProcessing}
             min="0"
             max="100"
-            className={validationMessages.efficiencyFactor ? "border-red-500" : ""}
-            aria-invalid={!!validationMessages.efficiencyFactor}
+            className={validationMessages.corePercentage ? "border-red-500" : ""}
+            aria-invalid={!!validationMessages.corePercentage}
           />
-          {validationMessages.efficiencyFactor && (
-            <p className="text-xs text-red-500 mt-1">{validationMessages.efficiencyFactor}</p>
+          {validationMessages.corePercentage && (
+            <p className="text-xs text-red-500 mt-1">{validationMessages.corePercentage}</p>
           )}
         </div>
       </div>
@@ -729,7 +721,7 @@ const FloorTemplateManager = ({
                           {template.primaryUse || "office"}
                         </Badge>
                         <Badge variant="outline">
-                          {template.efficiencyFactor || "85"}% efficient
+                          {100 - parseInt(template.corePercentage || "15")}% efficient
                         </Badge>
                       </div>
                     </div>
@@ -840,13 +832,13 @@ const FloorTemplateManager = ({
               <div className="flex justify-between">
                 <dt>Rentable Area:</dt>
                 <dd>
-                  {Math.round(parseInt(template.squareFootage) * (parseInt(template.efficiencyFactor || "85") / 100)).toLocaleString()} sq ft
+                  {Math.round(parseInt(template.squareFootage) * ((100 - parseInt(template.corePercentage || "15")) / 100)).toLocaleString()} sq ft
                 </dd>
               </div>
               <div className="flex justify-between">
                 <dt>Core Area:</dt>
                 <dd>
-                  {Math.round(parseInt(template.squareFootage) * (1 - (parseInt(template.efficiencyFactor || "85") / 100))).toLocaleString()} sq ft
+                  {Math.round(parseInt(template.squareFootage) * (parseInt(template.corePercentage || "15") / 100)).toLocaleString()} sq ft
                 </dd>
               </div>
               <div className="flex justify-between">
@@ -921,69 +913,4 @@ const FloorTemplateManager = ({
             </DialogDescription>
           </DialogHeader>
           <div className="py-4" onClick={(e) => e.stopPropagation()}>
-            {editMode === "view" ? (
-              <div className="space-y-4">
-                {renderTemplateList()}
-                {renderTemplatePreview()}
-              </div>
-            ) : (
-              renderForm()
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog 
-        open={deleteConfirmOpen}
-        onOpenChange={(open) => {
-          if (!open && !isProcessing) {
-            cancelDelete();
-          }
-        }}
-      >
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Template</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this template? This action cannot be undone.
-              
-              {templateToDelete && templates.some(t => t.id === templateToDelete) && (
-                <div className="mt-2 font-medium">
-                  "{templates.find(t => t.id === templateToDelete)?.name}"
-                </div>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel 
-              onClick={(e) => {
-                cancelDelete(e);
-              }}
-              disabled={isProcessing}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                confirmDelete(e);
-              }}
-              disabled={isProcessing}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader className="mr-2 h-4 w-4 animate-spin" />
-                  <span>Deleting...</span>
-                </>
-              ) : (
-                'Delete Template'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-};
-
-export default FloorTemplateManager;
+            {editMode
