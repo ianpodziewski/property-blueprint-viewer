@@ -79,10 +79,25 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
     }
   }, [floorTemplates, floorConfigurations, setFloorConfigurations]);
 
+  // Add a function to reset floor templates to default
+  const resetFloorTemplates = useCallback(() => {
+    const defaultTemplate: FloorPlateTemplate = {
+      id: "template-1",
+      name: "Standard Floor",
+      squareFootage: "10000",
+      floorToFloorHeight: "12",
+      efficiencyFactor: "85",
+      corePercentage: "15",
+      primaryUse: "office"
+    };
+    setFloorTemplates([defaultTemplate]);
+  }, []);
+
   return {
     floorTemplates,
     addFloorTemplate,
     updateFloorTemplate,
-    removeFloorTemplate
+    removeFloorTemplate,
+    resetFloorTemplates
   };
 };

@@ -15,7 +15,7 @@ import FloorConfigurationManager from "@/components/property/FloorConfigurationM
 import { useModelState } from "@/hooks/useModelState";
 import { Separator } from "@/components/ui/separator"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SpaceDefinition, FloorPlateTemplate, FloorConfiguration } from "@/types/propertyTypes";
+import { SpaceDefinition, FloorPlateTemplate, FloorConfiguration, BuildingSystemsConfig } from "@/types/propertyTypes";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/components/ui/use-toast";
 import { useEffect, useCallback, useMemo } from "react";
