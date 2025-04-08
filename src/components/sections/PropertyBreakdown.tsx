@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -156,6 +157,9 @@ const PropertyBreakdown = () => {
         copyFloorConfiguration={copyFloorConfiguration}
         bulkEditFloorConfigurations={bulkEditFloorConfigurations}
         updateFloorSpaces={updateFloorSpaces}
+        addFloors={addFloors}
+        removeFloors={removeFloors}
+        reorderFloor={reorderFloor}
       />
       
       {/* Visualizations Row */}
@@ -175,10 +179,6 @@ const PropertyBreakdown = () => {
           floorTemplates={floorTemplates}
           floorConfigurations={floorConfigurations}
           updateFloorConfiguration={updateFloorConfiguration}
-          copyFloorConfiguration={copyFloorConfiguration}
-          bulkEditFloorConfigurations={bulkEditFloorConfigurations}
-          addFloors={addFloors}
-          removeFloors={removeFloors}
           reorderFloor={reorderFloor}
         />
       </div>

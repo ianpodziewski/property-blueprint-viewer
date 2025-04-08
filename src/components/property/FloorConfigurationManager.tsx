@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Copy, Layout, AlertTriangle, X, Check, CheckSquare, Square, ChevronDown } from "lucide-react";
+import { Edit, Copy, Layout, AlertTriangle, X, Check, CheckSquare, Square, ChevronDown, Plus, Trash } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -37,6 +37,17 @@ interface FloorConfigurationManagerProps {
   ) => void;
   updateFloorSpaces: (floorNumber: number, spaces: SpaceDefinition[]) => void;
   updateFloorBuildingSystems?: (floorNumber: number, systems: BuildingSystemsConfig) => void;
+  addFloors: (
+    count: number,
+    isUnderground: boolean,
+    templateId: string | null,
+    position: "top" | "bottom" | "specific",
+    specificPosition?: number,
+    numberingPattern?: "consecutive" | "skip" | "custom",
+    customNumbering?: number[]
+  ) => void;
+  removeFloors: (floorNumbers: number[]) => void;
+  reorderFloor: (floorNumber: number, direction: "up" | "down") => void;
 }
 
 const FloorConfigurationManager = ({
@@ -46,7 +57,10 @@ const FloorConfigurationManager = ({
   copyFloorConfiguration,
   bulkEditFloorConfigurations,
   updateFloorSpaces,
-  updateFloorBuildingSystems
+  updateFloorBuildingSystems,
+  addFloors,
+  removeFloors,
+  reorderFloor
 }: FloorConfigurationManagerProps) => {
   const [selectedFloor, setSelectedFloor] = useState<FloorConfiguration | null>(null);
   const [isFloorEditorOpen, setIsFloorEditorOpen] = useState(false);
@@ -62,6 +76,20 @@ const FloorConfigurationManager = ({
   const [rangeEnd, setRangeEnd] = useState<string>("");
   const [confirmCopyOpen, setConfirmCopyOpen] = useState(false);
   const [editorKey, setEditorKey] = useState<string>(`floor-editor-${Date.now()}`);
+  
+  // New state for add floors dialog
+  const [addFloorsDialogOpen, setAddFloorsDialogOpen] = useState(false);
+  const [floorCount, setFloorCount] = useState("1");
+  const [isUnderground, setIsUnderground] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [position, setPosition] = useState<"top" | "bottom" | "specific">("top");
+  const [specificPosition, setSpecificPosition] = useState<string>("");
+  const [numberingPattern, setNumberingPattern] = useState<"consecutive" | "skip" | "custom">("consecutive");
+  
+  // New state for remove floors dialog
+  const [removeFloorsDialogOpen, setRemoveFloorsDialogOpen] = useState(false);
+  const [floorsToRemove, setFloorsToRemove] = useState<number[]>([]);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -69,6 +97,13 @@ const FloorConfigurationManager = ({
       setIsFloorEditorOpen(false);
     };
   }, []);
+  
+  useEffect(() => {
+    // Initialize selected template when dialog opens
+    if (addFloorsDialogOpen && floorTemplates.length > 0 && !selectedTemplateId) {
+      setSelectedTemplateId(floorTemplates[0].id);
+    }
+  }, [addFloorsDialogOpen, floorTemplates, selectedTemplateId]);
 
   const aboveGroundConfigs = floorConfigurations
     .filter(config => !config.isUnderground)
@@ -201,11 +236,7 @@ const FloorConfigurationManager = ({
     
     if (!isNaN(source) && copyTargetFloors.length > 0) {
       setConfirmCopyOpen(false);
-      
-      copyTargetFloors.forEach(targetFloor => {
-        copyFloorConfiguration(source, targetFloor);
-      });
-      
+      copyFloorConfiguration(source, copyTargetFloors);
       setCopyTargetFloors([]);
       setCopyDialogOpen(false);
     }
@@ -215,6 +246,53 @@ const FloorConfigurationManager = ({
     if (copyTargetFloors.length > 0) {
       setConfirmCopyOpen(true);
     }
+  };
+  
+  // New function to handle adding floors
+  const handleAddFloors = () => {
+    const count = parseInt(floorCount);
+    const position = isUnderground ? "bottom" : "top";
+    const specificPos = specificPosition ? parseInt(specificPosition) : undefined;
+    
+    if (!isNaN(count) && count > 0) {
+      addFloors(
+        count,
+        isUnderground,
+        selectedTemplateId,
+        position,
+        specificPos,
+        numberingPattern
+      );
+      setAddFloorsDialogOpen(false);
+    }
+  };
+  
+  // New function to handle removing floors
+  const handleRemoveFloors = () => {
+    if (floorsToRemove.length > 0) {
+      removeFloors(floorsToRemove);
+      setFloorsToRemove([]);
+      setRemoveFloorsDialogOpen(false);
+      setConfirmRemoveOpen(false);
+    }
+  };
+  
+  const toggleFloorForRemoval = (floorNumber: number) => {
+    if (floorsToRemove.includes(floorNumber)) {
+      setFloorsToRemove(floorsToRemove.filter(f => f !== floorNumber));
+    } else {
+      setFloorsToRemove([...floorsToRemove, floorNumber]);
+    }
+  };
+  
+  const selectAllAboveGroundFloors = () => {
+    const aboveGroundFloorNumbers = aboveGroundConfigs.map(config => config.floorNumber);
+    setFloorsToRemove(aboveGroundFloorNumbers);
+  };
+  
+  const selectAllBelowGroundFloors = () => {
+    const belowGroundFloorNumbers = belowGroundConfigs.map(config => config.floorNumber);
+    setFloorsToRemove(belowGroundFloorNumbers);
   };
   
   const formatFloorNumber = (floorNumber: number) => {
@@ -282,19 +360,35 @@ const FloorConfigurationManager = ({
           </div>
           <div className="flex gap-2">
             <Button 
+              variant="outline"
+              onClick={() => setAddFloorsDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" /> Add Floors
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setRemoveFloorsDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Trash className="h-4 w-4" /> Remove Floors
+            </Button>
+            <Button 
               variant={bulkEditMode ? "secondary" : "outline"}
               onClick={() => {
                 setBulkEditMode(!bulkEditMode);
                 setSelectedFloors([]);
               }}
+              className="flex items-center gap-2"
             >
-              {bulkEditMode ? "Exit Bulk Edit" : "Bulk Edit"}
+              <Layout className="h-4 w-4" /> {bulkEditMode ? "Exit Bulk Edit" : "Bulk Edit"}
             </Button>
             <Button
               variant="outline"
               onClick={() => setCopyDialogOpen(true)}
+              className="flex items-center gap-2"
             >
-              <Copy className="h-4 w-4 mr-2" /> Copy Floor
+              <Copy className="h-4 w-4" /> Copy Floor
             </Button>
           </div>
         </div>
@@ -665,6 +759,222 @@ const FloorConfigurationManager = ({
         />
       )}
       
+      {/* Add Floors Dialog */}
+      <Dialog open={addFloorsDialogOpen} onOpenChange={setAddFloorsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add Floors</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="floor-count">Number of Floors</Label>
+                <Input 
+                  id="floor-count"
+                  type="number" 
+                  value={floorCount}
+                  onChange={(e) => setFloorCount(e.target.value)}
+                  min="1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Floor Type</Label>
+                <div className="flex items-center pt-2">
+                  <div className="flex items-center space-x-2 mr-4">
+                    <input
+                      type="radio"
+                      id="above-ground"
+                      name="floor-type"
+                      checked={!isUnderground}
+                      onChange={() => setIsUnderground(false)}
+                      className="h-4 w-4 text-primary"
+                    />
+                    <Label htmlFor="above-ground" className="cursor-pointer">Above Ground</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="below-ground"
+                      name="floor-type"
+                      checked={isUnderground}
+                      onChange={() => setIsUnderground(true)}
+                      className="h-4 w-4 text-primary"
+                    />
+                    <Label htmlFor="below-ground" className="cursor-pointer">Below Ground</Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="floor-template">Floor Template</Label>
+              <Select 
+                value={selectedTemplateId || undefined} 
+                onValueChange={(value) => setSelectedTemplateId(value)}
+              >
+                <SelectTrigger id="floor-template">
+                  <SelectValue placeholder="Select template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {floorTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="numbering-pattern">Numbering Pattern</Label>
+              <Select 
+                value={numberingPattern} 
+                onValueChange={(value: "consecutive" | "skip" | "custom") => setNumberingPattern(value)}
+              >
+                <SelectTrigger id="numbering-pattern">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="consecutive">Consecutive (1, 2, 3...)</SelectItem>
+                  <SelectItem value="skip">Skip numbers (1, 3, 5...)</SelectItem>
+                  {/* Disable custom for now as it requires more UI */}
+                  {/*<SelectItem value="custom">Custom Numbering</SelectItem>*/}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setAddFloorsDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleAddFloors}>Add Floors</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Remove Floors Dialog */}
+      <Dialog open={removeFloorsDialogOpen} onOpenChange={setRemoveFloorsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Remove Floors</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <Label>Select Floors to Remove</Label>
+                <div className="space-x-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs h-7"
+                    onClick={selectAllAboveGroundFloors}
+                  >
+                    All Above Ground
+                  </Button>
+                  {belowGroundConfigs.length > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-xs h-7"
+                      onClick={selectAllBelowGroundFloors}
+                    >
+                      All Below Ground
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              <ScrollArea className="h-[240px] border rounded-md p-3">
+                <div className="space-y-1">
+                  {aboveGroundConfigs.map((config) => (
+                    <div 
+                      key={`remove-${config.floorNumber}`} 
+                      className="flex items-center space-x-2 py-1 px-1 hover:bg-muted/40 rounded"
+                    >
+                      <Checkbox 
+                        id={`remove-floor-${config.floorNumber}`}
+                        checked={floorsToRemove.includes(config.floorNumber)}
+                        onCheckedChange={() => toggleFloorForRemoval(config.floorNumber)}
+                      />
+                      <Label 
+                        htmlFor={`remove-floor-${config.floorNumber}`}
+                        className="flex-1 cursor-pointer text-sm flex items-center justify-between"
+                      >
+                        <span>Floor {config.floorNumber}</span>
+                        <span className="text-muted-foreground text-xs capitalize">
+                          {config.primaryUse}
+                        </span>
+                      </Label>
+                    </div>
+                  ))}
+                  
+                  {belowGroundConfigs.length > 0 && (
+                    <>
+                      <div className="pt-2 pb-1 border-t">
+                        <span className="text-xs font-medium text-muted-foreground">Below Ground Floors</span>
+                      </div>
+                      {belowGroundConfigs.map((config) => (
+                        <div 
+                          key={`remove-${config.floorNumber}`} 
+                          className="flex items-center space-x-2 py-1 px-1 hover:bg-muted/40 rounded"
+                        >
+                          <Checkbox 
+                            id={`remove-floor-${config.floorNumber}`}
+                            checked={floorsToRemove.includes(config.floorNumber)}
+                            onCheckedChange={() => toggleFloorForRemoval(config.floorNumber)}
+                          />
+                          <Label 
+                            htmlFor={`remove-floor-${config.floorNumber}`}
+                            className="flex-1 cursor-pointer text-sm flex items-center justify-between"
+                          >
+                            <span>Floor B{Math.abs(config.floorNumber)}</span>
+                            <span className="text-muted-foreground text-xs capitalize">
+                              {config.primaryUse}
+                            </span>
+                          </Label>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </ScrollArea>
+              
+              {floorsToRemove.length > 0 && (
+                <div className="mt-3">
+                  <Badge variant="outline">
+                    {floorsToRemove.length} floor{floorsToRemove.length > 1 ? 's' : ''} selected
+                  </Badge>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setRemoveFloorsDialogOpen(false);
+                  setFloorsToRemove([]);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => setConfirmRemoveOpen(true)}
+                disabled={floorsToRemove.length === 0}
+              >
+                Remove Selected
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Copy Floor Dialog */}
       <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
@@ -870,6 +1180,7 @@ const FloorConfigurationManager = ({
         </DialogContent>
       </Dialog>
       
+      {/* Confirmation Dialog for Copy */}
       <AlertDialog open={confirmCopyOpen} onOpenChange={setConfirmCopyOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -904,6 +1215,45 @@ const FloorConfigurationManager = ({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleCopy}>
               <Check className="h-4 w-4 mr-2" /> Confirm Copy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Confirmation Dialog for Remove */}
+      <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Floor Removal</AlertDialogTitle>
+            <AlertDialogDescription>
+              <p>
+                You are about to remove {floorsToRemove.length} floor{floorsToRemove.length !== 1 ? 's' : ''}.
+              </p>
+              {floorsToRemove.length > 0 && (
+                <div className="mt-2">
+                  <p className="font-medium text-sm mb-1">Floors to be removed:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {floorsToRemove
+                      .sort((a, b) => b - a)
+                      .map(floorNum => (
+                        <Badge key={`confirm-remove-${floorNum}`} variant="outline">
+                          Floor {formatFloorNumber(floorNum)}
+                        </Badge>
+                      ))
+                    }
+                  </div>
+                </div>
+              )}
+              <p className="mt-3 text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4" />
+                <span>This action cannot be undone. All data for these floors will be lost.</span>
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveFloors} className="bg-destructive hover:bg-destructive/90">
+              <Trash className="h-4 w-4 mr-2" /> Remove Floors
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
