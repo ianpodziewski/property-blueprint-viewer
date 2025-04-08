@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -936,4 +937,445 @@ const FloorConfigurationDialog = ({
                         .sort((a, b) => a - b)
                         .map(f => (
                         <SelectItem key={`end-${f}`} value={f.toString()}>
-                          Floor {f < 0 ? `
+                          Floor {f < 0 ? `B${Math.abs(f)}` : f}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={!rangeStart || !rangeEnd}
+                    onClick={() => {
+                      if (rangeStart && rangeEnd) {
+                        selectFloorRange(rangeStart, rangeEnd);
+                      }
+                    }}
+                  >
+                    Select Range
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-2 border-t border-gray-200 pt-3">
+                <Label>Selected Target Floors</Label>
+                {copyToFloorNumbers.length === 0 ? (
+                  <p className="text-sm text-gray-500">No floors selected</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {copyToFloorNumbers
+                      .filter(f => f !== floorNumber)
+                      .sort((a, b) => a - b)
+                      .map(f => (
+                        <Badge 
+                          key={`copy-${f}`} 
+                          variant="outline"
+                          className="flex items-center gap-1"
+                        >
+                          Floor {f < 0 ? `B${Math.abs(f)}` : f}
+                          <button
+                            className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              toggleFloorForCopy(f);
+                            }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </Badge>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+            {floors.length > 1 ? (
+              <div>
+                <Button
+                  variant="default"
+                  disabled={copyToFloorNumbers.filter(f => f !== floorNumber).length === 0}
+                  onClick={() => {
+                    const validTargets = copyToFloorNumbers.filter(f => f !== floorNumber);
+                    if (validTargets.length > 0) {
+                      copyFloorConfiguration(floorNumber, validTargets);
+                      closeDialog();
+                    }
+                  }}
+                >
+                  Copy to {copyToFloorNumbers.filter(f => f !== floorNumber).length} Floor(s)
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">
+                You need at least one other floor to copy configuration
+              </p>
+            )}
+          </div>
+          
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={closeDialog}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+interface AddFloorsDialogProps {
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+  floorTemplates: FloorTemplate[];
+  addFloors: (
+    count: number,
+    isUnderground: boolean,
+    templateId: string | null,
+    position: "top" | "bottom" | "specific",
+    specificPosition?: number,
+    numberingPattern?: "consecutive" | "skip" | "custom",
+    customNumbering?: number[]
+  ) => void;
+  currentFloors: number[];
+}
+
+const AddFloorsDialog = ({ isOpen, setIsOpen, floorTemplates, addFloors, currentFloors }: AddFloorsDialogProps) => {
+  const [floorCount, setFloorCount] = useState<number>(1);
+  const [isUnderground, setIsUnderground] = useState<boolean>(false);
+  const [templateId, setTemplateId] = useState<string | null>(floorTemplates[0]?.id || null);
+  const [position, setPosition] = useState<"top" | "bottom" | "specific">("top");
+  const [specificPosition, setSpecificPosition] = useState<number>(1);
+  const [numberingPattern, setNumberingPattern] = useState<"consecutive" | "skip" | "custom">("consecutive");
+  const [customNumbering, setCustomNumbering] = useState<string>("");
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    let customNumbers: number[] | undefined;
+    if (numberingPattern === "custom" && customNumbering) {
+      customNumbers = customNumbering
+        .split(",")
+        .map(n => parseInt(n.trim()))
+        .filter(n => !isNaN(n));
+    }
+    
+    addFloors(
+      floorCount,
+      isUnderground,
+      templateId,
+      position,
+      position === "specific" ? specificPosition : undefined,
+      numberingPattern,
+      customNumbers
+    );
+    
+    setIsOpen(false);
+  };
+  
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Add New Floors</DialogTitle>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="floor-count">Number of Floors</Label>
+                <Input 
+                  id="floor-count" 
+                  type="number" 
+                  min="1"
+                  value={floorCount}
+                  onChange={(e) => setFloorCount(Math.max(1, parseInt(e.target.value) || 1))}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="floor-type">Floor Type</Label>
+                <Select 
+                  value={isUnderground ? "underground" : "aboveground"}
+                  onValueChange={(value) => setIsUnderground(value === "underground")}
+                >
+                  <SelectTrigger id="floor-type">
+                    <SelectValue placeholder="Select floor type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="aboveground">Above Ground</SelectItem>
+                    <SelectItem value="underground">Below Ground</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="template">Floor Template</Label>
+              <Select 
+                value={templateId || ""}
+                onValueChange={(value) => setTemplateId(value || null)}
+              >
+                <SelectTrigger id="template">
+                  <SelectValue placeholder="Select template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Template</SelectItem>
+                  {floorTemplates.map(template => (
+                    <SelectItem key={`add-${template.id}`} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="position">Position</Label>
+              <Select 
+                value={position}
+                onValueChange={(value) => setPosition(value as "top" | "bottom" | "specific")}
+              >
+                <SelectTrigger id="position">
+                  <SelectValue placeholder="Select position" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="top">{isUnderground ? "Bottom (Lowest Level)" : "Top (Highest Level)"}</SelectItem>
+                  <SelectItem value="bottom">{isUnderground ? "Top (Closest to Ground)" : "Bottom (Lowest Level)"}</SelectItem>
+                  <SelectItem value="specific">Specific Position</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {position === "specific" && (
+              <div className="space-y-2">
+                <Label htmlFor="specific-position">Floor Number</Label>
+                <Input 
+                  id="specific-position" 
+                  type="number" 
+                  value={specificPosition}
+                  onChange={(e) => setSpecificPosition(parseInt(e.target.value) || 1)}
+                />
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="numbering">Numbering Pattern</Label>
+              <Select 
+                value={numberingPattern}
+                onValueChange={(value) => setNumberingPattern(value as "consecutive" | "skip" | "custom")}
+              >
+                <SelectTrigger id="numbering">
+                  <SelectValue placeholder="Select numbering pattern" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="consecutive">Consecutive (1, 2, 3...)</SelectItem>
+                  <SelectItem value="skip">Skip Numbers (1, 3, 5...)</SelectItem>
+                  <SelectItem value="custom">Custom Numbering</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {numberingPattern === "custom" && (
+              <div className="space-y-2">
+                <Label htmlFor="custom-numbering">Custom Floor Numbers (comma separated)</Label>
+                <Input 
+                  id="custom-numbering" 
+                  placeholder="1, 2, 3..." 
+                  value={customNumbering}
+                  onChange={(e) => setCustomNumbering(e.target.value)}
+                />
+                <p className="text-xs text-gray-500">
+                  Enter {floorCount} comma-separated numbers
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">Add Floors</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+interface RemoveFloorsDialogProps {
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+  floors: Floor[];
+  removeFloors: (floorNumbers: number[]) => void;
+}
+
+const RemoveFloorsDialog = ({ isOpen, setIsOpen, floors, removeFloors }: RemoveFloorsDialogProps) => {
+  const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedFloors.length > 0) {
+      removeFloors(selectedFloors);
+      setIsOpen(false);
+    }
+  };
+  
+  const toggleFloor = (floorNumber: number) => {
+    setSelectedFloors(prev => 
+      prev.includes(floorNumber) 
+        ? prev.filter(f => f !== floorNumber) 
+        : [...prev, floorNumber]
+    );
+  };
+  
+  const selectAllAboveGround = () => {
+    const aboveGroundNumbers = floors
+      .filter(f => !f.isUnderground)
+      .map(f => f.floorNumber);
+    setSelectedFloors(aboveGroundNumbers);
+  };
+  
+  const selectAllBelowGround = () => {
+    const belowGroundNumbers = floors
+      .filter(f => f.isUnderground)
+      .map(f => f.floorNumber);
+    setSelectedFloors(belowGroundNumbers);
+  };
+  
+  // Group floors
+  const aboveGroundFloors = floors.filter(floor => !floor.isUnderground);
+  const belowGroundFloors = floors.filter(floor => floor.isUnderground);
+  
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) setSelectedFloors([]);
+    }}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Remove Floors</DialogTitle>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4 py-4">
+            <div className="flex gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setSelectedFloors([])}
+              >
+                Clear All
+              </Button>
+              {aboveGroundFloors.length > 0 && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={selectAllAboveGround}
+                >
+                  Select All Above Ground
+                </Button>
+              )}
+              {belowGroundFloors.length > 0 && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={selectAllBelowGround}
+                >
+                  Select All Below Ground
+                </Button>
+              )}
+            </div>
+            
+            <div className="space-y-1">
+              <Label>Select Floors to Remove</Label>
+              
+              {floors.length > 1 ? (
+                <div className="mt-2 space-y-4">
+                  {aboveGroundFloors.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Above Ground</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {aboveGroundFloors.sort((a, b) => b.floorNumber - a.floorNumber).map(floor => (
+                          <div
+                            key={`remove-${floor.floorNumber}`}
+                            className={`px-3 py-2 border rounded-md cursor-pointer ${
+                              selectedFloors.includes(floor.floorNumber) 
+                                ? 'bg-blue-100 border-blue-500' 
+                                : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                            onClick={() => toggleFloor(floor.floorNumber)}
+                          >
+                            Floor {floor.floorNumber}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {belowGroundFloors.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Below Ground</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {belowGroundFloors.sort((a, b) => a.floorNumber - b.floorNumber).map(floor => (
+                          <div
+                            key={`remove-${floor.floorNumber}`}
+                            className={`px-3 py-2 border rounded-md cursor-pointer ${
+                              selectedFloors.includes(floor.floorNumber) 
+                                ? 'bg-blue-100 border-blue-500' 
+                                : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                            onClick={() => toggleFloor(floor.floorNumber)}
+                          >
+                            Floor B{Math.abs(floor.floorNumber)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 mt-2">
+                  You must have at least one floor in your building.
+                </p>
+              )}
+            </div>
+            
+            {selectedFloors.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-800">
+                <p className="font-medium">Warning</p>
+                <p>You are about to remove {selectedFloors.length} floor(s). This action cannot be undone and will remove all data associated with the selected floors.</p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              variant="destructive" 
+              disabled={selectedFloors.length === 0 || floors.length - selectedFloors.length < 1}
+            >
+              Remove Selected Floors
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default FloorStackingDiagram;
