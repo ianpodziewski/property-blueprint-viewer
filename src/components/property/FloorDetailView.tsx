@@ -324,7 +324,6 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
             <div className="mb-4">
               <Progress 
                 value={utilization} 
-                className="h-2" 
                 className={`h-2 ${getSpaceColor(100 - utilization)}`}
               />
               <div className="flex justify-between text-xs mt-1">
