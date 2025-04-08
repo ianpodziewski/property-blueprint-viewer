@@ -119,7 +119,7 @@ const DEFAULT_BUILDING_SYSTEMS: BuildingSystemsConfig = {
 };
 
 // Use type options grouped by category
-const USE_TYPE_OPTIONS = {
+const USE_TYPE_OPTIONS: Record<string, string[]> = {
   office: ["executive", "open", "conference", "reception"],
   residential: ["studio", "one_bedroom", "two_bedroom", "three_bedroom", "amenity"],
   retail: ["sales_floor", "stockroom", "service", "food_service"],
@@ -240,7 +240,7 @@ const FloorEditor = ({
       setCurrentSystems({
         ...currentSystems,
         [parent]: {
-          ...currentSystems[parent as keyof BuildingSystemsConfig],
+          ...currentSystems[parent as keyof BuildingSystemsConfig] as Record<string, string>,
           [child]: value
         }
       });
@@ -632,8 +632,8 @@ const FloorEditor = ({
                                 <SelectValue placeholder="Subtype" />
                               </SelectTrigger>
                               <SelectContent>
-                                {space.type && USE_TYPE_OPTIONS[space.type as keyof typeof USE_TYPE_OPTIONS] ? (
-                                  USE_TYPE_OPTIONS[space.type as keyof typeof USE_TYPE_OPTIONS].map(subType => (
+                                {space.type && USE_TYPE_OPTIONS[space.type] ? (
+                                  USE_TYPE_OPTIONS[space.type].map(subType => (
                                     <SelectItem key={subType} value={subType}>
                                       {subType.replace('_', ' ')}
                                     </SelectItem>
@@ -900,3 +900,4 @@ const getUseColor = (spaceType: string) => {
 };
 
 export default FloorEditor;
+
