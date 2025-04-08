@@ -8,13 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Copy, Layout } from "lucide-react";
+import { Edit, Copy, Layout, AlertTriangle } from "lucide-react";
 import FloorEditor from "./FloorEditor";
 import { 
   FloorPlateTemplate,
   FloorConfiguration, 
   SpaceDefinition
 } from "@/types/propertyTypes";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FloorConfigurationManagerProps {
   floorConfigurations: FloorConfiguration[];
@@ -48,6 +49,7 @@ const FloorConfigurationManager = ({
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copySourceFloor, setCopySourceFloor] = useState<string>("");
   const [copyTargetFloor, setCopyTargetFloor] = useState<string>("");
+  const [editorKey, setEditorKey] = useState<string>(`floor-editor-${Date.now()}`);
 
   // Clean up state when component unmounts
   useEffect(() => {
@@ -74,6 +76,7 @@ const FloorConfigurationManager = ({
   const handleEditFloor = (floor: FloorConfiguration) => {
     console.log("Opening floor editor for floor:", floor.floorNumber);
     setSelectedFloor(floor);
+    setEditorKey(`floor-editor-${floor.floorNumber}-${Date.now()}`);
     setIsFloorEditorOpen(true);
   };
 
@@ -126,39 +129,55 @@ const FloorConfigurationManager = ({
     }
   };
   
-  const calculateNetArea = (config: FloorConfiguration) => {
-    let grossArea = 0;
-    
+  const calculateGrossArea = (config: FloorConfiguration) => {
     if (config.customSquareFootage) {
-      grossArea = parseFloat(config.customSquareFootage) || 0;
+      return parseFloat(config.customSquareFootage) || 0;
     } else if (config.templateId) {
       const template = floorTemplates.find(t => t.id === config.templateId);
       if (template) {
-        grossArea = parseFloat(template.squareFootage) || 0;
+        return parseFloat(template.squareFootage) || 0;
       }
     }
-    
-    const efficiency = parseFloat(config.efficiencyFactor) || 0;
-    return grossArea * (efficiency / 100);
+    return 0;
   };
 
-  const updateSpaces = (floorNumber: number, spaces: SpaceDefinition[]) => {
-    updateFloorConfiguration(floorNumber, "spaces", spaces);
+  const calculateAssignedArea = (config: FloorConfiguration) => {
+    if (!config.spaces || config.spaces.length === 0) return 0;
+    
+    return config.spaces.reduce((sum, space) => {
+      return sum + (parseFloat(space.squareFootage) || 0);
+    }, 0);
   };
-  
+
   const getSpacesInfo = (config: FloorConfiguration) => {
     if (!config.spaces || config.spaces.length === 0) return null;
     
     const totalSpaces = config.spaces.length;
-    const totalPlannedArea = config.spaces.reduce((sum, space) => {
-      return sum + (parseFloat(space.squareFootage) || 0);
-    }, 0);
+    const totalPlannedArea = calculateAssignedArea(config);
     
     const rentableArea = config.spaces
       .filter(space => space.isRentable)
       .reduce((sum, space) => sum + (parseFloat(space.squareFootage) || 0), 0);
     
     return { totalSpaces, totalPlannedArea, rentableArea };
+  };
+
+  const getAssignedAreaStatus = (config: FloorConfiguration) => {
+    const grossArea = calculateGrossArea(config);
+    const assignedArea = calculateAssignedArea(config);
+    
+    if (assignedArea <= 0) return 'empty';
+    if (assignedArea > grossArea) return 'error';
+    if (assignedArea < grossArea * 0.9) return 'warning';
+    return 'ok';
+  };
+
+  const getAssignedPercentage = (config: FloorConfiguration) => {
+    const grossArea = calculateGrossArea(config);
+    const assignedArea = calculateAssignedArea(config);
+    
+    if (grossArea <= 0) return 0;
+    return (assignedArea / grossArea) * 100;
   };
 
   return (
@@ -294,162 +313,248 @@ const FloorConfigurationManager = ({
         
         <h3 className="text-sm font-medium mb-2">Above Ground Floors</h3>
         <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-16">Floor</TableHead>
-                <TableHead>Template</TableHead>
-                <TableHead>Gross Area</TableHead>
-                <TableHead>Net Area</TableHead>
-                <TableHead>Height</TableHead>
-                <TableHead>Primary Use</TableHead>
-                <TableHead>Space Planning</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {aboveGroundConfigs.map((config) => (
-                <TableRow key={config.floorNumber} className={bulkEditMode && selectedFloors.includes(config.floorNumber) ? "bg-muted/20" : ""}>
-                  <TableCell>
-                    {bulkEditMode ? (
-                      <Button 
-                        variant={selectedFloors.includes(config.floorNumber) ? "secondary" : "ghost"}
-                        size="sm"
-                        className="px-2 h-6"
-                        onClick={() => toggleFloorSelection(config.floorNumber)}
-                      >
-                        {config.floorNumber}
-                      </Button>
-                    ) : (
-                      config.floorNumber
-                    )}
-                  </TableCell>
-                  <TableCell>{getTemplateName(config.templateId)}</TableCell>
-                  <TableCell>
-                    {config.customSquareFootage ? 
-                      parseInt(config.customSquareFootage).toLocaleString() :
-                      floorTemplates.find(t => t.id === config.templateId)?.squareFootage 
-                        ? parseInt(floorTemplates.find(t => t.id === config.templateId)!.squareFootage).toLocaleString()
-                        : "0"
-                    } sf
-                  </TableCell>
-                  <TableCell>{calculateNetArea(config).toLocaleString()} sf</TableCell>
-                  <TableCell>{config.floorToFloorHeight}'</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-sm" 
-                        style={{ backgroundColor: getUseColor(config.primaryUse) }}
-                      ></div>
-                      <span className="capitalize">{config.primaryUse}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {getSpacesInfo(config) ? (
-                      <Badge variant="outline" className="bg-muted/30 hover:bg-muted cursor-default">
-                        {getSpacesInfo(config)!.totalSpaces} spaces • {getSpacesInfo(config)!.totalPlannedArea.toLocaleString()} sf
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        Not configured
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => handleEditFloor(config)}
-                      className="px-2 h-7"
-                    >
-                      <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-                    </Button>
-                  </TableCell>
+          <TooltipProvider>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Floor</TableHead>
+                  <TableHead>Template</TableHead>
+                  <TableHead>Gross Area</TableHead>
+                  <TableHead>Assigned Area</TableHead>
+                  <TableHead>Height</TableHead>
+                  <TableHead>Primary Use</TableHead>
+                  <TableHead>Space Planning</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {aboveGroundConfigs.map((config) => (
+                  <TableRow key={config.floorNumber} className={bulkEditMode && selectedFloors.includes(config.floorNumber) ? "bg-muted/20" : ""}>
+                    <TableCell>
+                      {bulkEditMode ? (
+                        <Button 
+                          variant={selectedFloors.includes(config.floorNumber) ? "secondary" : "ghost"}
+                          size="sm"
+                          className="px-2 h-6"
+                          onClick={() => toggleFloorSelection(config.floorNumber)}
+                        >
+                          {config.floorNumber}
+                        </Button>
+                      ) : (
+                        config.floorNumber
+                      )}
+                    </TableCell>
+                    <TableCell>{getTemplateName(config.templateId)}</TableCell>
+                    <TableCell>
+                      {calculateGrossArea(config).toLocaleString()} sf
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center">
+                            <span className={
+                              getAssignedAreaStatus(config) === 'error' 
+                                ? "text-red-500 font-medium" 
+                                : ""
+                            }>
+                              {calculateAssignedArea(config) > 0 
+                                ? calculateAssignedArea(config).toLocaleString() + " sf" 
+                                : "Not assigned"}
+                            </span>
+                            
+                            {getAssignedAreaStatus(config) === 'warning' && (
+                              <AlertTriangle className="h-4 w-4 ml-1.5 text-amber-500" />
+                            )}
+                            
+                            {getAssignedAreaStatus(config) === 'error' && (
+                              <AlertTriangle className="h-4 w-4 ml-1.5 text-red-500" />
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <div className="max-w-xs">
+                            <p className="font-medium mb-1">Assigned Area</p>
+                            <p className="text-sm text-muted-foreground">
+                              {getAssignedAreaStatus(config) === 'empty' && (
+                                "No spaces have been assigned to this floor yet."
+                              )}
+                              {getAssignedAreaStatus(config) === 'error' && (
+                                "Assigned area exceeds the gross area of this floor."
+                              )}
+                              {getAssignedAreaStatus(config) === 'warning' && (
+                                `Only ${getAssignedPercentage(config).toFixed(1)}% of the floor area has been assigned.`
+                              )}
+                              {getAssignedAreaStatus(config) === 'ok' && (
+                                `${getAssignedPercentage(config).toFixed(1)}% of the floor area has been assigned.`
+                              )}
+                            </p>
+                            <p className="text-xs mt-1 text-muted-foreground">
+                              Assigned Area represents the total square footage that has been allocated to specific spaces on this floor. This should typically be equal to or slightly less than the Gross Area.
+                            </p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>{config.floorToFloorHeight}'</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-sm" 
+                          style={{ backgroundColor: getUseColor(config.primaryUse) }}
+                        ></div>
+                        <span className="capitalize">{config.primaryUse}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {getSpacesInfo(config) ? (
+                        <Badge variant="outline" className="bg-muted/30 hover:bg-muted cursor-default">
+                          {getSpacesInfo(config)!.totalSpaces} spaces • {getSpacesInfo(config)!.totalPlannedArea.toLocaleString()} sf
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Not configured
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleEditFloor(config)}
+                        className="px-2 h-7"
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" /> Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TooltipProvider>
         </div>
         
         {belowGroundConfigs.length > 0 && (
           <>
             <h3 className="text-sm font-medium mb-2 mt-8">Below Ground Floors</h3>
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">Floor</TableHead>
-                    <TableHead>Template</TableHead>
-                    <TableHead>Gross Area</TableHead>
-                    <TableHead>Net Area</TableHead>
-                    <TableHead>Height</TableHead>
-                    <TableHead>Primary Use</TableHead>
-                    <TableHead>Space Planning</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {belowGroundConfigs.map((config) => (
-                    <TableRow key={config.floorNumber} className={bulkEditMode && selectedFloors.includes(config.floorNumber) ? "bg-muted/20" : ""}>
-                      <TableCell>
-                        {bulkEditMode ? (
-                          <Button 
-                            variant={selectedFloors.includes(config.floorNumber) ? "secondary" : "ghost"}
-                            size="sm"
-                            className="px-2 h-6"
-                            onClick={() => toggleFloorSelection(config.floorNumber)}
-                          >
-                            B{Math.abs(config.floorNumber)}
-                          </Button>
-                        ) : (
-                          `B${Math.abs(config.floorNumber)}`
-                        )}
-                      </TableCell>
-                      <TableCell>{getTemplateName(config.templateId)}</TableCell>
-                      <TableCell>
-                        {config.customSquareFootage ? 
-                          parseInt(config.customSquareFootage).toLocaleString() :
-                          floorTemplates.find(t => t.id === config.templateId)?.squareFootage 
-                            ? parseInt(floorTemplates.find(t => t.id === config.templateId)!.squareFootage).toLocaleString()
-                            : "0"
-                        } sf
-                      </TableCell>
-                      <TableCell>{calculateNetArea(config).toLocaleString()} sf</TableCell>
-                      <TableCell>{config.floorToFloorHeight}'</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-sm" 
-                            style={{ backgroundColor: getUseColor(config.primaryUse) }}
-                          ></div>
-                          <span className="capitalize">{config.primaryUse}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {getSpacesInfo(config) ? (
-                          <Badge variant="outline" className="bg-muted/30 hover:bg-muted cursor-default">
-                            {getSpacesInfo(config)!.totalSpaces} spaces • {getSpacesInfo(config)!.totalPlannedArea.toLocaleString()} sf
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-muted-foreground">
-                            Not configured
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleEditFloor(config)}
-                          className="px-2 h-7"
-                        >
-                          <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-                        </Button>
-                      </TableCell>
+              <TooltipProvider>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Floor</TableHead>
+                      <TableHead>Template</TableHead>
+                      <TableHead>Gross Area</TableHead>
+                      <TableHead>Assigned Area</TableHead>
+                      <TableHead>Height</TableHead>
+                      <TableHead>Primary Use</TableHead>
+                      <TableHead>Space Planning</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {belowGroundConfigs.map((config) => (
+                      <TableRow key={config.floorNumber} className={bulkEditMode && selectedFloors.includes(config.floorNumber) ? "bg-muted/20" : ""}>
+                        <TableCell>
+                          {bulkEditMode ? (
+                            <Button 
+                              variant={selectedFloors.includes(config.floorNumber) ? "secondary" : "ghost"}
+                              size="sm"
+                              className="px-2 h-6"
+                              onClick={() => toggleFloorSelection(config.floorNumber)}
+                            >
+                              B{Math.abs(config.floorNumber)}
+                            </Button>
+                          ) : (
+                            `B${Math.abs(config.floorNumber)}`
+                          )}
+                        </TableCell>
+                        <TableCell>{getTemplateName(config.templateId)}</TableCell>
+                        <TableCell>
+                          {calculateGrossArea(config).toLocaleString()} sf
+                        </TableCell>
+                        <TableCell>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center">
+                                <span className={
+                                  getAssignedAreaStatus(config) === 'error' 
+                                    ? "text-red-500 font-medium" 
+                                    : ""
+                                }>
+                                  {calculateAssignedArea(config) > 0 
+                                    ? calculateAssignedArea(config).toLocaleString() + " sf" 
+                                    : "Not assigned"}
+                                </span>
+                                
+                                {getAssignedAreaStatus(config) === 'warning' && (
+                                  <AlertTriangle className="h-4 w-4 ml-1.5 text-amber-500" />
+                                )}
+                                
+                                {getAssignedAreaStatus(config) === 'error' && (
+                                  <AlertTriangle className="h-4 w-4 ml-1.5 text-red-500" />
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              <div className="max-w-xs">
+                                <p className="font-medium mb-1">Assigned Area</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {getAssignedAreaStatus(config) === 'empty' && (
+                                    "No spaces have been assigned to this floor yet."
+                                  )}
+                                  {getAssignedAreaStatus(config) === 'error' && (
+                                    "Assigned area exceeds the gross area of this floor."
+                                  )}
+                                  {getAssignedAreaStatus(config) === 'warning' && (
+                                    `Only ${getAssignedPercentage(config).toFixed(1)}% of the floor area has been assigned.`
+                                  )}
+                                  {getAssignedAreaStatus(config) === 'ok' && (
+                                    `${getAssignedPercentage(config).toFixed(1)}% of the floor area has been assigned.`
+                                  )}
+                                </p>
+                                <p className="text-xs mt-1 text-muted-foreground">
+                                  Assigned Area represents the total square footage that has been allocated to specific spaces on this floor. This should typically be equal to or slightly less than the Gross Area.
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>{config.floorToFloorHeight}'</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-sm" 
+                              style={{ backgroundColor: getUseColor(config.primaryUse) }}
+                            ></div>
+                            <span className="capitalize">{config.primaryUse}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getSpacesInfo(config) ? (
+                            <Badge variant="outline" className="bg-muted/30 hover:bg-muted cursor-default">
+                              {getSpacesInfo(config)!.totalSpaces} spaces • {getSpacesInfo(config)!.totalPlannedArea.toLocaleString()} sf
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              Not configured
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleEditFloor(config)}
+                            className="px-2 h-7"
+                          >
+                            <Edit className="h-3.5 w-3.5 mr-1" /> Edit
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TooltipProvider>
             </div>
           </>
         )}
@@ -457,13 +562,13 @@ const FloorConfigurationManager = ({
       
       {selectedFloor && isFloorEditorOpen && (
         <FloorEditor
-          key={`floor-editor-${selectedFloor.floorNumber}-${Date.now()}`}
+          key={editorKey}
           isOpen={isFloorEditorOpen}
           onClose={handleCloseFloorEditor}
           floorConfig={selectedFloor}
           floorTemplates={floorTemplates}
           updateFloorConfiguration={updateFloorConfiguration}
-          updateSpaces={updateSpaces}
+          updateSpaces={updateFloorSpaces}
         />
       )}
       
