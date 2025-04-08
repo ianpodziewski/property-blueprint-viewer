@@ -160,6 +160,9 @@ const PropertyBreakdown = () => {
         addFloors={addFloors}
         removeFloors={removeFloors}
         reorderFloor={reorderFloor}
+        addFloorTemplate={addFloorTemplate}
+        updateFloorTemplate={updateFloorTemplate}
+        removeFloorTemplate={removeFloorTemplate}
       />
       
       {/* Visualizations Row */}

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Copy, Layout, AlertTriangle, X, Check, CheckSquare, Square, ChevronDown, Plus, Trash } from "lucide-react";
+import { Edit, Copy, Layout, AlertTriangle, X, Check, CheckSquare, Square, ChevronDown, Plus, Trash, FileText } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -20,6 +19,7 @@ import {
   BuildingSystemsConfig
 } from "@/types/propertyTypes";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import FloorTemplateManager from "./FloorTemplateManager";
 
 interface FloorConfigurationManagerProps {
   floorConfigurations: FloorConfiguration[];
@@ -48,6 +48,9 @@ interface FloorConfigurationManagerProps {
   ) => void;
   removeFloors: (floorNumbers: number[]) => void;
   reorderFloor: (floorNumber: number, direction: "up" | "down") => void;
+  addFloorTemplate: (template: Omit<FloorPlateTemplate, "id">) => void;
+  updateFloorTemplate: (id: string, template: Partial<FloorPlateTemplate>) => void;
+  removeFloorTemplate: (id: string) => void;
 }
 
 const FloorConfigurationManager = ({
@@ -60,7 +63,10 @@ const FloorConfigurationManager = ({
   updateFloorBuildingSystems,
   addFloors,
   removeFloors,
-  reorderFloor
+  reorderFloor,
+  addFloorTemplate,
+  updateFloorTemplate,
+  removeFloorTemplate
 }: FloorConfigurationManagerProps) => {
   const [selectedFloor, setSelectedFloor] = useState<FloorConfiguration | null>(null);
   const [isFloorEditorOpen, setIsFloorEditorOpen] = useState(false);
@@ -90,6 +96,9 @@ const FloorConfigurationManager = ({
   const [removeFloorsDialogOpen, setRemoveFloorsDialogOpen] = useState(false);
   const [floorsToRemove, setFloorsToRemove] = useState<number[]>([]);
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+
+  // New state for template manager dialog
+  const [templateManagerOpen, setTemplateManagerOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -248,7 +257,6 @@ const FloorConfigurationManager = ({
     }
   };
   
-  // New function to handle adding floors
   const handleAddFloors = () => {
     const count = parseInt(floorCount);
     const position = isUnderground ? "bottom" : "top";
@@ -267,7 +275,6 @@ const FloorConfigurationManager = ({
     }
   };
   
-  // New function to handle removing floors
   const handleRemoveFloors = () => {
     if (floorsToRemove.length > 0) {
       removeFloors(floorsToRemove);
@@ -372,6 +379,13 @@ const FloorConfigurationManager = ({
               className="flex items-center gap-2"
             >
               <Trash className="h-4 w-4" /> Remove Floors
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setTemplateManagerOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" /> Manage Templates
             </Button>
             <Button 
               variant={bulkEditMode ? "secondary" : "outline"}
@@ -759,7 +773,6 @@ const FloorConfigurationManager = ({
         />
       )}
       
-      {/* Add Floors Dialog */}
       <Dialog open={addFloorsDialogOpen} onOpenChange={setAddFloorsDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -856,7 +869,6 @@ const FloorConfigurationManager = ({
         </DialogContent>
       </Dialog>
       
-      {/* Remove Floors Dialog */}
       <Dialog open={removeFloorsDialogOpen} onOpenChange={setRemoveFloorsDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -974,7 +986,6 @@ const FloorConfigurationManager = ({
         </DialogContent>
       </Dialog>
       
-      {/* Copy Floor Dialog */}
       <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
@@ -1180,7 +1191,6 @@ const FloorConfigurationManager = ({
         </DialogContent>
       </Dialog>
       
-      {/* Confirmation Dialog for Copy */}
       <AlertDialog open={confirmCopyOpen} onOpenChange={setConfirmCopyOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1220,7 +1230,6 @@ const FloorConfigurationManager = ({
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Confirmation Dialog for Remove */}
       <AlertDialog open={confirmRemoveOpen} onOpenChange={setConfirmRemoveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1258,6 +1267,15 @@ const FloorConfigurationManager = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <FloorTemplateManager
+        isOpen={templateManagerOpen}
+        onClose={() => setTemplateManagerOpen(false)}
+        templates={floorTemplates}
+        addTemplate={addFloorTemplate}
+        updateTemplate={updateFloorTemplate}
+        removeTemplate={removeFloorTemplate}
+      />
     </Card>
   );
 };
