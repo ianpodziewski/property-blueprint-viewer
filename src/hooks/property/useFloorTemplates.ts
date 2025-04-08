@@ -6,29 +6,11 @@ import { FloorPlateTemplate, FloorConfiguration } from "@/types/propertyTypes";
 const STORAGE_KEY = "realEstateModel_floorTemplates";
 
 export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], setFloorConfigurations: React.Dispatch<React.SetStateAction<FloorConfiguration[]>>) => {
-  const [floorTemplates, setFloorTemplates] = useState<FloorPlateTemplate[]>([
-    {
-      id: "template-1",
-      name: "Standard Floor",
-      squareFootage: "10000",
-      floorToFloorHeight: "12",
-      corePercentage: "15",
-      primaryUse: "office"
-    }
-  ]);
+  const [floorTemplates, setFloorTemplates] = useState<FloorPlateTemplate[]>([]);
 
   // Load floor templates from localStorage on mount
   useEffect(() => {
-    const storedFloorTemplates = loadFromLocalStorage(STORAGE_KEY, [
-      {
-        id: "template-1",
-        name: "Standard Floor",
-        squareFootage: "10000",
-        floorToFloorHeight: "12",
-        corePercentage: "15",
-        primaryUse: "office"
-      }
-    ]);
+    const storedFloorTemplates = loadFromLocalStorage(STORAGE_KEY, []);
     
     // Migrate stored data to remove efficiency factor if it exists
     const migratedTemplates = storedFloorTemplates.map(template => {
@@ -48,7 +30,7 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
   }, [floorTemplates]);
 
   const addFloorTemplate = useCallback((template: Omit<FloorPlateTemplate, "id">) => {
-    const newId = `template-${floorTemplates.length + 1}`;
+    const newId = `template-${Date.now()}`;
     console.log(`Creating new template with ID: ${newId} and data:`, template);
     
     const newTemplate: FloorPlateTemplate = {
@@ -63,7 +45,7 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
     
     console.log("Final template being added:", newTemplate);
     setFloorTemplates(prev => [...prev, newTemplate]);
-  }, [floorTemplates]);
+  }, []);
 
   const updateFloorTemplate = useCallback((id: string, template: Partial<FloorPlateTemplate>) => {
     setFloorTemplates(
@@ -74,16 +56,14 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
   }, [floorTemplates]);
 
   const removeFloorTemplate = useCallback((id: string) => {
-    if (floorTemplates.length > 1) {
-      setFloorTemplates(floorTemplates.filter(template => template.id !== id));
-      
-      const firstTemplateId = floorTemplates.find(t => t.id !== id)?.id || null;
-      setFloorConfigurations(
-        floorConfigurations.map(floor => 
-          floor.templateId === id ? { ...floor, templateId: firstTemplateId } : floor
-        )
-      );
-    }
+    setFloorTemplates(floorTemplates.filter(template => template.id !== id));
+    
+    // Update any floors using this template to have no template
+    setFloorConfigurations(
+      floorConfigurations.map(floor => 
+        floor.templateId === id ? { ...floor, templateId: null } : floor
+      )
+    );
   }, [floorTemplates, floorConfigurations, setFloorConfigurations]);
 
   return {
