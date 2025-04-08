@@ -29,8 +29,11 @@ const AlertDialogOverlay = React.forwardRef<
     {...props}
     ref={ref}
     onClick={(e) => {
+      // Always prevent default and stop propagation
       e.preventDefault();
       e.stopPropagation();
+      
+      // Call the original onClick handler if provided
       if (props.onClick) props.onClick(e);
     }}
   />
@@ -51,7 +54,6 @@ const AlertDialogContent = React.forwardRef<
       )}
       onClick={(e) => {
         // Always stop propagation
-        e.preventDefault();
         e.stopPropagation();
         
         // Call the original onClick handler if provided
@@ -74,7 +76,6 @@ const AlertDialogHeader = ({
     )}
     {...props}
     onClick={(e) => {
-      e.preventDefault();
       e.stopPropagation();
       if (props.onClick) props.onClick(e);
     }}
@@ -93,7 +94,6 @@ const AlertDialogFooter = ({
     )}
     {...props}
     onClick={(e) => {
-      e.preventDefault();
       e.stopPropagation();
       if (props.onClick) props.onClick(e);
     }}
@@ -109,11 +109,6 @@ const AlertDialogTitle = React.forwardRef<
     ref={ref}
     className={cn("text-lg font-semibold", className)}
     {...props}
-    onClick={(e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (props.onClick) props.onClick(e);
-    }}
   />
 ))
 AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
@@ -122,18 +117,14 @@ const AlertDialogDescription = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
 >(({ className, children, ...props }, ref) => (
+  // Fix for the DOM nesting warning - use div for content that might contain block elements
   <AlertDialogPrimitive.Description
     ref={ref}
     className={cn("text-sm text-muted-foreground", className)}
     asChild={React.isValidElement(children)}
-    onClick={(e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (props.onClick) props.onClick(e);
-    }}
     {...props}
   >
-    {React.isValidElement(children) ? children : <span>{children}</span>}
+    {React.isValidElement(children) ? children : <div>{children}</div>}
   </AlertDialogPrimitive.Description>
 ))
 AlertDialogDescription.displayName = AlertDialogPrimitive.Description.displayName

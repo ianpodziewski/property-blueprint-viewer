@@ -39,9 +39,30 @@ export const useExtendedPropertyState = () => {
   
   // Function to reset all data
   const resetAllData = useCallback(() => {
-    // Reset individual state hooks
-    // These would ideally have their own reset methods
-  }, []);
+    // Reset individual state hooks with their respective reset functions
+    projectInfo.setProjectName("");
+    projectInfo.setProjectLocation("");
+    projectInfo.setProjectType("");
+    
+    buildingParams.setFarAllowance("0");
+    buildingParams.setTotalLandArea("0");
+    buildingParams.setBuildingFootprint("0");
+    
+    // Clear floor configurations
+    floorConfigurations.resetFloorConfigurations();
+    
+    // Reset other state
+    floorTemplates.resetFloorTemplates();
+    spaceTypes.resetSpaceTypes && spaceTypes.resetSpaceTypes();
+    unitMix.resetUnitMix && unitMix.resetUnitMix();
+  }, [
+    projectInfo, 
+    buildingParams, 
+    floorConfigurations, 
+    floorTemplates,
+    spaceTypes,
+    unitMix
+  ]);
 
   // Return all the properties and methods from individual hooks
   return {
@@ -72,18 +93,21 @@ export const useExtendedPropertyState = () => {
     updateSpaceType: spaceTypes.updateSpaceType,
     updateSpaceTypeFloorAllocation: spaceTypes.updateSpaceTypeFloorAllocation,
     totalAllocatedArea: spaceTypes.totalAllocatedArea,
+    resetSpaceTypes: spaceTypes.resetSpaceTypes,
     
     // Unit Mix
     unitMixes: unitMix.unitMixes,
     addUnitMix: unitMix.addUnitMix,
     removeUnitMix: unitMix.removeUnitMix,
     updateUnitMix: unitMix.updateUnitMix,
+    resetUnitMix: unitMix.resetUnitMix,
     
     // Floor Templates
     floorTemplates: floorTemplates.floorTemplates,
     addFloorTemplate: floorTemplates.addFloorTemplate,
     updateFloorTemplate: floorTemplates.updateFloorTemplate,
     removeFloorTemplate: floorTemplates.removeFloorTemplate,
+    resetFloorTemplates: floorTemplates.resetFloorTemplates,
     
     // Floor Configurations
     floorConfigurations: floorConfigurations.floorConfigurations,
@@ -95,6 +119,7 @@ export const useExtendedPropertyState = () => {
     reorderFloor: floorConfigurations.reorderFloor,
     importFloorConfigurations: floorConfigurations.importFloorConfigurations,
     exportFloorConfigurations: floorConfigurations.exportFloorConfigurations,
+    resetFloorConfigurations: floorConfigurations.resetFloorConfigurations,
     
     // Floor space management
     updateFloorSpaces: floorConfigurations.updateFloorSpaces,

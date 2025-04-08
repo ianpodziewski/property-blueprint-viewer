@@ -15,11 +15,13 @@ import FloorConfigurationManager from "@/components/property/FloorConfigurationM
 import { useModelState } from "@/hooks/useModelState";
 import { Separator } from "@/components/ui/separator"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SpaceDefinition, FloorPlateTemplate } from "@/types/propertyTypes";
+import { SpaceDefinition, FloorPlateTemplate, FloorConfiguration } from "@/types/propertyTypes";
 import { Toaster } from "@/components/ui/toaster";
-import { useEffect, useCallback } from "react";
+import { useToast } from "@/components/ui/use-toast";
+import { useEffect, useCallback, useMemo } from "react";
 
 const PropertyBreakdown = () => {
+  const { toast } = useToast();
   
   const {
     // Project Information
@@ -79,9 +81,31 @@ const PropertyBreakdown = () => {
   // Get common handlers from the model state to ensure persistence
   const { handleTextChange, handleNumberChange } = useModelState();
 
+  // Function to create adapter for FloorStackingDiagram component
+  const adaptedUpdateFloorConfiguration = useCallback((floorNumber: number, field: keyof FloorConfiguration, value: string | boolean | null | SpaceDefinition[] | BuildingSystemsConfig) => {
+    // This adapter handles the different function signature expected by FloorStackingDiagram
+    updateFloorConfiguration(floorNumber, field, value);
+  }, [updateFloorConfiguration]);
+
+  // Adapter for reorderFloor to match the expected signature
+  const adaptedReorderFloor = useCallback((floorNumber: number, direction: "up" | "down") => {
+    reorderFloor(floorNumber, direction);
+  }, [reorderFloor]);
+  
   // Ensure clean-up of any global event listeners when component unmounts
   useEffect(() => {
+    // Listen for FloorConfig events to handle any UI updates needed
+    const handleFloorConfigSaved = () => {
+      // This helps refresh UI components after floor operations
+      console.log("Floor configuration saved event detected");
+    };
+    
+    window.addEventListener('floorConfigSaved', handleFloorConfigSaved);
+    
     return () => {
+      // Clean up the event listener
+      window.removeEventListener('floorConfigSaved', handleFloorConfigSaved);
+      
       // Clean up any global event listeners to prevent memory leaks
       const modals = document.querySelectorAll('[role="dialog"]');
       modals.forEach(modal => {
@@ -91,9 +115,9 @@ const PropertyBreakdown = () => {
   }, []);
 
   // Generate data for visualizations
-  const floorsData = generateFloorsData();
-  const spaceBreakdown = generateSpaceBreakdown();
-  const phasesData = generatePhasesData();
+  const floorsData = useMemo(() => generateFloorsData(), [generateFloorsData]);
+  const spaceBreakdown = useMemo(() => generateSpaceBreakdown(), [generateSpaceBreakdown]);
+  const phasesData = useMemo(() => generatePhasesData(), [generatePhasesData]);
   
   // Create adapter functions to convert between the two function signatures
   // For BuildingParameters component (expects id, field, value)
@@ -123,11 +147,16 @@ const PropertyBreakdown = () => {
     addFloorTemplate(template);
   }, [addFloorTemplate]);
   
-  // Safely stop propagation to prevent unexpected behavior
+  // Enhanced stopPropagation to prevent event bubbling issues
   const stopPropagation = useCallback((e: React.MouseEvent<Element, MouseEvent>) => {
     if (e && e.stopPropagation) {
       e.stopPropagation();
     }
+    
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    
     return true;
   }, []);
   
@@ -205,13 +234,13 @@ const PropertyBreakdown = () => {
       <FloorConfigurationManager 
         floorConfigurations={floorConfigurations}
         floorTemplates={floorTemplates}
-        updateFloorConfiguration={updateFloorConfiguration}
+        updateFloorConfiguration={adaptedUpdateFloorConfiguration}
         copyFloorConfiguration={copyFloorConfiguration}
         bulkEditFloorConfigurations={bulkEditFloorConfigurations}
         updateFloorSpaces={updateFloorSpaces}
         addFloors={addFloors}
         removeFloors={removeFloors}
-        reorderFloor={reorderFloor}
+        reorderFloor={adaptedReorderFloor}
         addFloorTemplate={adaptedAddFloorTemplate}
         updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
         removeFloorTemplate={removeFloorTemplate}
@@ -233,8 +262,8 @@ const PropertyBreakdown = () => {
           spaceTypeColors={spaceTypeColors}
           floorTemplates={floorTemplates}
           floorConfigurations={floorConfigurations}
-          updateFloorConfiguration={updateFloorConfiguration}
-          reorderFloor={reorderFloor}
+          updateFloorConfiguration={adaptedUpdateFloorConfiguration}
+          reorderFloor={adaptedReorderFloor}
         />
       </div>
       
