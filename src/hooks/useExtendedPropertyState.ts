@@ -1,18 +1,83 @@
 
-import { useCallback } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useProperty } from "@/contexts/PropertyContext";
 import { useVisualizationData } from "./property/useVisualizationData";
+import { useRenderDebugger } from "./useRenderDebugger";
 
 /**
  * Enhanced hook that combines PropertyContext with visualization data
  * This maintains API compatibility with the previous implementation
  */
 export const useExtendedPropertyState = () => {
-  // Use the property context
+  // Debug render cycles to catch infinite loops
+  const { isLoopDetected } = useRenderDebugger("useExtendedPropertyState", {}, 15, true);
+  const renderRef = useRef(0);
+  
+  // Get the property context - only once
   const property = useProperty();
   
-  // Visualization data depends on all other state
-  const visualizationData = useVisualizationData(
+  // Break infinite loops with circuit breaker
+  renderRef.current++;
+  if (renderRef.current > 25 || isLoopDetected) {
+    console.error("Detected potential infinite loop in useExtendedPropertyState! Breaking out.");
+    // Return cached/static data to break the loop
+    return useRef({
+      // Return minimal stable API to prevent errors
+      projectName: property.projectName,
+      setProjectName: () => {},
+      projectLocation: property.projectLocation,
+      setProjectLocation: () => {},
+      projectType: property.projectType,
+      setProjectType: () => {},
+      farAllowance: property.farAllowance,
+      setFarAllowance: () => {},
+      totalLandArea: property.totalLandArea,
+      setTotalLandArea: () => {},
+      buildingFootprint: property.buildingFootprint,
+      setBuildingFootprint: () => {},
+      totalBuildableArea: property.totalBuildableArea || "0",
+      totalAboveGroundArea: property.totalAboveGroundArea || "0",
+      totalBelowGroundArea: property.totalBelowGroundArea || "0",
+      actualFar: property.actualFar || "0",
+      spaceTypes: property.spaceTypes || [],
+      addSpaceType: () => {},
+      removeSpaceType: () => {},
+      updateSpaceType: () => {},
+      updateSpaceTypeFloorAllocation: () => {},
+      totalAllocatedArea: property.totalAllocatedArea || "0",
+      resetSpaceTypes: () => {},
+      unitMixes: property.unitMixes || [],
+      addUnitMix: () => {},
+      removeUnitMix: () => {},
+      updateUnitMix: () => {},
+      resetUnitMix: () => {},
+      floorTemplates: property.floorTemplates || [],
+      addFloorTemplate: () => {},
+      updateFloorTemplate: () => {},
+      removeFloorTemplate: () => {},
+      resetFloorTemplates: () => {},
+      floorConfigurations: property.floorConfigurations || [],
+      updateFloorConfiguration: () => {},
+      copyFloorConfiguration: () => {},
+      bulkEditFloorConfigurations: () => {},
+      addFloors: () => {},
+      removeFloors: () => {},
+      reorderFloor: () => {},
+      updateFloorSpaces: () => {},
+      updateFloorBuildingSystems: () => {},
+      resetFloorConfigurations: () => {},
+      isProcessingOperation: false,
+      issues: [],
+      spaceTypeColors: {},
+      generateFloorsData: () => [],
+      generateSpaceBreakdown: () => [],
+      generatePhasesData: () => [],
+      resetAllData: () => {}
+    }).current;
+  }
+  
+  // Visualization data depends on all other state - stability is critical here
+  const visualizationData = useMemo(() => useVisualizationData(
     property.spaceTypes,
     property.actualFar,
     property.farAllowance,
@@ -20,9 +85,18 @@ export const useExtendedPropertyState = () => {
     property.totalAllocatedArea,
     property.floorConfigurations,
     property.floorTemplates
-  );
-  
-  return {
+  ), [
+    property.spaceTypes, 
+    property.actualFar, 
+    property.farAllowance,
+    property.totalBuildableArea,
+    property.totalAllocatedArea,
+    property.floorConfigurations,
+    property.floorTemplates
+  ]);
+
+  // Memoize the entire return object to ensure it remains stable
+  return useMemo(() => ({
     // Project Information
     projectName: property.projectName, 
     setProjectName: property.setProjectName,
@@ -88,5 +162,8 @@ export const useExtendedPropertyState = () => {
     
     // Reset function
     resetAllData: property.resetAllData
-  };
+  }), [
+    property, 
+    visualizationData
+  ]);
 };
