@@ -24,6 +24,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import UnitTypeDistributionChart from "./UnitTypeDistributionChart";
 
 const getCapacityColor = (percentUsed: number): string => {
   if (percentUsed > 100) return "bg-red-500"; // Over capacity
@@ -261,18 +262,23 @@ const UnitMixPlanning: React.FC = () => {
       toast({
         title: "Category deleted",
         description: `Category "${category}" has been removed.`,
-        action: recentlyDeletedCategory ? {
-          label: "Undo",
-          onClick: () => {
-            const success = undoRemoveCategory();
-            if (success) {
-              toast({
-                title: "Category restored",
-                description: `Category "${category}" has been restored.`
-              });
-            }
-          }
-        } : undefined
+        action: recentlyDeletedCategory ? (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              const success = undoRemoveCategory();
+              if (success) {
+                toast({
+                  title: "Category restored",
+                  description: `Category "${category}" has been restored.`
+                });
+              }
+            }}
+          >
+            Undo
+          </Button>
+        ) : undefined
       });
     }
   }, [unitTypesByCategory, removeCategory, undoRemoveCategory, recentlyDeletedCategory, toast]);
@@ -285,18 +291,23 @@ const UnitMixPlanning: React.FC = () => {
     toast({
       title: "Category deleted",
       description: `Category "${categoryToDelete}" and all its unit types have been removed.`,
-      action: {
-        label: "Undo",
-        onClick: () => {
-          const success = undoRemoveCategory();
-          if (success) {
-            toast({
-              title: "Category restored",
-              description: `Category "${categoryToDelete}" has been restored with all its unit types.`
-            });
-          }
-        }
-      }
+      action: (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => {
+            const success = undoRemoveCategory();
+            if (success) {
+              toast({
+                title: "Category restored",
+                description: `Category "${categoryToDelete}" has been restored with all its unit types.`
+              });
+            }
+          }}
+        >
+          Undo
+        </Button>
+      )
     });
     
     setCategoryToDelete(null);
