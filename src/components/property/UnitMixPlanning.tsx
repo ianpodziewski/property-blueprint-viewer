@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -27,7 +26,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import UnitTypeDistributionChart from "./UnitTypeDistributionChart";
 
-// Define COLOR_OPTIONS and helper functions if they're not defined elsewhere
 const COLOR_OPTIONS = [
   "#4f46e5", // indigo
   "#0ea5e9", // sky
@@ -69,7 +67,6 @@ const SUGGESTED_CATEGORIES = [
   }
 ];
 
-// Helper function to get capacity color
 const getCapacityColor = (percent: number) => {
   if (percent >= 100) return "bg-green-500";
   if (percent >= 75) return "bg-green-400";
@@ -78,7 +75,6 @@ const getCapacityColor = (percent: number) => {
   return "bg-red-400";
 };
 
-// This helper function needs to be defined BEFORE it's used
 const UnitMixPlanning: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("list");
   const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
@@ -170,7 +166,6 @@ const UnitMixPlanning: React.FC = () => {
     return totals;
   }, [unitTypes]);
   
-  // This helper function needs to be defined BEFORE it's used
   const isValidFloorForUnitType = useCallback((floorNumber: number, unitTypeId: string) => {
     const unitType = unitTypes.find(u => u.id === unitTypeId);
     if (!unitType) return false;
@@ -1046,7 +1041,6 @@ const UnitMixPlanning: React.FC = () => {
     );
   };
   
-  // Helper component to display selected unit type info
   const SelectedUnitTypeInfo = (
     unitTypeId: string, 
     unitTypes: UnitType[], 
@@ -1144,8 +1138,7 @@ const UnitMixPlanning: React.FC = () => {
                   </div>
                   <Progress 
                     value={percentPlanned} 
-                    className="h-2"
-                    indicatorClassName={percentPlanned < 80 ? "bg-amber-500" : "bg-green-500"}
+                    className={`h-2 ${percentPlanned < 80 ? "bg-amber-500" : "bg-green-500"}`}
                   />
                   {percentPlanned < 80 ? (
                     <p className="text-xs text-amber-600 mt-1 flex items-center">
@@ -1185,17 +1178,19 @@ const UnitMixPlanning: React.FC = () => {
                 <div className="grid md:grid-cols-2 gap-8">
                   <UnitTypeDistributionChart 
                     unitTypes={unitTypes} 
-                    unitTypesByCategory={unitTypesByCategory}
                     categoryTotals={categoryTotals}
-                    getCategoryColor={getCategoryColor}
-                    type="count"
+                    categoryColors={allCategories.reduce((obj, cat) => {
+                      obj[cat] = getCategoryColor(cat);
+                      return obj;
+                    }, {} as Record<string, string>)}
                   />
                   <UnitTypeDistributionChart 
                     unitTypes={unitTypes} 
-                    unitTypesByCategory={unitTypesByCategory}
                     categoryTotals={categoryTotals}
-                    getCategoryColor={getCategoryColor}
-                    type="area"
+                    categoryColors={allCategories.reduce((obj, cat) => {
+                      obj[cat] = getCategoryColor(cat);
+                      return obj;
+                    }, {} as Record<string, string>)}
                   />
                 </div>
               )}
