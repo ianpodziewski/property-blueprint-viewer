@@ -286,20 +286,36 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   }, [floorConfigurations]);
 
   const getFloorArea = useCallback((floorNumber: number): number => {
+    console.log(`Getting area for floor ${floorNumber}`);
+    console.log(`Current floor configurations:`, floorConfigurations);
+    console.log(`Available templates:`, floorTemplatesInput);
+    
     const floor = floorConfigurations.find(f => f.floorNumber === floorNumber);
-    if (!floor) return 0;
+    if (!floor) {
+      console.log(`Floor ${floorNumber} not found`);
+      return 0;
+    }
     
     if (floor.customSquareFootage && floor.customSquareFootage !== "") {
-      return parseInt(floor.customSquareFootage) || 0;
+      const area = parseInt(floor.customSquareFootage) || 0;
+      console.log(`Floor ${floorNumber} has custom area: ${area} sq ft`);
+      return area;
     }
     
     if (floor.templateId) {
       const template = floorTemplatesInput.find(t => t.id === floor.templateId);
       if (template) {
-        return parseInt(template.squareFootage) || 0;
+        const area = parseInt(template.squareFootage) || 0;
+        console.log(`Floor ${floorNumber} uses template "${template.name}" with area: ${area} sq ft`);
+        return area;
+      } else {
+        console.log(`Template ${floor.templateId} not found for floor ${floorNumber}`);
       }
+    } else {
+      console.log(`Floor ${floorNumber} has no template assigned`);
     }
     
+    console.log(`No valid area found for floor ${floorNumber}, returning 0`);
     return 0;
   }, [floorConfigurations, floorTemplatesInput]);
 

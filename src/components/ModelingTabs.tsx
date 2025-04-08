@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +23,7 @@ const ModelingTabs = () => {
   }, []);
   
   useEffect(() => {
+    // Create a reference to the timeout to ensure it can be cleared
     let timeoutId: number | undefined;
     
     const debouncedHandler = () => {
@@ -31,10 +33,15 @@ const ModelingTabs = () => {
       timeoutId = window.setTimeout(handleFloorConfigSave, 300);
     };
     
+    // Listen for our custom event
     window.addEventListener('floorConfigSaved', debouncedHandler);
+    
+    // Also listen for unit allocation changes that would affect space availability
+    window.addEventListener('unitAllocationChanged', debouncedHandler);
     
     return () => {
       window.removeEventListener('floorConfigSaved', debouncedHandler);
+      window.removeEventListener('unitAllocationChanged', debouncedHandler);
       if (timeoutId) {
         clearTimeout(timeoutId);
       }

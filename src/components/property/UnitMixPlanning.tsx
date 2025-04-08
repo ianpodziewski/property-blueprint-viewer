@@ -367,23 +367,41 @@ const UnitMixPlanning: React.FC = () => {
     let allocatedCount = 0;
     
     selectedFloors.forEach(floorNumber => {
-      const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
-      if (!floorConfig) return;
+      console.log(`Attempting to allocate to floor ${floorNumber}...`);
       
-      const floorArea = floorConfig.customSquareFootage && floorConfig.customSquareFootage !== "" 
-        ? parseInt(floorConfig.customSquareFootage) 
-        : 0;
+      if (!isValidFloorForUnitType(floorNumber, selectedUnitTypeId)) {
+        console.log(`Floor ${floorNumber} doesn't have enough space for this unit type`);
+        return; // Skip this floor
+      }
+      
+      const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
+      if (!floorConfig) {
+        console.log(`Floor ${floorNumber} configuration not found`);
+        return;
+      }
+      
+      const floorArea = getFloorArea(floorNumber);
+      console.log(`Floor ${floorNumber} total area: ${floorArea} sq ft`);
       
       const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
+      console.log(`Floor ${floorNumber} allocated area: ${allocatedArea} sq ft`);
+      
       const availableArea = Math.max(0, floorArea - allocatedArea);
+      console.log(`Floor ${floorNumber} available area: ${availableArea} sq ft`);
       
       const unitSize = parseInt(unitType.typicalSize) || 0;
+      console.log(`Unit size: ${unitSize} sq ft`);
+      
       const maxUnitsForSpace = unitSize > 0 ? Math.floor(availableArea / unitSize) : unitsPerFloor;
+      console.log(`Max units that can fit: ${maxUnitsForSpace}`);
       
       const unitsToAllocate = Math.min(unitsPerFloor, maxUnitsForSpace, remaining - allocatedCount);
+      console.log(`Units to allocate: ${unitsToAllocate}`);
       
       if (unitsToAllocate > 0) {
-        addAllocation({
+        console.log(`Allocating ${unitsToAllocate} units to floor ${floorNumber}`);
+        
+        const allocationId = addAllocation({
           unitTypeId: selectedUnitTypeId,
           floorNumber: floorNumber,
           count: unitsToAllocate.toString(),
@@ -392,6 +410,7 @@ const UnitMixPlanning: React.FC = () => {
           status: "planned"
         });
         
+        console.log(`Allocation created with ID: ${allocationId}`);
         allocatedCount += unitsToAllocate;
       }
     });
@@ -410,7 +429,7 @@ const UnitMixPlanning: React.FC = () => {
     }
     
     setAllocateDialogOpen(false);
-  }, [selectedUnitTypeId, selectedFloors, unitTypes, floorConfigurations, calculateAllocationStats, calculateAllocatedAreaByFloor, addAllocation, toast]);
+  }, [selectedUnitTypeId, selectedFloors, unitTypes, floorConfigurations, calculateAllocationStats, calculateAllocatedAreaByFloor, getFloorArea, addAllocation, isValidFloorForUnitType, toast]);
   
   const toggleCategoryCollapse = useCallback((category: string) => {
     setCollapsedCategories(prev => {
@@ -427,13 +446,26 @@ const UnitMixPlanning: React.FC = () => {
     if (!unitType) return false;
     
     const floorArea = getFloorArea(floorNumber);
-    if (floorArea <= 0) return false;
+    console.log(`Checking floor ${floorNumber} with total area: ${floorArea} sq ft`);
+    
+    if (floorArea <= 0) {
+      console.log(`Floor ${floorNumber} has no valid area`);
+      return false;
+    }
     
     const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
+    console.log(`Floor ${floorNumber} already has ${allocatedArea} sq ft allocated`);
+    
     const availableArea = Math.max(0, floorArea - allocatedArea);
+    console.log(`Floor ${floorNumber} has ${availableArea} sq ft available`);
     
     const unitSize = parseInt(unitType.typicalSize) || 0;
-    return availableArea >= unitSize;
+    console.log(`Unit ${unitType.name} requires ${unitSize} sq ft`);
+    
+    const unitFits = availableArea >= unitSize;
+    console.log(`Can unit fit on floor ${floorNumber}? ${unitFits ? 'Yes' : 'No'}`);
+    
+    return unitFits;
   }, [unitTypes, getFloorArea, calculateAllocatedAreaByFloor]);
   
   const validateInput = useCallback((value: string, type: 'size' | 'count'): string => {

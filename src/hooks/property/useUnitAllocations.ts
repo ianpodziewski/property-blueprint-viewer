@@ -1,9 +1,18 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { UnitAllocation } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
 import { useToast } from "@/hooks/use-toast";
 
 const STORAGE_KEY = "realEstateModel_unitAllocations";
+
+// Helper function to dispatch a custom event when unit allocations change
+const dispatchUnitAllocationChangedEvent = () => {
+  if (typeof window !== 'undefined') {
+    const event = new CustomEvent('unitAllocationChanged');
+    window.dispatchEvent(event);
+  }
+};
 
 export const useUnitAllocations = () => {
   const { toast } = useToast();
@@ -19,6 +28,9 @@ export const useUnitAllocations = () => {
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEY, unitAllocations);
     console.log("Saved unit allocations to localStorage:", unitAllocations);
+    
+    // Dispatch an event to notify other components that allocations have changed
+    dispatchUnitAllocationChangedEvent();
   }, [unitAllocations]);
 
   const addAllocation = useCallback((allocation: Omit<UnitAllocation, "id">) => {
@@ -51,6 +63,8 @@ export const useUnitAllocations = () => {
     };
     
     setUnitAllocations(prev => [...prev, newAllocation]);
+    console.log("Added new unit allocation:", newAllocation);
+    
     return newAllocation.id;
   }, [unitAllocations]);
 
@@ -173,9 +187,22 @@ export const useUnitAllocations = () => {
   }, [unitAllocations]);
 
   const calculateAllocationStats = useCallback((unitTypeId: string) => {
+    console.log(`Calculating allocation stats for unit type ${unitTypeId}`);
+    console.log(`Current unit allocations:`, unitAllocations);
+    
     const allocations = unitAllocations.filter(a => a.unitTypeId === unitTypeId);
-    const totalAllocated = allocations.reduce((sum, a) => sum + (parseInt(a.count as string) || 0), 0);
+    console.log(`Found ${allocations.length} allocations for this unit type`);
+    
+    const totalAllocated = allocations.reduce((sum, a) => {
+      const count = parseInt(a.count as string) || 0;
+      console.log(`Allocation on floor ${a.floorNumber} has count: ${count}`);
+      return sum + count;
+    }, 0);
+    
+    console.log(`Total allocated: ${totalAllocated}`);
+    
     const allocatedFloors = new Set(allocations.map(a => a.floorNumber));
+    console.log(`Allocated on ${allocatedFloors.size} floors: ${Array.from(allocatedFloors).join(', ')}`);
     
     return {
       totalAllocated,
