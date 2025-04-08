@@ -1,7 +1,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import MainNavigation from "./MainNavigation";
 import PropertyBreakdown from "./sections/PropertyBreakdown";
 import DevelopmentCosts from "./sections/DevelopmentCosts";
@@ -16,10 +15,16 @@ import SensitivityAnalysis from "./sections/SensitivityAnalysis";
 const ModelingTabs = () => {
   const [activeTab, setActiveTab] = useState("property");
   const [floorConfigSaved, setFloorConfigSaved] = useState(0);
+  const [unitAllocationSaved, setUnitAllocationSaved] = useState(0);
   
   const handleFloorConfigSave = useCallback(() => {
     console.log('Floor configuration save event detected');
     setFloorConfigSaved(prev => prev + 1);
+  }, []);
+  
+  const handleUnitAllocationSave = useCallback(() => {
+    console.log('Unit allocation save event detected');
+    setUnitAllocationSaved(prev => prev + 1);
   }, []);
   
   useEffect(() => {
@@ -47,6 +52,28 @@ const ModelingTabs = () => {
       }
     };
   }, [handleFloorConfigSave]);
+  
+  useEffect(() => {
+    // Create a reference to the timeout to ensure it can be cleared
+    let timeoutId: number | undefined;
+    
+    const debouncedHandler = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = window.setTimeout(handleUnitAllocationSave, 300);
+    };
+    
+    // Listen for unit allocation changes
+    window.addEventListener('unitAllocationChanged', debouncedHandler);
+    
+    return () => {
+      window.removeEventListener('unitAllocationChanged', debouncedHandler);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [handleUnitAllocationSave]);
 
   return (
     <div className="w-full space-y-4">
@@ -57,7 +84,9 @@ const ModelingTabs = () => {
       <Tabs value={activeTab} className="w-full" onValueChange={(value) => setActiveTab(value)}>
         <div className="mt-4 bg-white rounded-md p-6 border border-gray-200">
           <TabsContent value="property" className="space-y-4">
-            <PropertyBreakdown key={`property-breakdown-${floorConfigSaved}`} />
+            <PropertyBreakdown 
+              key={`property-breakdown-${floorConfigSaved}-${unitAllocationSaved}`}
+            />
           </TabsContent>
           
           <TabsContent value="devCosts" className="space-y-4">
