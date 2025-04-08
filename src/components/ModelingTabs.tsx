@@ -52,36 +52,42 @@ const ModelingTabs = () => {
   }, []);
   
   useEffect(() => {
+    // Skip if handlers are already registered
     if (handlersRegistered.current) return;
     
     // Only register handlers if window is defined (to handle SSR)
     if (typeof window === 'undefined') return;
     
+    // Set flag to indicate handlers are registered
     handlersRegistered.current = true;
     
-    const floorConfigHandler = (event: Event) => {
+    // Define event handlers
+    const floorConfigHandler = () => {
       handleFloorConfigSave();
     };
     
-    const unitAllocationHandler = (event: Event) => {
+    const unitAllocationHandler = () => {
       handleUnitAllocationSave();
     };
     
+    // Add event listeners
     window.addEventListener('floorConfigSaved', floorConfigHandler);
     window.addEventListener('unitAllocationChanged', unitAllocationHandler);
     
+    // Cleanup function
     return () => {
       // Clean up timeouts to prevent memory leaks
       if (eventTimeoutRef.current) {
         clearTimeout(eventTimeoutRef.current);
       }
       
+      // Remove event listeners if window exists
       if (typeof window !== 'undefined') {
         window.removeEventListener('floorConfigSaved', floorConfigHandler);
         window.removeEventListener('unitAllocationChanged', unitAllocationHandler);
       }
     };
-  }, [handleFloorConfigSave, handleUnitAllocationSave]);
+  }, [handleFloorConfigSave, handleUnitAllocationSave]); // Safely depend on these callbacks
 
   return (
     <div className="w-full space-y-4">

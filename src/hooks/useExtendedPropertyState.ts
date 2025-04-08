@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
@@ -120,6 +119,11 @@ export const useExtendedPropertyState = () => {
   
   // Update reference when visualization data inputs change - with controlled updates
   useEffect(() => {
+    // CRITICAL FIX: Ensure all dependency array items exist before proceeding
+    if (!spaceTypes.spaceTypes || !buildingParams || !floorConfigurations.floorConfigurations || !floorTemplates.floorTemplates) {
+      return;
+    }
+    
     if (shouldUpdateVisualization && !isUpdating.current) {
       isUpdating.current = true;
       
@@ -142,6 +146,11 @@ export const useExtendedPropertyState = () => {
   
   // Listen for template changes and update floor configurations - with protection
   useEffect(() => {
+    // CRITICAL FIX: Return early if floorTemplates is undefined
+    if (!floorTemplates || !floorTemplates.floorTemplates) {
+      return;
+    }
+    
     if (!isMounted.current) {
       isMounted.current = true;
       return;
@@ -162,7 +171,7 @@ export const useExtendedPropertyState = () => {
         window.removeEventListener('floorTemplatesChanged', handleTemplateChange);
       }
     };
-  }, [floorTemplates.floorTemplates]);
+  }, [floorTemplates, floorTemplates?.floorTemplates]); // Add floorTemplates itself as a dependency
   
   const resetAllData = useCallback(() => {
     if (projectInfo.resetAllData) projectInfo.resetAllData();
