@@ -9,7 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   PlusCircle, Trash2, PieChart, BarChart3, AlertTriangle, CheckCircle, 
-  HelpCircle, ArrowDownToLine, FolderOpen, ChevronDown, ChevronUp, Building 
+  HelpCircle, ArrowDownToLine, FolderOpen, ChevronDown, ChevronUp, Building, 
+  Grip, Move
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { UnitType } from "@/types/unitMixTypes";
@@ -33,12 +34,28 @@ const getCapacityColor = (percentUsed: number): string => {
   return "bg-amber-400"; // Under utilized
 };
 
+// Helper function to get color by category
+const getCategoryColor = (category: string): string => {
+  const colors: Record<string, string> = {
+    'residential': '#3B82F6',
+    'office': '#10B981',
+    'retail': '#F59E0B',
+    'hotel': '#8B5CF6',
+    'amenity': '#EC4899',
+    'other': '#6B7280'
+  };
+  
+  return colors[category] || '#9CA3AF';
+};
+
 const UnitMixPlanning: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("list");
   const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
   const [selectedUnitTypeId, setSelectedUnitTypeId] = useState<string | null>(null);
   const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
+  const [newCategoryDialogOpen, setNewCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const { toast } = useToast();
   
   const {
@@ -46,7 +63,9 @@ const UnitMixPlanning: React.FC = () => {
     addUnitType,
     updateUnitType,
     removeUnitType,
-    calculateTotalArea
+    calculateTotalArea,
+    addCustomCategory,
+    getAllCategories
   } = useUnitTypes();
   
   const {
@@ -72,6 +91,8 @@ const UnitMixPlanning: React.FC = () => {
     floorConfigurations.filter(f => !f.isUnderground).map(f => f.floorNumber),
     [floorConfigurations]
   );
+  
+  const allCategories = useMemo(() => getAllCategories(), [getAllCategories]);
   
   // Group unit types by category
   const unitTypesByCategory = useMemo(() => {
@@ -125,7 +146,9 @@ const UnitMixPlanning: React.FC = () => {
   }, [addUnitType, toast]);
   
   const handleRemoveUnitType = useCallback((id: string) => {
-    if (confirm("Are you sure you want to remove this unit type? This will also remove all allocations of this unit type from floors.")) {
+    const confirmDelete = window.confirm("Are you sure you want to remove this unit type? This will also remove all allocations of this unit type from floors.");
+    
+    if (confirmDelete) {
       removeUnitType(id);
       removeAllocationsByUnitType(id);
       
@@ -135,6 +158,34 @@ const UnitMixPlanning: React.FC = () => {
       });
     }
   }, [removeUnitType, removeAllocationsByUnitType, toast]);
+  
+  const handleAddCategory = useCallback(() => {
+    if (!newCategoryName.trim()) {
+      toast({
+        title: "Category name required",
+        description: "Please enter a name for the new category.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const success = addCustomCategory(newCategoryName);
+    
+    if (success) {
+      toast({
+        title: "Category added",
+        description: `New category "${newCategoryName}" has been added.`
+      });
+      setNewCategoryName("");
+      setNewCategoryDialogOpen(false);
+    } else {
+      toast({
+        title: "Category already exists",
+        description: "A category with this name already exists.",
+        variant: "destructive"
+      });
+    }
+  }, [newCategoryName, addCustomCategory, toast]);
   
   const handleSuggestAllocation = useCallback((unitTypeId: string, targetCount: number) => {
     const suggestions = suggestAllocations(unitTypeId, targetCount, aboveGroundFloors);
@@ -270,9 +321,29 @@ const UnitMixPlanning: React.FC = () => {
     return availableArea >= unitSize;
   }, [floorConfigurations, unitTypes, calculateAllocatedAreaByFloor]);
   
-  const renderUnitLibrary = () => {
-    const categoryOrder = ["residential", "office", "retail", "hotel", "amenity", "other"];
+  const validateInput = useCallback((value: string, type: 'size' | 'count'): string => {
+    // Remove non-numeric values
+    let sanitized = value.replace(/[^0-9]/g, '');
     
+    // Convert to number
+    const numValue = parseInt(sanitized) || 0;
+    
+    // Ensure non-negative
+    if (numValue < 0) sanitized = '0';
+    
+    return sanitized;
+  }, []);
+  
+  const handleInputUpdate = useCallback((id: string, field: keyof UnitType, value: any) => {
+    // Validate numeric fields
+    if (field === 'typicalSize' || field === 'count') {
+      value = validateInput(value, field as 'size' | 'count');
+    }
+    
+    updateUnitType(id, field, value);
+  }, [updateUnitType, validateInput]);
+  
+  const renderUnitLibrary = () => {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -280,16 +351,82 @@ const UnitMixPlanning: React.FC = () => {
             <h3 className="text-lg font-medium">Unit Library</h3>
             <p className="text-muted-foreground text-sm">Define standard unit types for your project</p>
           </div>
-          <Button onClick={handleAddUnitType} variant="outline">
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Add Unit Type
-          </Button>
+          <div className="flex gap-2">
+            <Dialog open={newCategoryDialogOpen} onOpenChange={setNewCategoryDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  New Category
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Category</DialogTitle>
+                  <DialogDescription>
+                    Create a new category to organize your unit types.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="py-4">
+                  <Label htmlFor="categoryName" className="mb-2 block">Category Name</Label>
+                  <Input 
+                    id="categoryName"
+                    placeholder="Enter category name"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setNewCategoryDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleAddCategory}>Add Category</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            <Button onClick={handleAddUnitType} variant="default">
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Add Unit Type
+            </Button>
+          </div>
         </div>
         
         <div className="space-y-5">
-          {categoryOrder.map(category => {
+          {allCategories.map(category => {
             const units = unitTypesByCategory[category] || [];
-            if (units.length === 0) return null;
+            if (units.length === 0) return (
+              <Collapsible 
+                key={category} 
+                open={true}
+                className="border rounded-md overflow-hidden"
+              >
+                <CollapsibleTrigger asChild>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 border-b cursor-pointer hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: getCategoryColor(category) }}></div>
+                      <h4 className="font-medium capitalize">{category}</h4>
+                      <Badge variant="outline" className="ml-2">
+                        0 types
+                      </Badge>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent>
+                  <div className="p-8 text-center">
+                    <p className="text-muted-foreground mb-4">No unit types in this category</p>
+                    <Button onClick={handleAddUnitType} variant="outline" size="sm">
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Add Unit Type
+                    </Button>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
             
             const isCollapsed = collapsedCategories.includes(category);
             const categoryTotal = categoryTotals[category] || { units: 0, area: 0 };
@@ -301,7 +438,10 @@ const UnitMixPlanning: React.FC = () => {
                 className="border rounded-md overflow-hidden"
               >
                 <CollapsibleTrigger asChild>
-                  <div className="flex items-center justify-between p-3 bg-slate-50 border-b cursor-pointer hover:bg-slate-100 transition-colors">
+                  <div 
+                    className="flex items-center justify-between p-3 bg-slate-50 border-b cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => toggleCategoryCollapse(category)}
+                  >
                     <div className="flex items-center">
                       <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: getCategoryColor(category) }}></div>
                       <h4 className="font-medium capitalize">{category}</h4>
@@ -352,10 +492,11 @@ const UnitMixPlanning: React.FC = () => {
                                   <Input 
                                     id={`unit-size-${unitType.id}`}
                                     value={unitType.typicalSize}
-                                    onChange={(e) => updateUnitType(unitType.id, "typicalSize", e.target.value)}
+                                    onChange={(e) => handleInputUpdate(unitType.id, "typicalSize", e.target.value)}
                                     placeholder="0"
                                     className="h-8"
                                     type="number"
+                                    min="0"
                                   />
                                 </div>
                                 
@@ -364,23 +505,33 @@ const UnitMixPlanning: React.FC = () => {
                                   <Input 
                                     id={`unit-count-${unitType.id}`}
                                     value={unitType.count}
-                                    onChange={(e) => updateUnitType(unitType.id, "count", e.target.value)}
+                                    onChange={(e) => handleInputUpdate(unitType.id, "count", e.target.value)}
                                     placeholder="0"
                                     className="h-8"
                                     type="number"
+                                    min="0"
                                   />
                                 </div>
                                 
                                 <div className="col-span-2">
                                   <Label className="text-xs text-muted-foreground mb-1 block">Allocation</Label>
                                   <div className="flex items-center gap-2">
-                                    <div className="h-2 flex-grow relative">
-                                      <div className="absolute inset-0 bg-slate-200 rounded-full"></div>
-                                      <div 
-                                        className={`absolute left-0 top-0 bottom-0 rounded-full ${getCapacityColor(allocatedPercent)}`}
-                                        style={{ width: `${allocatedPercent}%` }}
-                                      ></div>
-                                    </div>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="h-2 flex-grow relative">
+                                            <div className="absolute inset-0 bg-slate-200 rounded-full"></div>
+                                            <div 
+                                              className={`absolute left-0 top-0 bottom-0 rounded-full ${getCapacityColor(allocatedPercent)}`}
+                                              style={{ width: `${allocatedPercent}%` }}
+                                            ></div>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>{allocatedPercent.toFixed(1)}% allocated ({allocated} of {target} units)</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                     <span className="text-xs font-medium whitespace-nowrap">
                                       {allocated}/{target}
                                     </span>
@@ -403,7 +554,7 @@ const UnitMixPlanning: React.FC = () => {
                                           </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                          <p>Allocate to floors</p>
+                                          <p>Allocate units to specific floors</p>
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
@@ -421,7 +572,7 @@ const UnitMixPlanning: React.FC = () => {
                                           </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                          <p>Suggest allocation to floors</p>
+                                          <p>Suggest optimal floor allocation</p>
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
@@ -516,8 +667,43 @@ const UnitMixPlanning: React.FC = () => {
                                 </div>
                               )}
                               
-                              {/* Total area calculation */}
-                              {!["residential", "retail"].includes(category) && stats.floorCount > 0 && (
+                              {/* Office category specific fields */}
+                              {category === "office" && (
+                                <div className="mt-3 grid grid-cols-12 gap-4 pt-2 border-t">
+                                  <div className="col-span-4">
+                                    <Label className="text-xs text-muted-foreground mb-1 block">Office Type</Label>
+                                    <Select
+                                      value={unitType.description || ""}
+                                      onValueChange={(value) => updateUnitType(unitType.id, "description", value)}
+                                    >
+                                      <SelectTrigger className="h-8">
+                                        <SelectValue placeholder="Select" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="coworking">Coworking</SelectItem>
+                                        <SelectItem value="traditional">Traditional</SelectItem>
+                                        <SelectItem value="executive">Executive</SelectItem>
+                                        <SelectItem value="creative">Creative</SelectItem>
+                                        <SelectItem value="other">Other</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  {stats.floorCount > 0 && (
+                                    <div className="col-span-8 flex items-center">
+                                      <div className="flex items-center gap-1 text-sm">
+                                        <Building className="h-4 w-4 mr-1 text-slate-400" />
+                                        <span className="text-muted-foreground mr-1">Allocated to:</span>
+                                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                          {stats.floorCount} floors
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Total area calculation for non-specific categories */}
+                              {!["residential", "retail", "office"].includes(category) && stats.floorCount > 0 && (
                                 <div className="mt-3 grid grid-cols-12 gap-4 pt-2 border-t">
                                   <div className="col-span-12">
                                     <div className="flex items-center gap-1 text-sm">
@@ -538,13 +724,25 @@ const UnitMixPlanning: React.FC = () => {
                         </Card>
                       );
                     })}
+                    
+                    <div className="text-center">
+                      <Button 
+                        onClick={handleAddUnitType} 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full border-dashed"
+                      >
+                        <PlusCircle className="h-4 w-4 mr-2" />
+                        Add {category} Unit Type
+                      </Button>
+                    </div>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
             );
           })}
           
-          {unitTypes.length === 0 && (
+          {unitTypes.length === 0 && allCategories.length === 0 && (
             <div className="text-center py-8 border rounded-md">
               <p className="text-muted-foreground">No unit types defined yet</p>
               <Button onClick={handleAddUnitType} variant="outline" className="mt-4">
@@ -631,6 +829,12 @@ const UnitMixPlanning: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                  
+                  {Object.keys(categoryTotals).length === 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">No unit types defined yet</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -673,20 +877,38 @@ const UnitMixPlanning: React.FC = () => {
                         {floor.floorNumber}
                       </div>
                       <div className="flex-1">
-                        <div className="h-6 bg-slate-100 rounded-md relative">
-                          <div 
-                            className={`absolute left-0 top-0 bottom-0 rounded-l-md ${getCapacityColor(percentUsed)}`}
-                            style={{ width: `${Math.min(100, percentUsed)}%` }}
-                          ></div>
-                          <div className="absolute inset-0 flex items-center justify-between px-2 text-xs font-medium">
-                            <span className={percentUsed > 40 ? "text-white" : "text-slate-700"}>
-                              {allocatedArea.toLocaleString()} sq ft
-                            </span>
-                            <span className="text-slate-700">
-                              {floorArea.toLocaleString()} sq ft
-                            </span>
-                          </div>
-                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger className="w-full">
+                              <div className="h-6 bg-slate-100 rounded-md relative">
+                                <div 
+                                  className={`absolute left-0 top-0 bottom-0 rounded-l-md ${getCapacityColor(percentUsed)}`}
+                                  style={{ width: `${Math.min(100, percentUsed)}%` }}
+                                ></div>
+                                <div className="absolute inset-0 flex items-center justify-between px-2 text-xs font-medium">
+                                  <span className={percentUsed > 40 ? "text-white" : "text-slate-700"}>
+                                    {allocatedArea.toLocaleString()} sq ft
+                                  </span>
+                                  <span className="text-slate-700">
+                                    {floorArea.toLocaleString()} sq ft
+                                  </span>
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Floor {floor.floorNumber}</p>
+                              <p className="text-xs">
+                                {allocatedArea.toLocaleString()} / {floorArea.toLocaleString()} sq ft ({percentUsed.toFixed(1)}%)
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {floorArea > allocatedArea 
+                                  ? `${(floorArea - allocatedArea).toLocaleString()} sq ft available`
+                                  : `${(allocatedArea - floorArea).toLocaleString()} sq ft overallocated`
+                                }
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                       <div className="w-16 text-xs font-medium text-right">
                         {percentUsed.toFixed(1)}%
@@ -694,6 +916,12 @@ const UnitMixPlanning: React.FC = () => {
                     </div>
                   );
                 })}
+
+              {floorConfigurations.filter(f => !f.isUnderground).length === 0 && (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground">No floors configured yet</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -854,6 +1082,29 @@ const UnitMixPlanning: React.FC = () => {
                               Insufficient space
                             </div>
                           )}
+                          {isValid && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger className="w-full">
+                                  <div className="text-xs text-slate-500 mt-1">
+                                    {(() => {
+                                      const floorArea = floor.customSquareFootage && floor.customSquareFootage !== "" 
+                                        ? parseInt(floor.customSquareFootage) 
+                                        : 0;
+                                      
+                                      const allocatedArea = calculateAllocatedAreaByFloor(floor.floorNumber);
+                                      const availableArea = Math.max(0, floorArea - allocatedArea);
+                                      
+                                      return `${availableArea.toLocaleString()} sq ft available`;
+                                    })()}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Available space on Floor {floor.floorNumber}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </div>
                       );
                     })}
@@ -876,19 +1127,5 @@ const UnitMixPlanning: React.FC = () => {
     </Card>
   );
 };
-
-// Helper function to get colors by category
-function getCategoryColor(category: string): string {
-  const colors: Record<string, string> = {
-    'residential': '#3B82F6',
-    'office': '#10B981',
-    'retail': '#F59E0B',
-    'hotel': '#8B5CF6',
-    'amenity': '#EC4899',
-    'other': '#6B7280'
-  };
-  
-  return colors[category] || '#9CA3AF';
-}
 
 export default UnitMixPlanning;

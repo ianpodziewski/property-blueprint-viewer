@@ -2,7 +2,7 @@
 export interface UnitType {
   id: string;
   name: string;
-  category: "residential" | "office" | "retail" | "hotel" | "amenity" | "other";
+  category: "residential" | "office" | "retail" | "hotel" | "amenity" | "other" | string;
   typicalSize: string; // square footage
   count: string;
   description?: string;

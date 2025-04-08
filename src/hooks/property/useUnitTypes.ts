@@ -4,6 +4,9 @@ import { UnitType } from "@/types/unitMixTypes";
 import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStoragePersistence";
 
 const STORAGE_KEY = "realEstateModel_unitTypes";
+const CATEGORIES_STORAGE_KEY = "realEstateModel_unitCategories";
+
+const DEFAULT_CATEGORIES = ["residential", "office", "retail", "hotel", "amenity", "other"];
 
 // Function to generate a random color based on category
 const getCategoryDefaultColor = (category: string): string => {
@@ -16,42 +19,40 @@ const getCategoryDefaultColor = (category: string): string => {
     'other': ['#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB']
   };
   
-  const categoryColors = colors[category] || colors.other;
+  // If we don't have a predefined color for this category, generate one
+  if (!colors[category]) {
+    // Generate a random pastel color
+    const hue = Math.floor(Math.random() * 360);
+    const pastelColor = `hsl(${hue}, 70%, 80%)`;
+    return pastelColor;
+  }
+  
+  const categoryColors = colors[category];
   const randomIndex = Math.floor(Math.random() * categoryColors.length);
   return categoryColors[randomIndex];
 };
 
 export const useUnitTypes = () => {
-  const [unitTypes, setUnitTypes] = useState<UnitType[]>([
-    { 
-      id: "unit-1", 
-      name: "Studio", 
-      category: "residential",
-      typicalSize: "550", 
-      count: "0",
-      color: getCategoryDefaultColor("residential")
-    }
-  ]);
-
-  // Load unit types from localStorage on mount
+  const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  
+  // Load unit types and categories from localStorage on mount
   useEffect(() => {
-    const storedUnitTypes = loadFromLocalStorage(STORAGE_KEY, [
-      { 
-        id: "unit-1", 
-        name: "Studio", 
-        category: "residential" as UnitType["category"],
-        typicalSize: "550", 
-        count: "0",
-        color: getCategoryDefaultColor("residential")
-      }
-    ]);
+    const storedUnitTypes = loadFromLocalStorage(STORAGE_KEY, []);
+    const storedCategories = loadFromLocalStorage(CATEGORIES_STORAGE_KEY, []);
+    
     setUnitTypes(storedUnitTypes);
+    setCustomCategories(storedCategories);
   }, []);
 
-  // Save unit types to localStorage whenever it changes
+  // Save unit types and categories to localStorage whenever they change
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEY, unitTypes);
   }, [unitTypes]);
+  
+  useEffect(() => {
+    saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
+  }, [customCategories]);
 
   const addUnitType = useCallback(() => {
     const newId = `unit-${Date.now()}`;
@@ -95,10 +96,29 @@ export const useUnitTypes = () => {
     }, 0);
   }, [unitTypes]);
 
-  // Add the missing getUnitTypeById function
+  // Get unit type by ID
   const getUnitTypeById = useCallback((id: string) => {
     return unitTypes.find(unit => unit.id === id);
   }, [unitTypes]);
+
+  // Add a new custom category
+  const addCustomCategory = useCallback((categoryName: string) => {
+    // Convert to lowercase for consistency
+    const normalizedName = categoryName.toLowerCase().trim();
+    
+    // Check if this category already exists (either predefined or custom)
+    if ([...DEFAULT_CATEGORIES, ...customCategories].includes(normalizedName)) {
+      return false;
+    }
+    
+    setCustomCategories(prev => [...prev, normalizedName]);
+    return true;
+  }, [customCategories]);
+
+  // Get all available categories (default + custom)
+  const getAllCategories = useCallback(() => {
+    return [...DEFAULT_CATEGORIES, ...customCategories] as UnitType["category"][];
+  }, [customCategories]);
 
   return {
     unitTypes,
@@ -106,6 +126,8 @@ export const useUnitTypes = () => {
     removeUnitType,
     updateUnitType,
     calculateTotalArea,
-    getUnitTypeById
+    getUnitTypeById,
+    addCustomCategory,
+    getAllCategories
   };
 };
