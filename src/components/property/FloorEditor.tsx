@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Save, X, Plus, Trash2, ChevronsUpDown, Move } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface FloorPlateTemplate {
   id: string;
@@ -139,12 +140,16 @@ const FloorEditor = ({
   const convertSpaces = (spaces: SpaceDefinition[] | undefined): SpaceDefinition[] => {
     if (!spaces || spaces.length === 0) return DEFAULT_SPACES;
     
-    if ('isCore' in spaces[0] && !('isRentable' in spaces[0])) {
-      return spaces.map(space => ({
-        ...space,
-        isRentable: !space.isCore,
-        isCore: undefined 
-      }));
+    const hasLegacyFormat = spaces.some(space => 'isCore' in space);
+    
+    if (hasLegacyFormat) {
+      return spaces.map(space => {
+        const isRentable = !('isCore' in space && (space as any).isCore);
+        return {
+          ...space,
+          isRentable,
+        };
+      });
     }
     
     return spaces;
@@ -679,7 +684,7 @@ const FloorEditor = ({
                                     </SelectItem>
                                   ))
                                 ) : (
-                                  <SelectItem value="none">No subtypes available</SelectItem>
+                                  <SelectItem value="null">No subtypes available</SelectItem>
                                 )}
                               </SelectContent>
                             </Select>
@@ -724,12 +729,14 @@ const FloorEditor = ({
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
-                            <input
-                              type="checkbox"
-                              checked={space.isRentable}
-                              onChange={(e) => handleUpdateSpace(space.id, "isRentable", e.target.checked)}
-                              className="h-4 w-4"
-                            />
+                            <div className="flex justify-center">
+                              <Checkbox
+                                checked={space.isRentable}
+                                onCheckedChange={(checked) => 
+                                  handleUpdateSpace(space.id, "isRentable", checked === true)
+                                }
+                              />
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Button 
