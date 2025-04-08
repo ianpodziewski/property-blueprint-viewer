@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -44,7 +43,6 @@ const defaultTemplateData: TemplateFormData = {
   description: ""
 };
 
-// Helper function to get color for space type
 const getUseColor = (useType: string): string => {
   const colors: Record<string, string> = {
     "residential": "#3B82F6",
@@ -153,7 +151,6 @@ const FloorTemplateManager = ({
   };
 
   const handleCreateNew = useCallback(() => {
-    // Create a completely fresh template with all fields explicitly set to defaults
     const newTemplate = {
       name: "",
       squareFootage: "10000",
@@ -164,7 +161,6 @@ const FloorTemplateManager = ({
       description: ""
     };
     
-    // Use spread operator to ensure we get a clean copy
     setCurrentTemplate({...newTemplate});
     originalTemplateRef.current = {...newTemplate};
     setFormModified(false);
@@ -176,7 +172,6 @@ const FloorTemplateManager = ({
   }, []);
 
   const handleEdit = useCallback((template: FloorPlateTemplate) => {
-    // Ensure we capture ALL fields with appropriate fallbacks
     const templateToEdit = {
       id: template.id,
       name: template.name || "",
@@ -188,7 +183,6 @@ const FloorTemplateManager = ({
       description: template.description || ""
     };
     
-    // Use spread operator to ensure we get a clean copy
     setCurrentTemplate({...templateToEdit});
     originalTemplateRef.current = {...templateToEdit};
     setFormModified(false);
@@ -200,7 +194,6 @@ const FloorTemplateManager = ({
   }, []);
 
   const handleDuplicate = useCallback((template: FloorPlateTemplate) => {
-    // Ensure we capture ALL fields with appropriate fallbacks
     const duplicatedTemplate = {
       name: `${template.name || "Template"} (Copy)`,
       squareFootage: template.squareFootage || "10000",
@@ -211,7 +204,6 @@ const FloorTemplateManager = ({
       description: template.description || ""
     };
     
-    // Use spread operator to ensure we get a clean copy
     setCurrentTemplate({...duplicatedTemplate});
     originalTemplateRef.current = {...duplicatedTemplate};
     setFormModified(false);
@@ -305,7 +297,6 @@ const FloorTemplateManager = ({
   }, []);
 
   const handleSave = useCallback(() => {
-    // Capture current form state for debugging
     const formState = {...currentTemplate};
     addDebugLog(`Attempting to save template with data: ${JSON.stringify(formState)}`);
     
@@ -326,7 +317,6 @@ const FloorTemplateManager = ({
     setSaveSuccessful(false);
     
     try {
-      // Create a new object with explicit string conversions for every field to avoid reference issues
       const templateToSave = {
         name: String(currentTemplate.name || ""),
         squareFootage: String(currentTemplate.squareFootage || "10000"),
@@ -340,7 +330,6 @@ const FloorTemplateManager = ({
       addDebugLog(`Saving template data: ${JSON.stringify(templateToSave)}`);
       
       if (editMode === "create") {
-        // Add the new template with explicit string conversions for every value
         addTemplate({
           name: templateToSave.name,
           squareFootage: templateToSave.squareFootage,
@@ -357,7 +346,6 @@ const FloorTemplateManager = ({
         });
         addDebugLog(`New template created successfully with data: ${JSON.stringify(templateToSave)}`);
       } else if (editMode === "edit" && currentTemplate.id) {
-        // Update the existing template with explicit values
         updateTemplate(currentTemplate.id, {
           name: templateToSave.name,
           squareFootage: templateToSave.squareFootage,
@@ -375,14 +363,12 @@ const FloorTemplateManager = ({
         addDebugLog(`Template ID: ${currentTemplate.id} updated successfully`);
       }
       
-      // Mark save as successful and reset form modified state
       setSaveSuccessful(true);
       setFormModified(false);
       
-      // Return to view mode after a brief delay to show success state
       setTimeout(() => {
         setEditMode("view");
-        setCurrentTemplate({...defaultTemplateData}); // Reset form state
+        setCurrentTemplate({...defaultTemplateData});
       }, 800);
     } catch (error) {
       console.error("Error saving template:", error);
@@ -468,7 +454,6 @@ const FloorTemplateManager = ({
   ) => {
     addDebugLog(`Form field "${field}" changed: ${value}`);
     
-    // Create a new object to ensure state update
     setCurrentTemplate(prev => {
       const updated = { ...prev, [field]: value };
       addDebugLog(`Updated template state: ${JSON.stringify(updated)}`);
@@ -479,7 +464,6 @@ const FloorTemplateManager = ({
       setFormModified(true);
     }
     
-    // Clear validation error for this field if it exists
     if (validationMessages[field]) {
       setValidationMessages(prev => {
         const updated = { ...prev };

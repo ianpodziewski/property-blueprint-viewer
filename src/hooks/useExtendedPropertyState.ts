@@ -297,31 +297,34 @@ export const useExtendedPropertyState = () => {
     setIssues(newIssues);
   }, [spaceTypes, actualFar, farAllowance, totalBuildableArea, totalAllocatedArea, floorConfigurations]);
 
-  const addFloorTemplate = () => {
+  const addFloorTemplate = useCallback((template: Omit<FloorPlateTemplate, "id">) => {
     const newId = `template-${floorTemplates.length + 1}`;
-    setFloorTemplates([
-      ...floorTemplates,
-      {
-        id: newId,
-        name: `Template ${floorTemplates.length + 1}`,
-        squareFootage: "10000",
-        floorToFloorHeight: "12",
-        efficiencyFactor: "85",
-        corePercentage: "15",
-        primaryUse: "office"
-      }
-    ]);
-  };
+    console.log(`Creating new template with ID: ${newId} and data:`, template);
+    
+    const newTemplate: FloorPlateTemplate = {
+      id: newId,
+      name: String(template.name || "Template " + (floorTemplates.length + 1)),
+      squareFootage: String(template.squareFootage || "10000"),
+      floorToFloorHeight: String(template.floorToFloorHeight || "12"),
+      efficiencyFactor: String(template.efficiencyFactor || "85"),
+      corePercentage: String(template.corePercentage || "15"),
+      primaryUse: String(template.primaryUse || "office"),
+      description: String(template.description || "")
+    };
+    
+    console.log("Final template being added:", newTemplate);
+    setFloorTemplates(prev => [...prev, newTemplate]);
+  }, [floorTemplates]);
 
-  const updateFloorTemplate = (id: string, template: Partial<FloorPlateTemplate>) => {
+  const updateFloorTemplate = useCallback((id: string, template: Partial<FloorPlateTemplate>) => {
     setFloorTemplates(
       floorTemplates.map(existingTemplate => 
         existingTemplate.id === id ? { ...existingTemplate, ...template } : existingTemplate
       )
     );
-  };
+  }, [floorTemplates]);
 
-  const removeFloorTemplate = (id: string) => {
+  const removeFloorTemplate = useCallback((id: string) => {
     if (floorTemplates.length > 1) {
       setFloorTemplates(floorTemplates.filter(template => template.id !== id));
       
@@ -332,7 +335,7 @@ export const useExtendedPropertyState = () => {
         )
       );
     }
-  };
+  }, [floorTemplates, floorConfigurations]);
 
   const updateFloorConfiguration = (
     floorNumber: number, 

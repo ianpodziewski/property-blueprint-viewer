@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
@@ -25,7 +24,6 @@ const DialogOverlay = React.forwardRef<
     )}
     onClick={(e) => {
       // Always stop propagation and prevent default
-      e.preventDefault();
       e.stopPropagation();
       
       // Call the original onClick handler if provided
