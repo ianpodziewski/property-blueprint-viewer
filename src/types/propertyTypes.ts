@@ -48,12 +48,12 @@ export interface SpaceDefinition {
 }
 
 export interface BuildingSystemsConfig {
-  elevators: {  // Changed from optional to required
+  elevators: {  // Required property
     passenger: string;
     service: string;
     freight: string;
   };
-  hvacSystem?: string;
+  hvacSystem?: string;  // Made explicitly optional with ?
   hvacZones?: string;
   floorLoadCapacity?: string;
   ceilingHeight?: string;
