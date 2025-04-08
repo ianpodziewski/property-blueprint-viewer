@@ -22,6 +22,29 @@ export const useUnitAllocations = () => {
   }, [unitAllocations]);
 
   const addAllocation = useCallback((allocation: Omit<UnitAllocation, "id">) => {
+    // Check if already exists, if so update it instead
+    const existingAllocation = unitAllocations.find(
+      a => a.unitTypeId === allocation.unitTypeId && a.floorNumber === allocation.floorNumber
+    );
+    
+    if (existingAllocation) {
+      // Update existing allocation
+      const numExisting = parseInt(existingAllocation.count) || 0;
+      const numToAdd = parseInt(allocation.count as string) || 0;
+      const newCount = numExisting + numToAdd;
+      
+      setUnitAllocations(prev => 
+        prev.map(a => 
+          a.id === existingAllocation.id 
+            ? { ...a, count: newCount.toString() } 
+            : a
+        )
+      );
+      
+      return existingAllocation.id;
+    }
+    
+    // Create new allocation
     const newAllocation: UnitAllocation = {
       ...allocation,
       id: `allocation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -29,7 +52,7 @@ export const useUnitAllocations = () => {
     
     setUnitAllocations(prev => [...prev, newAllocation]);
     return newAllocation.id;
-  }, []);
+  }, [unitAllocations]);
 
   const updateAllocation = useCallback((id: string, field: keyof UnitAllocation, value: string | number) => {
     setUnitAllocations(prev => 
@@ -46,8 +69,21 @@ export const useUnitAllocations = () => {
   }, []);
 
   const removeAllocationsByFloor = useCallback((floorNumber: number) => {
-    setUnitAllocations(prev => prev.filter(allocation => allocation.floorNumber !== floorNumber));
-  }, []);
+    setUnitAllocations(prev => {
+      const filtered = prev.filter(allocation => allocation.floorNumber !== floorNumber);
+      
+      // If allocations were removed, show a toast
+      const removedCount = prev.length - filtered.length;
+      if (removedCount > 0) {
+        toast({
+          title: "Allocations removed",
+          description: `${removedCount} unit allocations were removed from floor ${floorNumber}.`,
+        });
+      }
+      
+      return filtered;
+    });
+  }, [toast]);
 
   const removeAllocationsByUnitType = useCallback((unitTypeId: string) => {
     setUnitAllocations(prev => prev.filter(allocation => allocation.unitTypeId !== unitTypeId));
@@ -85,22 +121,26 @@ export const useUnitAllocations = () => {
     const newAllocations: UnitAllocation[] = [];
     
     targetFloorNumbers.forEach(targetFloorNumber => {
-      // Remove existing allocations for the target floor
-      setUnitAllocations(prev => 
-        prev.filter(allocation => allocation.floorNumber !== targetFloorNumber)
-      );
+      // If target already has allocations, remove them first
+      if (targetFloorNumber !== sourceFloorNumber) {
+        setUnitAllocations(prev => 
+          prev.filter(allocation => allocation.floorNumber !== targetFloorNumber)
+        );
+      }
       
       // Create new allocations based on source floor
       sourceAllocations.forEach(sourceAllocation => {
-        newAllocations.push({
-          id: `allocation-${Date.now()}-${Math.random().toString(36).substr(2, 5)}-${targetFloorNumber}`,
-          unitTypeId: sourceAllocation.unitTypeId,
-          floorNumber: targetFloorNumber,
-          count: sourceAllocation.count,
-          squareFootage: sourceAllocation.squareFootage,
-          notes: sourceAllocation.notes,
-          status: sourceAllocation.status
-        });
+        if (targetFloorNumber !== sourceFloorNumber) {
+          newAllocations.push({
+            id: `allocation-${Date.now()}-${Math.random().toString(36).substr(2, 5)}-${targetFloorNumber}`,
+            unitTypeId: sourceAllocation.unitTypeId,
+            floorNumber: targetFloorNumber,
+            count: sourceAllocation.count,
+            squareFootage: sourceAllocation.squareFootage,
+            notes: sourceAllocation.notes,
+            status: sourceAllocation.status
+          });
+        }
       });
     });
     
@@ -135,10 +175,12 @@ export const useUnitAllocations = () => {
   const calculateAllocationStats = useCallback((unitTypeId: string) => {
     const allocations = unitAllocations.filter(a => a.unitTypeId === unitTypeId);
     const totalAllocated = allocations.reduce((sum, a) => sum + (parseInt(a.count as string) || 0), 0);
+    const allocatedFloors = new Set(allocations.map(a => a.floorNumber));
     
     return {
       totalAllocated,
-      floorCount: new Set(allocations.map(a => a.floorNumber)).size
+      floorCount: allocatedFloors.size,
+      floors: Array.from(allocatedFloors)
     };
   }, [unitAllocations]);
 
@@ -181,6 +223,12 @@ export const useUnitAllocations = () => {
     return suggestions;
   }, [unitAllocations]);
 
+  const getFloorUtilization = useCallback((floorNumber: number, totalFloorArea: number) => {
+    if (!totalFloorArea) return 0;
+    const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
+    return (allocatedArea / totalFloorArea) * 100;
+  }, [calculateAllocatedAreaByFloor]);
+
   return {
     unitAllocations,
     addAllocation,
@@ -194,6 +242,7 @@ export const useUnitAllocations = () => {
     calculateAllocatedAreaByFloor,
     calculateTotalAllocatedArea,
     calculateAllocationStats,
-    suggestAllocations
+    suggestAllocations,
+    getFloorUtilization
   };
 };

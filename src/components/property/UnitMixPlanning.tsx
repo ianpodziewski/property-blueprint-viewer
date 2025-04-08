@@ -7,7 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Trash2, PieChart, BarChart3, AlertTriangle, CheckCircle, HelpCircle } from "lucide-react";
+import { 
+  PlusCircle, Trash2, PieChart, BarChart3, AlertTriangle, CheckCircle, 
+  HelpCircle, ArrowDownToLine, FolderOpen, ChevronDown, ChevronUp, Building 
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { UnitType } from "@/types/unitMixTypes";
 import { useUnitTypes } from "@/hooks/property/useUnitTypes";
@@ -19,9 +22,22 @@ import { useExtendedPropertyState } from "@/hooks/useExtendedPropertyState";
 
 // Component for unit type distribution charts
 import UnitTypeDistributionChart from "./UnitTypeDistributionChart";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
+// Utility function for calculating color based on capacity
+const getCapacityColor = (percentUsed: number): string => {
+  if (percentUsed > 100) return "bg-red-500"; // Over capacity
+  if (percentUsed >= 85) return "bg-green-500"; // Good utilization
+  return "bg-amber-400"; // Under utilized
+};
 
 const UnitMixPlanning: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("list");
+  const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
+  const [selectedUnitTypeId, setSelectedUnitTypeId] = useState<string | null>(null);
+  const [selectedFloors, setSelectedFloors] = useState<number[]>([]);
+  const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
   const { toast } = useToast();
   
   const {
@@ -36,7 +52,9 @@ const UnitMixPlanning: React.FC = () => {
     unitAllocations,
     calculateAllocationStats,
     suggestAllocations,
-    removeAllocationsByUnitType
+    removeAllocationsByUnitType,
+    addAllocation,
+    calculateAllocatedAreaByFloor
   } = useUnitAllocations();
   
   const {
@@ -54,6 +72,22 @@ const UnitMixPlanning: React.FC = () => {
     [floorConfigurations]
   );
   
+  // Group unit types by category
+  const unitTypesByCategory = useMemo(() => {
+    const groups: Record<string, UnitType[]> = {};
+    
+    unitTypes.forEach(unit => {
+      const category = unit.category;
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push(unit);
+    });
+    
+    return groups;
+  }, [unitTypes]);
+  
+  // Calculate category totals
   const categoryTotals = useMemo(() => {
     const totals: Record<string, { units: number, area: number }> = {};
     
@@ -113,27 +147,131 @@ const UnitMixPlanning: React.FC = () => {
       return;
     }
     
-    const suggestionText = suggestions.map(s => 
-      `Floor ${s.floorNumber}: ${s.count} units`
-    ).join(", ");
+    setSelectedUnitTypeId(unitTypeId);
+    setSelectedFloors(suggestions.map(s => s.floorNumber));
+    setAllocateDialogOpen(true);
     
     toast({
       title: "Allocation suggestion",
-      description: (
-        <div>
-          <p className="mb-2">Suggested allocation:</p>
-          <ul className="list-disc pl-5">
-            {suggestions.map(s => (
-              <li key={s.floorNumber}>Floor {s.floorNumber}: {s.count} units</li>
-            ))}
-          </ul>
-          <p className="mt-2 text-sm">Expand floor rows to apply these allocations.</p>
-        </div>
-      )
+      description: "We've suggested floors for this unit type. Review and confirm the allocation."
     });
   }, [suggestAllocations, aboveGroundFloors, toast]);
   
+  const handleOpenAllocateDialog = useCallback((unitTypeId: string) => {
+    setSelectedUnitTypeId(unitTypeId);
+    setSelectedFloors([]);
+    setAllocateDialogOpen(true);
+  }, []);
+  
+  const handleAllocateUnits = useCallback(() => {
+    if (!selectedUnitTypeId || selectedFloors.length === 0) return;
+    
+    const unitType = unitTypes.find(u => u.id === selectedUnitTypeId);
+    if (!unitType) return;
+    
+    // Calculate how many to allocate per floor
+    const targetCount = parseInt(unitType.count) || 0;
+    const currentStats = calculateAllocationStats(selectedUnitTypeId);
+    const remaining = Math.max(0, targetCount - currentStats.totalAllocated);
+    
+    if (remaining <= 0) {
+      toast({
+        title: "Already fully allocated",
+        description: `All ${targetCount} units have already been allocated to floors.`,
+        variant: "default"
+      });
+      setAllocateDialogOpen(false);
+      return;
+    }
+    
+    const unitsPerFloor = Math.ceil(remaining / selectedFloors.length);
+    let allocatedCount = 0;
+    
+    selectedFloors.forEach(floorNumber => {
+      // Check if there's enough space on this floor
+      const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
+      if (!floorConfig) return;
+      
+      // Get floor area
+      const floorArea = floorConfig.customSquareFootage && floorConfig.customSquareFootage !== "" 
+        ? parseInt(floorConfig.customSquareFootage) 
+        : 0;
+      
+      // Calculate allocated area on this floor
+      const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
+      const availableArea = Math.max(0, floorArea - allocatedArea);
+      
+      // Calculate how many units can fit in the available area
+      const unitSize = parseInt(unitType.typicalSize) || 0;
+      const maxUnitsForSpace = unitSize > 0 ? Math.floor(availableArea / unitSize) : unitsPerFloor;
+      
+      // Allocate the units
+      const unitsToAllocate = Math.min(unitsPerFloor, maxUnitsForSpace, remaining - allocatedCount);
+      
+      if (unitsToAllocate > 0) {
+        addAllocation({
+          unitTypeId: selectedUnitTypeId,
+          floorNumber: floorNumber,
+          count: unitsToAllocate.toString(),
+          squareFootage: unitType.typicalSize,
+          notes: `Allocated ${new Date().toLocaleDateString()}`,
+          status: "planned"
+        });
+        
+        allocatedCount += unitsToAllocate;
+      }
+    });
+    
+    if (allocatedCount > 0) {
+      toast({
+        title: "Units allocated",
+        description: `${allocatedCount} units have been allocated across ${selectedFloors.length} floors.`
+      });
+    } else {
+      toast({
+        title: "No units allocated",
+        description: "There isn't enough available space on the selected floors for these units.",
+        variant: "destructive"
+      });
+    }
+    
+    setAllocateDialogOpen(false);
+  }, [selectedUnitTypeId, selectedFloors, unitTypes, floorConfigurations, calculateAllocationStats, calculateAllocatedAreaByFloor, addAllocation, toast]);
+  
+  const toggleCategoryCollapse = useCallback((category: string) => {
+    setCollapsedCategories(prev => {
+      if (prev.includes(category)) {
+        return prev.filter(c => c !== category);
+      } else {
+        return [...prev, category];
+      }
+    });
+  }, []);
+  
+  const isValidFloorForUnitType = useCallback((floorNumber: number, unitTypeId: string) => {
+    const unitType = unitTypes.find(u => u.id === unitTypeId);
+    if (!unitType) return false;
+    
+    // Check floor use compatibility
+    const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
+    if (!floorConfig) return false;
+    
+    // For simplicity, we'll just check if there's enough space
+    const floorArea = floorConfig.customSquareFootage && floorConfig.customSquareFootage !== "" 
+      ? parseInt(floorConfig.customSquareFootage) 
+      : 0;
+    
+    const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
+    const availableArea = Math.max(0, floorArea - allocatedArea);
+    
+    // Unit should take at least some space
+    const unitSize = parseInt(unitType.typicalSize) || 0;
+    return availableArea >= unitSize;
+  }, [floorConfigurations, unitTypes, calculateAllocatedAreaByFloor]);
+  
   const renderUnitLibrary = () => {
+    const categoryOrder = ["residential", "office", "retail", "hotel", "amenity", "other"];
+    
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -147,153 +285,261 @@ const UnitMixPlanning: React.FC = () => {
           </Button>
         </div>
         
-        <div className="space-y-4">
-          {unitTypes.map(unitType => {
-            const stats = calculateAllocationStats(unitType.id);
-            const allocated = stats.totalAllocated;
-            const target = parseInt(unitType.count) || 0;
-            const allocatedPercent = target ? Math.min(100, (allocated / target) * 100) : 0;
+        <div className="space-y-5">
+          {categoryOrder.map(category => {
+            const units = unitTypesByCategory[category] || [];
+            if (units.length === 0) return null;
+            
+            const isCollapsed = collapsedCategories.includes(category);
+            const categoryTotal = categoryTotals[category] || { units: 0, area: 0 };
             
             return (
-              <Card key={unitType.id} className="overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="p-4 border-b relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: unitType.color }}></div>
-                    
-                    <div className="grid grid-cols-12 gap-4 items-center">
-                      <div className="col-span-3">
-                        <Label htmlFor={`unit-name-${unitType.id}`} className="text-xs text-muted-foreground mb-1 block">Name</Label>
-                        <Input 
-                          id={`unit-name-${unitType.id}`}
-                          value={unitType.name}
-                          onChange={(e) => updateUnitType(unitType.id, "name", e.target.value)}
-                          placeholder="Unit name"
-                          className="h-8"
-                        />
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <Label htmlFor={`unit-category-${unitType.id}`} className="text-xs text-muted-foreground mb-1 block">Category</Label>
-                        <Select
-                          value={unitType.category}
-                          onValueChange={(value) => updateUnitType(unitType.id, "category", value as any)}
-                        >
-                          <SelectTrigger id={`unit-category-${unitType.id}`} className="h-8">
-                            <SelectValue placeholder="Category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="residential">Residential</SelectItem>
-                            <SelectItem value="office">Office</SelectItem>
-                            <SelectItem value="retail">Retail</SelectItem>
-                            <SelectItem value="hotel">Hotel</SelectItem>
-                            <SelectItem value="amenity">Amenity</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <Label htmlFor={`unit-size-${unitType.id}`} className="text-xs text-muted-foreground mb-1 block">Size (sq ft)</Label>
-                        <Input 
-                          id={`unit-size-${unitType.id}`}
-                          value={unitType.typicalSize}
-                          onChange={(e) => updateUnitType(unitType.id, "typicalSize", e.target.value)}
-                          placeholder="0"
-                          className="h-8"
-                          type="number"
-                        />
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <Label htmlFor={`unit-count-${unitType.id}`} className="text-xs text-muted-foreground mb-1 block">Total Needed</Label>
-                        <Input 
-                          id={`unit-count-${unitType.id}`}
-                          value={unitType.count}
-                          onChange={(e) => updateUnitType(unitType.id, "count", e.target.value)}
-                          placeholder="0"
-                          className="h-8"
-                          type="number"
-                        />
-                      </div>
-                      
-                      <div className="col-span-2 flex flex-col">
-                        <Label className="text-xs text-muted-foreground mb-1 block">Allocation Progress</Label>
-                        <div className="flex items-center gap-2">
-                          <Progress value={allocatedPercent} className="h-2 flex-grow" />
-                          <span className="text-xs font-medium">
-                            {allocated}/{target}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <div className="col-span-1 flex justify-end">
-                        <div className="flex items-center gap-1">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => handleSuggestAllocation(unitType.id, parseInt(unitType.count) || 0)}
-                                >
-                                  <HelpCircle className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Suggest allocation to floors</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                  onClick={() => handleRemoveUnitType(unitType.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Remove unit type</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </div>
+              <Collapsible 
+                key={category} 
+                open={!isCollapsed}
+                className="border rounded-md overflow-hidden"
+              >
+                <CollapsibleTrigger asChild>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 border-b cursor-pointer hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: getCategoryColor(category) }}></div>
+                      <h4 className="font-medium capitalize">{category}</h4>
+                      <Badge variant="outline" className="ml-2">
+                        {units.length} types
+                      </Badge>
+                      <Badge variant="outline" className="ml-1">
+                        {categoryTotal.units} units
+                      </Badge>
+                      <Badge variant="outline" className="ml-1">
+                        {categoryTotal.area.toLocaleString()} sq ft
+                      </Badge>
                     </div>
-                    
-                    <div className="mt-3 grid grid-cols-12 gap-4">
-                      <div className="col-span-8">
-                        <Label htmlFor={`unit-desc-${unitType.id}`} className="text-xs text-muted-foreground mb-1 block">Description (Optional)</Label>
-                        <Input 
-                          id={`unit-desc-${unitType.id}`}
-                          value={unitType.description || ""}
-                          onChange={(e) => updateUnitType(unitType.id, "description", e.target.value)}
-                          placeholder="Brief description"
-                          className="h-8"
-                        />
-                      </div>
-                      
-                      <div className="col-span-4">
-                        <Label className="text-xs text-muted-foreground mb-1 block">Total Area</Label>
-                        <div className="text-sm font-medium">
-                          {parseInt(unitType.typicalSize || "0") * parseInt(unitType.count || "0")} sq ft
-                          {stats.floorCount > 0 && (
-                            <Badge variant="outline" className="ml-2 bg-green-50 text-green-700">
-                              {stats.floorCount} floors
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent>
+                  <div className="space-y-4 p-3">
+                    {units.map(unitType => {
+                      const stats = calculateAllocationStats(unitType.id);
+                      const allocated = stats.totalAllocated;
+                      const target = parseInt(unitType.count) || 0;
+                      const allocatedPercent = target ? Math.min(100, (allocated / target) * 100) : 0;
+                      
+                      return (
+                        <Card key={unitType.id} className="overflow-hidden">
+                          <CardContent className="p-0">
+                            <div className="p-4 relative">
+                              <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: unitType.color || getCategoryColor(category) }}></div>
+                              
+                              <div className="grid grid-cols-12 gap-4 items-center">
+                                <div className="col-span-3 pl-3">
+                                  <Label htmlFor={`unit-name-${unitType.id}`} className="text-xs text-muted-foreground mb-1 block">Name</Label>
+                                  <Input 
+                                    id={`unit-name-${unitType.id}`}
+                                    value={unitType.name}
+                                    onChange={(e) => updateUnitType(unitType.id, "name", e.target.value)}
+                                    placeholder="Unit name"
+                                    className="h-8"
+                                  />
+                                </div>
+                                
+                                <div className="col-span-2">
+                                  <Label htmlFor={`unit-size-${unitType.id}`} className="text-xs text-muted-foreground mb-1 block">Size (sq ft)</Label>
+                                  <Input 
+                                    id={`unit-size-${unitType.id}`}
+                                    value={unitType.typicalSize}
+                                    onChange={(e) => updateUnitType(unitType.id, "typicalSize", e.target.value)}
+                                    placeholder="0"
+                                    className="h-8"
+                                    type="number"
+                                  />
+                                </div>
+                                
+                                <div className="col-span-2">
+                                  <Label htmlFor={`unit-count-${unitType.id}`} className="text-xs text-muted-foreground mb-1 block">Total Needed</Label>
+                                  <Input 
+                                    id={`unit-count-${unitType.id}`}
+                                    value={unitType.count}
+                                    onChange={(e) => updateUnitType(unitType.id, "count", e.target.value)}
+                                    placeholder="0"
+                                    className="h-8"
+                                    type="number"
+                                  />
+                                </div>
+                                
+                                <div className="col-span-2">
+                                  <Label className="text-xs text-muted-foreground mb-1 block">Allocation</Label>
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-2 flex-grow relative">
+                                      <div className="absolute inset-0 bg-slate-200 rounded-full"></div>
+                                      <div 
+                                        className={`absolute left-0 top-0 bottom-0 rounded-full ${getCapacityColor(allocatedPercent)}`}
+                                        style={{ width: `${allocatedPercent}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-xs font-medium whitespace-nowrap">
+                                      {allocated}/{target}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <div className="col-span-3 flex justify-end">
+                                  <div className="flex items-center gap-1">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="h-8 text-xs"
+                                            onClick={() => handleOpenAllocateDialog(unitType.id)}
+                                          >
+                                            <ArrowDownToLine className="h-3 w-3 mr-1" />
+                                            Allocate
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Allocate to floors</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-8 w-8 p-0"
+                                            onClick={() => handleSuggestAllocation(unitType.id, parseInt(unitType.count) || 0)}
+                                          >
+                                            <HelpCircle className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Suggest allocation to floors</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            onClick={() => handleRemoveUnitType(unitType.id)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Remove unit type</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Category-specific fields */}
+                              {category === "residential" && (
+                                <div className="mt-3 grid grid-cols-12 gap-4 pt-2 border-t">
+                                  <div className="col-span-3">
+                                    <Label className="text-xs text-muted-foreground mb-1 block">Bedrooms</Label>
+                                    <Select
+                                      value={unitType.description || ""}
+                                      onValueChange={(value) => updateUnitType(unitType.id, "description", value)}
+                                    >
+                                      <SelectTrigger className="h-8">
+                                        <SelectValue placeholder="Select" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="0">Studio</SelectItem>
+                                        <SelectItem value="1">1 Bedroom</SelectItem>
+                                        <SelectItem value="2">2 Bedroom</SelectItem>
+                                        <SelectItem value="3">3 Bedroom</SelectItem>
+                                        <SelectItem value="4+">4+ Bedroom</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  {stats.floorCount > 0 && (
+                                    <div className="col-span-9 flex items-center">
+                                      <div className="flex items-center gap-1 text-sm">
+                                        <Building className="h-4 w-4 mr-1 text-slate-400" />
+                                        <span className="text-muted-foreground mr-1">Allocated to:</span>
+                                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                          {stats.floorCount} floors
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {category === "retail" && (
+                                <div className="mt-3 grid grid-cols-12 gap-4 pt-2 border-t">
+                                  <div className="col-span-4">
+                                    <Label className="text-xs text-muted-foreground mb-1 block">Retail Type</Label>
+                                    <Select
+                                      value={unitType.description || ""}
+                                      onValueChange={(value) => updateUnitType(unitType.id, "description", value)}
+                                    >
+                                      <SelectTrigger className="h-8">
+                                        <SelectValue placeholder="Select" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="restaurant">Restaurant</SelectItem>
+                                        <SelectItem value="shop">Shop</SelectItem>
+                                        <SelectItem value="service">Service</SelectItem>
+                                        <SelectItem value="grocery">Grocery</SelectItem>
+                                        <SelectItem value="other">Other</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  {stats.floorCount > 0 && (
+                                    <div className="col-span-8 flex items-center">
+                                      <div className="flex items-center gap-1 text-sm">
+                                        <Building className="h-4 w-4 mr-1 text-slate-400" />
+                                        <span className="text-muted-foreground mr-1">Allocated to:</span>
+                                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                          {stats.floorCount} floors
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Total area calculation */}
+                              {!["residential", "retail"].includes(category) && stats.floorCount > 0 && (
+                                <div className="mt-3 grid grid-cols-12 gap-4 pt-2 border-t">
+                                  <div className="col-span-12">
+                                    <div className="flex items-center gap-1 text-sm">
+                                      <Building className="h-4 w-4 mr-1 text-slate-400" />
+                                      <span className="text-muted-foreground mr-1">Allocated to:</span>
+                                      <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                        {stats.floorCount} floors
+                                      </Badge>
+                                      <span className="mx-2 text-muted-foreground">•</span>
+                                      <span className="text-muted-foreground mr-1">Total area:</span>
+                                      <span className="font-medium">{parseInt(unitType.typicalSize || "0") * parseInt(unitType.count || "0")} sq ft</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             );
           })}
           
@@ -339,7 +585,12 @@ const UnitMixPlanning: React.FC = () => {
                     <span className="font-medium">{totalBuildableAreaNumber.toLocaleString()} sq ft</span>
                   </div>
                   
-                  <Progress value={percentPlanned} className="h-2" />
+                  <div className="h-2 w-full bg-slate-100 rounded-full relative">
+                    <div 
+                      className={`absolute left-0 top-0 bottom-0 rounded-full ${getCapacityColor(percentPlanned)}`}
+                      style={{ width: `${Math.min(100, percentPlanned)}%` }}
+                    ></div>
+                  </div>
                   
                   <div className="flex justify-between text-xs mt-1">
                     <span>{percentPlanned.toFixed(1)}% planned</span>
@@ -368,14 +619,15 @@ const UnitMixPlanning: React.FC = () => {
                         <span className="capitalize">{category}:</span>
                         <span>{data.units} units / {data.area.toLocaleString()} sq ft</span>
                       </div>
-                      <Progress 
-                        value={(data.area / totalUnitArea) * 100} 
-                        className="h-1.5" 
-                        style={{ 
-                          backgroundColor: '#e5e7eb',
-                          '--category-color': getCategoryColor(category),
-                        } as React.CSSProperties}
-                      />
+                      <div className="h-1.5 w-full bg-slate-100 rounded-full relative">
+                        <div 
+                          className="absolute left-0 top-0 bottom-0 rounded-full"
+                          style={{ 
+                            width: `${(data.area / totalUnitArea) * 100}%`,
+                            backgroundColor: getCategoryColor(category)
+                          }}
+                        ></div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -398,30 +650,49 @@ const UnitMixPlanning: React.FC = () => {
         
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Category Breakdown</CardTitle>
-            <CardDescription>Detailed statistics by category</CardDescription>
+            <CardTitle className="text-base">Floor Capacity Analysis</CardTitle>
+            <CardDescription>Space allocation by floor</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Object.entries(categoryTotals).map(([category, data]) => (
-                <div key={category} className="border rounded-md p-3">
-                  <h4 className="font-medium text-sm capitalize mb-1">{category}</h4>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Units:</span>
-                      <span>{data.units}</span>
+            <div className="space-y-4">
+              {floorConfigurations
+                .filter(f => !f.isUnderground)
+                .sort((a, b) => b.floorNumber - a.floorNumber)
+                .map(floor => {
+                  const floorArea = floor.customSquareFootage && floor.customSquareFootage !== "" 
+                    ? parseInt(floor.customSquareFootage) 
+                    : 0;
+                  
+                  const allocatedArea = calculateAllocatedAreaByFloor(floor.floorNumber);
+                  const percentUsed = floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0;
+                  
+                  return (
+                    <div key={floor.floorNumber} className="flex items-center space-x-4">
+                      <div className="w-8 text-right font-medium">
+                        {floor.floorNumber}
+                      </div>
+                      <div className="flex-1">
+                        <div className="h-6 bg-slate-100 rounded-md relative">
+                          <div 
+                            className={`absolute left-0 top-0 bottom-0 rounded-l-md ${getCapacityColor(percentUsed)}`}
+                            style={{ width: `${Math.min(100, percentUsed)}%` }}
+                          ></div>
+                          <div className="absolute inset-0 flex items-center justify-between px-2 text-xs font-medium">
+                            <span className={percentUsed > 40 ? "text-white" : "text-slate-700"}>
+                              {allocatedArea.toLocaleString()} sq ft
+                            </span>
+                            <span className="text-slate-700">
+                              {floorArea.toLocaleString()} sq ft
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="w-16 text-xs font-medium text-right">
+                        {percentUsed.toFixed(1)}%
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Total Area:</span>
-                      <span>{data.area.toLocaleString()} sq ft</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">% of Total:</span>
-                      <span>{((data.area / totalUnitArea) * 100).toFixed(1)}%</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
             </div>
           </CardContent>
         </Card>
@@ -430,7 +701,7 @@ const UnitMixPlanning: React.FC = () => {
   };
 
   return (
-    <Card>
+    <Card className="mt-8" id="unit-mix-section">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Unit Mix Planning</span>
@@ -439,6 +710,16 @@ const UnitMixPlanning: React.FC = () => {
             <span>{totalUnits} units</span>
             <span className="mx-1 text-muted-foreground">•</span>
             <span>{totalUnitArea.toLocaleString()} sq ft</span>
+            <span className="mx-1 text-muted-foreground">•</span>
+            <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              percentPlanned > 100 
+                ? 'bg-red-100 text-red-800' 
+                : percentPlanned >= 85 
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-amber-100 text-amber-800'
+            }`}>
+              {percentPlanned.toFixed(1)}% capacity
+            </div>
           </div>
         </CardTitle>
         <CardDescription>
@@ -450,7 +731,7 @@ const UnitMixPlanning: React.FC = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="list" className="flex items-center gap-2">
-              <PlusCircle className="h-4 w-4" />
+              <FolderOpen className="h-4 w-4" />
               <span>Unit Library</span>
             </TabsTrigger>
             <TabsTrigger value="summary" className="flex items-center gap-2">
@@ -495,6 +776,101 @@ const UnitMixPlanning: React.FC = () => {
             </div>
           </div>
         )}
+        
+        {/* Allocate Units Dialog */}
+        <Dialog open={allocateDialogOpen} onOpenChange={setAllocateDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Allocate Units to Floors</DialogTitle>
+              <DialogDescription>
+                Select which floors to allocate this unit type to
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4">
+              <div className="mb-4">
+                <Label className="text-sm font-medium">Selected Unit Type</Label>
+                <div className="mt-1 p-2 border rounded-md">
+                  {selectedUnitTypeId && (() => {
+                    const unitType = unitTypes.find(u => u.id === selectedUnitTypeId);
+                    if (!unitType) return "Unknown unit type";
+                    
+                    const target = parseInt(unitType.count) || 0;
+                    const stats = calculateAllocationStats(unitType.id);
+                    const remaining = Math.max(0, target - stats.totalAllocated);
+                    
+                    return (
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{unitType.name}</span>
+                        <div className="text-sm text-muted-foreground">
+                          <span className="font-medium">{remaining}</span> of {target} units remaining to allocate
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Select Floors to Allocate Units</Label>
+                <div className="border rounded-md p-1 max-h-60 overflow-y-auto grid grid-cols-3 gap-1">
+                  {floorConfigurations
+                    .filter(f => !f.isUnderground)
+                    .sort((a, b) => b.floorNumber - a.floorNumber)
+                    .map(floor => {
+                      const isSelected = selectedFloors.includes(floor.floorNumber);
+                      const isValid = selectedUnitTypeId ? 
+                        isValidFloorForUnitType(floor.floorNumber, selectedUnitTypeId) : 
+                        true;
+                      
+                      return (
+                        <div 
+                          key={floor.floorNumber}
+                          className={`p-2 rounded-md border cursor-pointer transition-colors ${
+                            isSelected 
+                              ? 'bg-primary/10 border-primary/30' 
+                              : !isValid 
+                                ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' 
+                                : 'hover:bg-slate-50 border-slate-200'
+                          }`}
+                          onClick={() => {
+                            if (!isValid) return;
+                            setSelectedFloors(prev => 
+                              isSelected 
+                                ? prev.filter(f => f !== floor.floorNumber)
+                                : [...prev, floor.floorNumber]
+                            );
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={`font-medium ${isSelected ? 'text-primary' : ''}`}>
+                              Floor {floor.floorNumber}
+                            </span>
+                            <Checkbox checked={isSelected} className="pointer-events-none" />
+                          </div>
+                          {!isValid && (
+                            <div className="text-xs text-slate-400 mt-1">
+                              Insufficient space
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAllocateDialogOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={handleAllocateUnits}
+                disabled={selectedFloors.length === 0}
+              >
+                Allocate Units
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

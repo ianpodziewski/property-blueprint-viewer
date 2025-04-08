@@ -5,119 +5,101 @@ import { saveToLocalStorage, loadFromLocalStorage } from "@/hooks/useLocalStorag
 
 const STORAGE_KEY = "realEstateModel_unitTypes";
 
-const defaultUnitTypes: UnitType[] = [
-  {
-    id: "unit-type-1",
-    name: "Studio",
-    category: "residential",
-    typicalSize: "500",
-    count: "20",
-    description: "Compact studio apartments",
-    color: "#3B82F6"
-  },
-  {
-    id: "unit-type-2",
-    name: "1-Bedroom",
-    category: "residential",
-    typicalSize: "700",
-    count: "30",
-    description: "Standard one-bedroom apartments",
-    color: "#2563EB"
-  },
-  {
-    id: "unit-type-3",
-    name: "2-Bedroom",
-    category: "residential",
-    typicalSize: "1000",
-    count: "15",
-    description: "Two-bedroom family apartments",
-    color: "#1D4ED8"
-  },
-  {
-    id: "unit-type-4",
-    name: "Retail Space",
-    category: "retail",
-    typicalSize: "2500",
-    count: "4",
-    description: "Ground floor retail units",
-    color: "#F59E0B"
-  }
-];
+// Function to generate a random color based on category
+const getCategoryDefaultColor = (category: string): string => {
+  const colors: Record<string, string[]> = {
+    'residential': ['#3B82F6', '#60A5FA', '#93C5FD', '#BFDBFE'],
+    'office': ['#10B981', '#34D399', '#6EE7B7', '#A7F3D0'],
+    'retail': ['#F59E0B', '#FBBF24', '#FCD34D', '#FDE68A'],
+    'hotel': ['#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE'],
+    'amenity': ['#EC4899', '#F472B6', '#F9A8D4', '#FBCFE8'],
+    'other': ['#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB']
+  };
+  
+  const categoryColors = colors[category] || colors.other;
+  const randomIndex = Math.floor(Math.random() * categoryColors.length);
+  return categoryColors[randomIndex];
+};
 
 export const useUnitTypes = () => {
-  const [unitTypes, setUnitTypes] = useState<UnitType[]>([]);
+  const [unitTypes, setUnitTypes] = useState<UnitType[]>([
+    { 
+      id: "unit-1", 
+      name: "Studio", 
+      category: "residential",
+      typicalSize: "550", 
+      count: "0",
+      color: getCategoryDefaultColor("residential")
+    }
+  ]);
 
-  // Load from localStorage on mount
+  // Load unit types from localStorage on mount
   useEffect(() => {
-    const storedUnitTypes = loadFromLocalStorage(STORAGE_KEY, defaultUnitTypes);
+    const storedUnitTypes = loadFromLocalStorage(STORAGE_KEY, [
+      { 
+        id: "unit-1", 
+        name: "Studio", 
+        category: "residential",
+        typicalSize: "550", 
+        count: "0",
+        color: getCategoryDefaultColor("residential")
+      }
+    ]);
     setUnitTypes(storedUnitTypes);
   }, []);
 
-  // Save to localStorage when updated
+  // Save unit types to localStorage whenever it changes
   useEffect(() => {
-    if (unitTypes.length > 0) {
-      saveToLocalStorage(STORAGE_KEY, unitTypes);
-    }
+    saveToLocalStorage(STORAGE_KEY, unitTypes);
   }, [unitTypes]);
 
   const addUnitType = useCallback(() => {
-    const newId = `unit-type-${Date.now()}`;
+    const newId = `unit-${Date.now()}`;
+    const defaultCategory = "residential";
+    
     const newUnitType: UnitType = {
       id: newId,
-      name: "",
-      category: "residential",
+      name: "New Unit Type",
+      category: defaultCategory,
       typicalSize: "0",
       count: "0",
-      color: getRandomColor()
+      color: getCategoryDefaultColor(defaultCategory)
     };
     
     setUnitTypes(prev => [...prev, newUnitType]);
     return newId;
   }, []);
 
-  const updateUnitType = useCallback((id: string, field: keyof UnitType, value: string) => {
-    setUnitTypes(prev => 
-      prev.map(unitType => 
-        unitType.id === id ? { ...unitType, [field]: value } : unitType
-      )
-    );
+  const removeUnitType = useCallback((id: string) => {
+    setUnitTypes(prev => prev.filter(unit => unit.id !== id));
   }, []);
 
-  const removeUnitType = useCallback((id: string) => {
-    setUnitTypes(prev => prev.filter(unitType => unitType.id !== id));
+  const updateUnitType = useCallback((id: string, field: keyof UnitType, value: any) => {
+    setUnitTypes(prev => prev.map(unit => {
+      if (unit.id === id) {
+        // If category changes, also update the color
+        if (field === 'category') {
+          return { ...unit, [field]: value, color: getCategoryDefaultColor(value as string) };
+        }
+        return { ...unit, [field]: value };
+      }
+      return unit;
+    }));
   }, []);
 
   const calculateTotalArea = useCallback(() => {
-    return unitTypes.reduce((total, unitType) => {
-      const count = parseInt(unitType.count) || 0;
-      const size = parseInt(unitType.typicalSize) || 0;
-      return total + (count * size);
+    return unitTypes.reduce((sum, unit) => {
+      const size = parseInt(unit.typicalSize) || 0;
+      const count = parseInt(unit.count) || 0;
+      return sum + (size * count);
     }, 0);
-  }, [unitTypes]);
-
-  const getUnitTypeById = useCallback((id: string) => {
-    return unitTypes.find(unitType => unitType.id === id);
   }, [unitTypes]);
 
   return {
     unitTypes,
     addUnitType,
-    updateUnitType,
     removeUnitType,
-    calculateTotalArea,
-    getUnitTypeById
+    updateUnitType,
+    calculateTotalArea
   };
 };
-
-// Helper function to generate random colors for new unit types
-function getRandomColor() {
-  const colors = [
-    "#3B82F6", "#2563EB", "#1D4ED8", // Blues
-    "#10B981", "#059669", "#047857", // Greens
-    "#F59E0B", "#D97706", "#B45309", // Ambers
-    "#8B5CF6", "#7C3AED", "#6D28D9", // Purples
-    "#EC4899", "#DB2777", "#BE185D", // Pinks
-    "#EF4444", "#DC2626", "#B91C1C"  // Reds
-  ];
-  return colors[Math.floor(Math.random() * colors.length)];
-}
