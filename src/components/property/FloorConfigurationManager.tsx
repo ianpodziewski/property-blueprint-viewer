@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -107,7 +108,8 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   const [floorCount, setFloorCount] = useState("1");
   const [isUnderground, setIsUnderground] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const [position, setPosition] = useState<"top" | "bottom">("top");
+  // Fix: Update position type to include "specific"
+  const [position, setPosition] = useState<"top" | "bottom" | "specific">("top");
   const [specificPosition, setSpecificPosition] = useState<string>("");
   const [numberingPattern, setNumberingPattern] = useState<"consecutive" | "skip">("consecutive");
   
@@ -179,7 +181,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     let positionValue: "top" | "bottom" | "specific" = position;
     let specificPositionValue: number | undefined = undefined;
     
-    // If position is "specific", validate specificPosition
+    // Fix: Update type comparison to properly check for specific position
     if (position === "specific" && specificPosition) {
       specificPositionValue = parseInt(specificPosition);
     }
@@ -589,6 +591,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
             
             <div>
               <Label>Position</Label>
+              {/* Fix: Update TabsList to include "specific" as a valid value */}
               <Tabs 
                 value={position} 
                 onValueChange={(value) => setPosition(value as "top" | "bottom" | "specific")}
@@ -832,17 +835,19 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* Floor Editor Dialog */}
+      {/* Floor Editor Dialog - Fix: Remove the 'open' prop */}
       {currentFloor !== null && (
-        <FloorEditor
-          open={floorEditorOpen}
-          onOpenChange={setFloorEditorOpen}
-          floorNumber={currentFloor}
-          floorConfiguration={floorConfigurations.find(f => f.floorNumber === currentFloor)}
-          floorTemplates={floorTemplates}
-          updateFloorConfiguration={updateFloorConfiguration}
-          updateFloorSpaces={updateFloorSpaces}
-        />
+        <Dialog open={floorEditorOpen} onOpenChange={setFloorEditorOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <FloorEditor
+              floorNumber={currentFloor}
+              floorConfiguration={floorConfigurations.find(f => f.floorNumber === currentFloor)}
+              floorTemplates={floorTemplates}
+              updateFloorConfiguration={updateFloorConfiguration}
+              updateFloorSpaces={updateFloorSpaces}
+            />
+          </DialogContent>
+        </Dialog>
       )}
       
       {/* Confirmation Dialog for Floor Deletion */}
