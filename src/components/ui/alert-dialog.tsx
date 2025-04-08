@@ -1,85 +1,21 @@
 
 import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
-import { createPortal } from "react-dom"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
-// Track active dialogs
-const activeDialogs = new Set<string>();
-
-// Store a unique ID for each dialog instance
-const getDialogId = (() => {
-  let counter = 0;
-  return () => `alert-dialog-${counter++}`;
-})();
-
-const AlertDialog = React.forwardRef<
-  React.ElementRef<typeof AlertDialogPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Root>
->(({ open, onOpenChange, ...props }, ref) => {
-  const dialogId = React.useRef(getDialogId()).current;
-  
-  React.useEffect(() => {
-    if (open) {
-      activeDialogs.add(dialogId);
-      console.log(`Dialog ${dialogId} opened. Active dialogs:`, Array.from(activeDialogs));
-    } else if (activeDialogs.has(dialogId)) {
-      activeDialogs.delete(dialogId);
-      console.log(`Dialog ${dialogId} closed. Active dialogs:`, Array.from(activeDialogs));
-    }
-    
-    return () => {
-      if (activeDialogs.has(dialogId)) {
-        activeDialogs.delete(dialogId);
-        console.log(`Dialog ${dialogId} unmounted. Active dialogs:`, Array.from(activeDialogs));
-      }
-    };
-  }, [open, dialogId]);
-  
-  return (
-    <AlertDialogPrimitive.Root 
-      open={open} 
-      onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          // Ensure we always process the onOpenChange
-          setTimeout(() => {
-            if (onOpenChange) onOpenChange(isOpen);
-          }, 0);
-        } else {
-          if (onOpenChange) onOpenChange(isOpen);
-        }
-      }}
-      {...props}
-    />
-  );
-});
-AlertDialog.displayName = "AlertDialog";
+const AlertDialog = ({
+  open,
+  onOpenChange,
+  ...props
+}: AlertDialogPrimitive.AlertDialogProps) => (
+  <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...props} />
+)
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger
 
-// Custom portal component that ensures proper cleanup
-const AlertDialogPortal = ({ children, ...props }: AlertDialogPrimitive.AlertDialogPortalProps) => {
-  const [mounted, setMounted] = React.useState(false);
-  
-  React.useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
-  
-  if (!mounted) {
-    return null;
-  }
-  
-  // Use React's createPortal to ensure proper event handling
-  return createPortal(
-    <AlertDialogPrimitive.Portal {...props}>
-      {children}
-    </AlertDialogPrimitive.Portal>,
-    document.body
-  );
-};
+const AlertDialogPortal = AlertDialogPrimitive.Portal
 
 const AlertDialogOverlay = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Overlay>,
@@ -93,11 +29,8 @@ const AlertDialogOverlay = React.forwardRef<
     {...props}
     ref={ref}
     onClick={(e) => {
-      // Always prevent default and stop propagation
       e.preventDefault();
       e.stopPropagation();
-      
-      // Call the original onClick handler if provided
       if (props.onClick) props.onClick(e);
     }}
   />
@@ -118,12 +51,12 @@ const AlertDialogContent = React.forwardRef<
       )}
       onClick={(e) => {
         // Always stop propagation
+        e.preventDefault();
         e.stopPropagation();
         
         // Call the original onClick handler if provided
         if (props.onClick) props.onClick(e);
       }}
-      // Remove the onPointerDownOutside prop since it's not supported
       {...props}
     />
   </AlertDialogPortal>
@@ -141,6 +74,7 @@ const AlertDialogHeader = ({
     )}
     {...props}
     onClick={(e) => {
+      e.preventDefault();
       e.stopPropagation();
       if (props.onClick) props.onClick(e);
     }}
@@ -159,6 +93,7 @@ const AlertDialogFooter = ({
     )}
     {...props}
     onClick={(e) => {
+      e.preventDefault();
       e.stopPropagation();
       if (props.onClick) props.onClick(e);
     }}
@@ -174,6 +109,11 @@ const AlertDialogTitle = React.forwardRef<
     ref={ref}
     className={cn("text-lg font-semibold", className)}
     {...props}
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
   />
 ))
 AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
@@ -182,14 +122,18 @@ const AlertDialogDescription = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
 >(({ className, children, ...props }, ref) => (
-  // Fix for the DOM nesting warning - use div for content that might contain block elements
   <AlertDialogPrimitive.Description
     ref={ref}
     className={cn("text-sm text-muted-foreground", className)}
     asChild={React.isValidElement(children)}
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (props.onClick) props.onClick(e);
+    }}
     {...props}
   >
-    {React.isValidElement(children) ? children : <div>{children}</div>}
+    {React.isValidElement(children) ? children : <span>{children}</span>}
   </AlertDialogPrimitive.Description>
 ))
 AlertDialogDescription.displayName = AlertDialogPrimitive.Description.displayName
@@ -203,16 +147,10 @@ const AlertDialogAction = React.forwardRef<
     e.preventDefault();
     e.stopPropagation();
     
-    // Add a small delay to ensure the dialog has time to process the click
-    setTimeout(() => {
-      // Call the original onClick if provided
-      if (onClick) {
-        onClick(e);
-      }
-      
-      // Force a focus reset to ensure no stale focus state
-      document.body.focus();
-    }, 10);
+    // Call the original onClick if provided
+    if (onClick) {
+      onClick(e);
+    }
   };
   
   return (
@@ -235,16 +173,10 @@ const AlertDialogCancel = React.forwardRef<
     e.preventDefault();
     e.stopPropagation();
     
-    // Add a small delay to ensure the dialog has time to process the click
-    setTimeout(() => {
-      // Call the original onClick if provided
-      if (onClick) {
-        onClick(e);
-      }
-      
-      // Force a focus reset to ensure no stale focus state
-      document.body.focus();
-    }, 10);
+    // Call the original onClick if provided
+    if (onClick) {
+      onClick(e);
+    }
   };
   
   return (
@@ -261,23 +193,6 @@ const AlertDialogCancel = React.forwardRef<
   );
 })
 AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName
-
-// Function to close all open dialogs (emergency recovery)
-export const closeAllDialogs = () => {
-  console.log("Emergency close of all dialogs triggered");
-  document.querySelectorAll('[role="dialog"]').forEach(dialog => {
-    dialog.setAttribute('data-state', 'closed');
-    setTimeout(() => {
-      if (dialog.parentNode) {
-        dialog.parentNode.removeChild(dialog);
-      }
-    }, 300);
-  });
-  activeDialogs.clear();
-};
-
-// Utility to check if any dialogs are currently open
-export const hasOpenDialogs = () => activeDialogs.size > 0;
 
 export {
   AlertDialog,

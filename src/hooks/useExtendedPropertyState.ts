@@ -1,157 +1,104 @@
 
-import { useCallback, useMemo, useRef } from "react";
-import { useProperty } from "@/contexts/PropertyContext";
+import { useCallback } from "react";
+import { useProjectInfo } from "./property/useProjectInfo";
+import { useBuildingParameters } from "./property/useBuildingParameters";
+import { useFloorTemplates } from "./property/useFloorTemplates";
+import { useFloorConfigurations } from "./property/useFloorConfigurations";
+import { useSpaceTypes } from "./property/useSpaceTypes";
+import { useUnitMix } from "./property/useUnitMix";
 import { useVisualizationData } from "./property/useVisualizationData";
-import { useRenderDebugger } from "./useRenderDebugger";
+import { SpaceDefinition, BuildingSystemsConfig } from "../types/propertyTypes";
 
-/**
- * Enhanced hook that combines PropertyContext with visualization data
- * This maintains API compatibility with the previous implementation
- */
 export const useExtendedPropertyState = () => {
-  // Debug render cycles to catch infinite loops
-  const { isLoopDetected } = useRenderDebugger("useExtendedPropertyState", {}, 15, true);
-  const renderRef = useRef(0);
+  // Use individual hooks for better organization
+  const projectInfo = useProjectInfo();
+  const floorConfigurations = useFloorConfigurations(
+    projectInfo.projectName ? [] : [] // This is just to satisfy the dependency, will be fixed below
+  );
+  const floorTemplates = useFloorTemplates(
+    floorConfigurations.floorConfigurations, 
+    floorConfigurations.setFloorConfigurations
+  );
+  const buildingParams = useBuildingParameters(
+    floorConfigurations.floorConfigurations, 
+    floorTemplates.floorTemplates
+  );
+  const spaceTypes = useSpaceTypes();
+  const unitMix = useUnitMix();
   
-  // Get the property context - only once
-  const property = useProperty();
+  // Visualization data depends on all other hooks
+  const visualizationData = useVisualizationData(
+    spaceTypes.spaceTypes,
+    buildingParams.actualFar,
+    buildingParams.farAllowance,
+    buildingParams.totalBuildableArea,
+    spaceTypes.totalAllocatedArea,
+    floorConfigurations.floorConfigurations,
+    floorTemplates.floorTemplates
+  );
   
-  // Break infinite loops with circuit breaker
-  renderRef.current++;
-  if (renderRef.current > 25 || isLoopDetected) {
-    console.error("Detected potential infinite loop in useExtendedPropertyState! Breaking out.");
-    // Return cached/static data to break the loop
-    return useRef({
-      // Return minimal stable API to prevent errors
-      projectName: property.projectName,
-      setProjectName: () => {},
-      projectLocation: property.projectLocation,
-      setProjectLocation: () => {},
-      projectType: property.projectType,
-      setProjectType: () => {},
-      farAllowance: property.farAllowance,
-      setFarAllowance: () => {},
-      totalLandArea: property.totalLandArea,
-      setTotalLandArea: () => {},
-      buildingFootprint: property.buildingFootprint,
-      setBuildingFootprint: () => {},
-      totalBuildableArea: property.totalBuildableArea || "0",
-      totalAboveGroundArea: property.totalAboveGroundArea || "0",
-      totalBelowGroundArea: property.totalBelowGroundArea || "0",
-      actualFar: property.actualFar || "0",
-      spaceTypes: property.spaceTypes || [],
-      addSpaceType: () => {},
-      removeSpaceType: () => {},
-      updateSpaceType: () => {},
-      updateSpaceTypeFloorAllocation: () => {},
-      totalAllocatedArea: property.totalAllocatedArea || "0",
-      resetSpaceTypes: () => {},
-      unitMixes: property.unitMixes || [],
-      addUnitMix: () => {},
-      removeUnitMix: () => {},
-      updateUnitMix: () => {},
-      resetUnitMix: () => {},
-      floorTemplates: property.floorTemplates || [],
-      addFloorTemplate: () => {},
-      updateFloorTemplate: () => {},
-      removeFloorTemplate: () => {},
-      resetFloorTemplates: () => {},
-      floorConfigurations: property.floorConfigurations || [],
-      updateFloorConfiguration: () => {},
-      copyFloorConfiguration: () => {},
-      bulkEditFloorConfigurations: () => {},
-      addFloors: () => {},
-      removeFloors: () => {},
-      reorderFloor: () => {},
-      updateFloorSpaces: () => {},
-      updateFloorBuildingSystems: () => {},
-      resetFloorConfigurations: () => {},
-      isProcessingOperation: false,
-      issues: [],
-      spaceTypeColors: {},
-      generateFloorsData: () => [],
-      generateSpaceBreakdown: () => [],
-      generatePhasesData: () => [],
-      resetAllData: () => {}
-    }).current;
-  }
-  
-  // Visualization data depends on all other state - stability is critical here
-  const visualizationData = useMemo(() => useVisualizationData(
-    property.spaceTypes,
-    property.actualFar,
-    property.farAllowance,
-    property.totalBuildableArea,
-    property.totalAllocatedArea,
-    property.floorConfigurations,
-    property.floorTemplates
-  ), [
-    property.spaceTypes, 
-    property.actualFar, 
-    property.farAllowance,
-    property.totalBuildableArea,
-    property.totalAllocatedArea,
-    property.floorConfigurations,
-    property.floorTemplates
-  ]);
+  // Function to reset all data
+  const resetAllData = useCallback(() => {
+    // Reset individual state hooks
+    // These would ideally have their own reset methods
+  }, []);
 
-  // Memoize the entire return object to ensure it remains stable
-  return useMemo(() => ({
+  // Return all the properties and methods from individual hooks
+  return {
     // Project Information
-    projectName: property.projectName, 
-    setProjectName: property.setProjectName,
-    projectLocation: property.projectLocation, 
-    setProjectLocation: property.setProjectLocation,
-    projectType: property.projectType, 
-    setProjectType: property.setProjectType,
+    projectName: projectInfo.projectName, 
+    setProjectName: projectInfo.setProjectName,
+    projectLocation: projectInfo.projectLocation, 
+    setProjectLocation: projectInfo.setProjectLocation,
+    projectType: projectInfo.projectType, 
+    setProjectType: projectInfo.setProjectType,
     
     // Building Parameters
-    farAllowance: property.farAllowance, 
-    setFarAllowance: property.setFarAllowance,
-    totalLandArea: property.totalLandArea, 
-    setTotalLandArea: property.setTotalLandArea,
-    buildingFootprint: property.buildingFootprint, 
-    setBuildingFootprint: property.setBuildingFootprint,
-    totalBuildableArea: property.totalBuildableArea,
-    totalAboveGroundArea: property.totalAboveGroundArea,
-    totalBelowGroundArea: property.totalBelowGroundArea,
-    actualFar: property.actualFar,
+    farAllowance: buildingParams.farAllowance, 
+    setFarAllowance: buildingParams.setFarAllowance,
+    totalLandArea: buildingParams.totalLandArea, 
+    setTotalLandArea: buildingParams.setTotalLandArea,
+    buildingFootprint: buildingParams.buildingFootprint, 
+    setBuildingFootprint: buildingParams.setBuildingFootprint,
+    totalBuildableArea: buildingParams.totalBuildableArea,
+    totalAboveGroundArea: buildingParams.totalAboveGroundArea,
+    totalBelowGroundArea: buildingParams.totalBelowGroundArea,
+    actualFar: buildingParams.actualFar,
     
     // Space Types
-    spaceTypes: property.spaceTypes,
-    addSpaceType: property.addSpaceType,
-    removeSpaceType: property.removeSpaceType,
-    updateSpaceType: property.updateSpaceType,
-    updateSpaceTypeFloorAllocation: property.updateSpaceTypeFloorAllocation,
-    totalAllocatedArea: property.totalAllocatedArea,
-    resetSpaceTypes: property.resetSpaceTypes,
+    spaceTypes: spaceTypes.spaceTypes,
+    addSpaceType: spaceTypes.addSpaceType,
+    removeSpaceType: spaceTypes.removeSpaceType,
+    updateSpaceType: spaceTypes.updateSpaceType,
+    updateSpaceTypeFloorAllocation: spaceTypes.updateSpaceTypeFloorAllocation,
+    totalAllocatedArea: spaceTypes.totalAllocatedArea,
     
     // Unit Mix
-    unitMixes: property.unitMixes,
-    addUnitMix: property.addUnitMix,
-    removeUnitMix: property.removeUnitMix,
-    updateUnitMix: property.updateUnitMix,
-    resetUnitMix: property.resetUnitMix,
+    unitMixes: unitMix.unitMixes,
+    addUnitMix: unitMix.addUnitMix,
+    removeUnitMix: unitMix.removeUnitMix,
+    updateUnitMix: unitMix.updateUnitMix,
     
     // Floor Templates
-    floorTemplates: property.floorTemplates,
-    addFloorTemplate: property.addFloorTemplate,
-    updateFloorTemplate: property.updateFloorTemplate,
-    removeFloorTemplate: property.removeFloorTemplate,
-    resetFloorTemplates: property.resetFloorTemplates,
+    floorTemplates: floorTemplates.floorTemplates,
+    addFloorTemplate: floorTemplates.addFloorTemplate,
+    updateFloorTemplate: floorTemplates.updateFloorTemplate,
+    removeFloorTemplate: floorTemplates.removeFloorTemplate,
     
     // Floor Configurations
-    floorConfigurations: property.floorConfigurations,
-    updateFloorConfiguration: property.updateFloorConfiguration,
-    copyFloorConfiguration: property.copyFloorConfiguration,
-    bulkEditFloorConfigurations: property.bulkEditFloorConfigurations,
-    addFloors: property.addFloors,
-    removeFloors: property.removeFloors,
-    reorderFloor: property.reorderFloor,
-    updateFloorSpaces: property.updateFloorSpaces,
-    updateFloorBuildingSystems: property.updateFloorBuildingSystems,
-    resetFloorConfigurations: property.resetFloorConfigurations,
-    isProcessingOperation: property.isProcessingOperation,
+    floorConfigurations: floorConfigurations.floorConfigurations,
+    updateFloorConfiguration: floorConfigurations.updateFloorConfiguration,
+    copyFloorConfiguration: floorConfigurations.copyFloorConfiguration,
+    bulkEditFloorConfigurations: floorConfigurations.bulkEditFloorConfigurations,
+    addFloors: floorConfigurations.addFloors,
+    removeFloors: floorConfigurations.removeFloors,
+    reorderFloor: floorConfigurations.reorderFloor,
+    importFloorConfigurations: floorConfigurations.importFloorConfigurations,
+    exportFloorConfigurations: floorConfigurations.exportFloorConfigurations,
+    
+    // Floor space management
+    updateFloorSpaces: floorConfigurations.updateFloorSpaces,
+    updateFloorBuildingSystems: floorConfigurations.updateFloorBuildingSystems,
     
     // Visualization and issues
     issues: visualizationData.issues,
@@ -161,9 +108,6 @@ export const useExtendedPropertyState = () => {
     generatePhasesData: visualizationData.generatePhasesData,
     
     // Reset function
-    resetAllData: property.resetAllData
-  }), [
-    property, 
-    visualizationData
-  ]);
+    resetAllData
+  };
 };

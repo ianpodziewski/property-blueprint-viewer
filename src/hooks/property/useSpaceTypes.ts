@@ -2,10 +2,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { SpaceType } from "@/types/propertyTypes";
-import { v4 as uuidv4 } from 'uuid';
-
-// Add missing uuid dependency if needed
-// <lov-add-dependency>uuid@9.0.1</lov-add-dependency>
 
 const STORAGE_KEY = "realEstateModel_extendedSpaceTypes";
 
@@ -13,26 +9,28 @@ export const useSpaceTypes = () => {
   const [spaceTypes, setSpaceTypes] = useState<SpaceType[]>([
     { 
       id: "space-1", 
-      type: "office", 
-      squareFootage: "0",
-      units: "0", 
-      phase: "1",
+      type: "", 
+      squareFootage: "0", 
+      units: "", 
+      phase: "phase1",
       efficiencyFactor: "85",
-      floorAllocation: {}
+      floorAllocation: { 1: "100" }
     }
   ]);
+  
+  const [totalAllocatedArea, setTotalAllocatedArea] = useState<number>(0);
 
   // Load space types from localStorage on mount
   useEffect(() => {
     const storedSpaceTypes = loadFromLocalStorage(STORAGE_KEY, [
       { 
         id: "space-1", 
-        type: "office", 
-        squareFootage: "0",
-        units: "0", 
-        phase: "1",
+        type: "", 
+        squareFootage: "0", 
+        units: "", 
+        phase: "phase1",
         efficiencyFactor: "85",
-        floorAllocation: {}
+        floorAllocation: { 1: "100" }
       }
     ]);
     setSpaceTypes(storedSpaceTypes);
@@ -42,19 +40,32 @@ export const useSpaceTypes = () => {
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEY, spaceTypes);
   }, [spaceTypes]);
+  
+  // Calculate total allocated area whenever space types change
+  useEffect(() => {
+    const total = spaceTypes.reduce((sum, space) => {
+      return sum + (parseFloat(space.squareFootage) || 0);
+    }, 0);
+    setTotalAllocatedArea(total);
+  }, [spaceTypes]);
 
   const addSpaceType = useCallback(() => {
-    const newId = `space-${uuidv4()}`;
+    const newId = `space-${spaceTypes.length + 1}`;
+    const floorAllocation: Record<number, string> = {};
+    
+    // Default to allocating to floor 1
+    floorAllocation[1] = "100";
+    
     setSpaceTypes([
       ...spaceTypes,
       { 
         id: newId, 
         type: "", 
         squareFootage: "0", 
-        units: "0", 
-        phase: "1",
+        units: "", 
+        phase: "phase1",
         efficiencyFactor: "85",
-        floorAllocation: {} 
+        floorAllocation
       }
     ]);
   }, [spaceTypes]);
@@ -77,33 +88,14 @@ export const useSpaceTypes = () => {
     setSpaceTypes(
       spaceTypes.map(space => {
         if (space.id === id) {
-          const updatedAllocation = { ...space.floorAllocation };
-          updatedAllocation[floor] = value;
-          return { ...space, floorAllocation: updatedAllocation };
+          const newFloorAllocation = { ...space.floorAllocation };
+          newFloorAllocation[floor] = value;
+          return { ...space, floorAllocation: newFloorAllocation };
         }
         return space;
       })
     );
   }, [spaceTypes]);
-
-  // Add a function to reset space types to default
-  const resetSpaceTypes = useCallback(() => {
-    const defaultSpaceType: SpaceType = { 
-      id: "space-1", 
-      type: "office", 
-      squareFootage: "0",
-      units: "0", 
-      phase: "1",
-      efficiencyFactor: "85",
-      floorAllocation: {}
-    };
-    setSpaceTypes([defaultSpaceType]);
-  }, []);
-
-  // Calculate total space allocation
-  const totalAllocatedArea = spaceTypes.reduce((total, space) => {
-    return total + (parseFloat(space.squareFootage) || 0);
-  }, 0);
 
   return {
     spaceTypes,
@@ -111,7 +103,6 @@ export const useSpaceTypes = () => {
     removeSpaceType,
     updateSpaceType,
     updateSpaceTypeFloorAllocation,
-    resetSpaceTypes,
     totalAllocatedArea
   };
 };
