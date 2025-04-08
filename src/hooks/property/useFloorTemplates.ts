@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { FloorPlateTemplate, FloorConfiguration } from "@/types/propertyTypes";
@@ -37,8 +38,8 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
       name: template.name,
       squareFootage: template.squareFootage,
       floorToFloorHeight: template.floorToFloorHeight,
-      corePercentage: "15",
-      primaryUse: "office",
+      corePercentage: template.corePercentage || "15",
+      primaryUse: template.primaryUse || "office",
       description: template.description || ""
     };
     

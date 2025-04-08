@@ -295,6 +295,8 @@ const FloorTemplateManager = ({
         name: String(currentTemplate.name || ""),
         squareFootage: String(currentTemplate.squareFootage || "10000"),
         floorToFloorHeight: String(currentTemplate.floorToFloorHeight || "12"),
+        corePercentage: "15",
+        primaryUse: "office",
         description: String(currentTemplate.description || "")
       };
       
@@ -313,6 +315,8 @@ const FloorTemplateManager = ({
           name: templateToSave.name,
           squareFootage: templateToSave.squareFootage,
           floorToFloorHeight: templateToSave.floorToFloorHeight,
+          corePercentage: templateToSave.corePercentage,
+          primaryUse: templateToSave.primaryUse,
           description: templateToSave.description
         });
         
