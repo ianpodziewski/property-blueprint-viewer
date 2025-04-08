@@ -21,6 +21,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useExtendedPropertyState } from "@/hooks/useExtendedPropertyState";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const getCapacityColor = (percentUsed: number): string => {
   if (percentUsed > 100) return "bg-red-500"; // Over capacity
@@ -259,7 +262,7 @@ const UnitMixPlanning: React.FC = () => {
         title: "Category deleted",
         description: `Category "${category}" has been removed.`,
         action: recentlyDeletedCategory ? {
-          altText: "Undo",
+          label: "Undo",
           onClick: () => {
             const success = undoRemoveCategory();
             if (success) {
@@ -283,7 +286,7 @@ const UnitMixPlanning: React.FC = () => {
       title: "Category deleted",
       description: `Category "${categoryToDelete}" and all its unit types have been removed.`,
       action: {
-        altText: "Undo",
+        label: "Undo",
         onClick: () => {
           const success = undoRemoveCategory();
           if (success) {
