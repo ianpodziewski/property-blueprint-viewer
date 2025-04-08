@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,17 +25,14 @@ const PropertyBreakdown = () => {
   const { toast } = useToast();
   const { isProcessing: isGlobalProcessing, forceUIRecovery } = useUIRecovery();
   
-  // Track if we're in an operation to prevent UI interactions
   const [isSafeToInteract, setIsSafeToInteract] = useState(true);
   const [lastInteractionTime, setLastInteractionTime] = useState(0);
   
   const {
-    // Project Information
     projectName, setProjectName,
     projectLocation, setProjectLocation,
     projectType, setProjectType,
     
-    // Building Parameters
     farAllowance, setFarAllowance,
     totalLandArea, setTotalLandArea,
     buildingFootprint, setBuildingFootprint,
@@ -46,13 +42,11 @@ const PropertyBreakdown = () => {
     actualFar,
     totalAllocatedArea,
     
-    // Floor Templates
     floorTemplates,
     addFloorTemplate,
     updateFloorTemplate,
     removeFloorTemplate,
     
-    // Floor Configurations
     floorConfigurations,
     updateFloorConfiguration,
     copyFloorConfiguration,
@@ -63,72 +57,55 @@ const PropertyBreakdown = () => {
     updateFloorSpaces,
     isProcessingOperation,
     
-    // Space Types
     spaceTypes, 
     addSpaceType,
     removeSpaceType,
     updateSpaceType,
     updateSpaceTypeFloorAllocation,
     
-    // Unit Mix
     unitMixes,
     addUnitMix,
     removeUnitMix,
     updateUnitMix,
     
-    // Visualization data
     generateFloorsData,
     generateSpaceBreakdown,
     generatePhasesData,
     spaceTypeColors,
     
-    // Issues
     issues
   } = useExtendedPropertyState();
   
-  // Get common handlers from the model state to ensure persistence
   const { handleTextChange, handleNumberChange } = useModelState();
 
-  // Function to create adapter for FloorStackingDiagram component
   const adaptedUpdateFloorConfiguration = useCallback((floorNumber: number, field: keyof FloorConfiguration, value: any) => {
     console.log(`adaptedUpdateFloorConfiguration called for floor ${floorNumber}, field ${String(field)}`);
-    // Record interaction time for debounce tracking
     setLastInteractionTime(Date.now());
-    // This adapter handles the different function signature expected by FloorStackingDiagram
     updateFloorConfiguration(floorNumber, field, value);
   }, [updateFloorConfiguration]);
 
-  // Enhanced removeFloors function with robust error handling
   const safeRemoveFloors = useCallback((floorNumbers: number[]) => {
     console.log(`safeRemoveFloors called for floors ${floorNumbers.join(', ')}`);
     try {
-      // Block immediate interaction
       setIsSafeToInteract(false);
       setLastInteractionTime(Date.now());
       
-      // Create a wrapped operation inside a promise
       const deleteOperation = new Promise<void>((resolve, reject) => {
         try {
-          // Execute the delete
           removeFloors(floorNumbers);
-          
-          // Schedule notification of operation completion
           setTimeout(() => {
             console.log("Floor deletion completed successfully");
             resolve();
           }, 300);
-          
         } catch (error) {
           console.error("Error in delete operation:", error);
           reject(error);
         }
       });
       
-      // Handle operation completion
       deleteOperation
         .then(() => {
           console.log("Restoring UI interactivity after remove floors");
-          // Allow a brief pause to ensure all updates have propagated
           setTimeout(() => {
             setIsSafeToInteract(true);
           }, 500);
@@ -141,29 +118,24 @@ const PropertyBreakdown = () => {
             variant: "destructive"
           });
           
-          // Force recovery on error
           setTimeout(() => {
             forceUIRecovery();
             setIsSafeToInteract(true);
           }, 200);
         });
-      
     } catch (outer) {
       console.error("Outer error in safeRemoveFloors:", outer);
-      // Emergency recovery
       setIsSafeToInteract(true);
       forceUIRecovery();
     }
   }, [removeFloors, toast, forceUIRecovery]);
 
-  // Adapter for reorderFloor to match the expected signature
   const adaptedReorderFloor = useCallback((floorNumber: number, direction: "up" | "down") => {
     console.log(`adaptedReorderFloor called for floor ${floorNumber}, direction ${direction}`);
     setLastInteractionTime(Date.now());
     reorderFloor(floorNumber, direction);
   }, [reorderFloor]);
   
-  // Ensure we don't interact with UI during processing operations
   useEffect(() => {
     const isCurrentlyProcessing = isProcessingOperation || isGlobalProcessing;
     console.log(`Processing state: ${isCurrentlyProcessing ? 'active' : 'inactive'}`);
@@ -171,7 +143,6 @@ const PropertyBreakdown = () => {
     if (isCurrentlyProcessing) {
       setIsSafeToInteract(false);
     } else {
-      // Wait a brief moment before enabling interaction
       const timer = setTimeout(() => {
         setIsSafeToInteract(true);
       }, 200);
@@ -179,23 +150,18 @@ const PropertyBreakdown = () => {
     }
   }, [isProcessingOperation, isGlobalProcessing]);
   
-  // Listen for floor configuration events
   useEffect(() => {
-    // Listen for FloorConfig events to handle any UI updates needed
     const handleFloorConfigEvent = (event: Event) => {
       if (event instanceof CustomEvent) {
         console.log("Floor configuration event detected:", event.detail);
         
-        // Auto-refresh the UI
         setTimeout(() => {
           console.log("Auto-refreshing UI after floor configuration event");
           setIsSafeToInteract(true);
         }, 400);
         
-        // Check for certain operations that need special attention
         if (event.detail?.operation === "remove") {
           console.log("Remove operation detected, ensuring UI cleanup");
-          // Clean up any event listeners or DOM elements
           document.querySelectorAll('[role="dialog"]').forEach(dialog => {
             if (dialog.getAttribute('data-state') === 'open') {
               console.log("Found open dialog after operation, closing");
@@ -208,49 +174,28 @@ const PropertyBreakdown = () => {
     
     window.addEventListener(FLOOR_CONFIG_EVENT, handleFloorConfigEvent);
     
-    // Cleanup function
     return () => {
       window.removeEventListener(FLOOR_CONFIG_EVENT, handleFloorConfigEvent);
       
-      // Clean up any global event listeners to prevent memory leaks
       document.querySelectorAll('[role="dialog"]').forEach(modal => {
         modal.removeAttribute('data-state');
       });
     };
   }, []);
 
-  // Periodic safety check for stuck UI states
-  useEffect(() => {
-    const safetyCheck = setInterval(() => {
-      if (!isSafeToInteract && Date.now() - lastInteractionTime > 5000) {
-        console.log("Safety check: UI has been locked for >5s, force-enabling interaction");
-        setIsSafeToInteract(true);
-      }
-    }, 2000);
-    
-    return () => clearInterval(safetyCheck);
-  }, [isSafeToInteract, lastInteractionTime]);
-
-  // Generate data for visualizations
   const floorsData = useMemo(() => generateFloorsData(), [generateFloorsData]);
   const spaceBreakdown = useMemo(() => generateSpaceBreakdown(), [generateSpaceBreakdown]);
   const phasesData = useMemo(() => generatePhasesData(), [generatePhasesData]);
   
-  // Create adapter functions to convert between the two function signatures
-  // For BuildingParameters component (expects id, field, value)
   const adaptedUpdateFloorTemplateForBuildingParams = useCallback((id: string, field: keyof FloorPlateTemplate, value: string) => {
     updateFloorTemplate(id, { [field]: value });
   }, [updateFloorTemplate]);
   
-  // For FloorConfigurationManager component (expects id, template)
   const adaptedUpdateFloorTemplateForConfigManager = useCallback((id: string, template: Partial<FloorPlateTemplate>) => {
     updateFloorTemplate(id, template);
   }, [updateFloorTemplate]);
   
-  // Fix: Direct pass through of template data rather than creating default values
-  // This ensures user input values are used when creating a new template
   const adaptedAddFloorTemplate = useCallback((defaultTemplate?: Omit<FloorPlateTemplate, "id">) => {
-    // If a template is provided, pass it through, otherwise create a default
     const template = defaultTemplate || {
       name: "New Template",
       squareFootage: "10000",
@@ -264,7 +209,6 @@ const PropertyBreakdown = () => {
     addFloorTemplate(template);
   }, [addFloorTemplate]);
   
-  // Enhanced stopPropagation to prevent event bubbling issues
   const stopPropagation = useCallback((e: React.MouseEvent<Element, MouseEvent>) => {
     if (e && e.stopPropagation) {
       e.stopPropagation();
@@ -277,7 +221,6 @@ const PropertyBreakdown = () => {
     return true;
   }, []);
   
-  // Safely add a space type with error handling
   const safeAddSpaceType = useCallback((e: React.MouseEvent) => {
     try {
       stopPropagation(e);
@@ -293,7 +236,6 @@ const PropertyBreakdown = () => {
     }
   }, [addSpaceType, stopPropagation, isSafeToInteract, toast]);
   
-  // Safely add a unit mix with error handling
   const safeAddUnitMix = useCallback((e: React.MouseEvent) => {
     try {
       stopPropagation(e);
@@ -309,7 +251,6 @@ const PropertyBreakdown = () => {
     }
   }, [addUnitMix, stopPropagation, isSafeToInteract, toast]);
   
-  // Manually trigger UI recovery if needed
   const triggerManualUIRecovery = useCallback(() => {
     forceUIRecovery();
     toast({
@@ -373,7 +314,6 @@ const PropertyBreakdown = () => {
         </CardContent>
       </Card>
       
-      {/* Building Parameters Section */}
       <BuildingParameters
         farAllowance={farAllowance}
         setFarAllowance={(value) => {
@@ -397,7 +337,6 @@ const PropertyBreakdown = () => {
         removeFloorTemplate={removeFloorTemplate}
       />
       
-      {/* Floor Configuration Manager with enhanced remove floors */}
       <FloorConfigurationManager 
         floorConfigurations={floorConfigurations}
         floorTemplates={floorTemplates}
@@ -413,7 +352,6 @@ const PropertyBreakdown = () => {
         removeFloorTemplate={removeFloorTemplate}
       />
       
-      {/* Visualizations Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <BuildingMassingVisualization 
           buildingFootprint={parseFloat(buildingFootprint) || 0}
@@ -443,7 +381,6 @@ const PropertyBreakdown = () => {
         </TabsList>
         
         <TabsContent value="space-types">
-          {/* Space Types Section */}
           <Card>
             <CardHeader>
               <CardTitle>Space Types</CardTitle>
@@ -489,7 +426,6 @@ const PropertyBreakdown = () => {
         </TabsContent>
         
         <TabsContent value="unit-mix">
-          {/* Unit Mix Section */}
           <Card>
             <CardHeader>
               <CardTitle>Unit Mix</CardTitle>
@@ -580,7 +516,6 @@ const PropertyBreakdown = () => {
         </TabsContent>
       </Tabs>
       
-      {/* Space Summary and Phasing */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <SpaceSummaryDashboard
           totalBuildableArea={totalBuildableArea}

@@ -1,9 +1,11 @@
 
 import { useModelState } from "./useModelState";
 import { prepareDataForExport, convertToCSVFormat } from "@/utils/exportUtils";
+import { useProjectInfo } from "./property/useProjectInfo";
 
 export const useExportData = () => {
   const modelState = useModelState();
+  const projectInfo = useProjectInfo();
   
   // Export data as JSON
   const exportAsJson = () => {
@@ -15,7 +17,7 @@ export const useExportData = () => {
     // Create download link and trigger download
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${modelState.property.projectName || 'real-estate-model'}.json`;
+    link.download = `${projectInfo.projectName || 'real-estate-model'}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -32,7 +34,7 @@ export const useExportData = () => {
     // Create download link and trigger download
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${modelState.property.projectName || 'real-estate-model'}.csv`;
+    link.download = `${projectInfo.projectName || 'real-estate-model'}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

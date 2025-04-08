@@ -1,9 +1,9 @@
-
 /**
  * Utility functions for exporting model data
  */
 
 import { useModelState } from "@/hooks/useModelState";
+import { useProjectInfo } from "@/hooks/property/useProjectInfo";
 
 // Format currency values for export
 export const formatCurrency = (value: string | number): string => {
@@ -37,27 +37,28 @@ export const formatNumber = (value: string | number): string => {
 // Structure data for Excel export
 export const prepareDataForExport = (): Record<string, any> => {
   const modelState = useModelState();
+  const projectInfo = useProjectInfo();
   
   return {
     projectInformation: {
-      projectName: modelState.property.projectName,
-      projectLocation: modelState.property.projectLocation,
-      projectType: modelState.property.projectType,
+      projectName: projectInfo.projectName,
+      projectLocation: projectInfo.projectLocation,
+      projectType: projectInfo.projectType,
       totalLandArea: modelState.property.totalLandArea,
     },
     
-    spaceTypes: modelState.property.spaceTypes.map(space => ({
+    spaceTypes: modelState.property.spaceTypes?.map(space => ({
       type: space.type,
       squareFootage: formatNumber(space.squareFootage),
       units: formatNumber(space.units),
       phase: space.phase
-    })),
+    })) || [],
     
-    unitMix: modelState.property.unitMixes.map(unit => ({
+    unitMix: modelState.property.unitMixes?.map(unit => ({
       type: unit.type,
       count: formatNumber(unit.count),
       squareFootage: formatNumber(unit.squareFootage)
-    })),
+    })) || [],
     
     developmentCosts: {
       land: {
