@@ -1,6 +1,6 @@
-
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import MainNavigation from "./MainNavigation";
 import PropertyBreakdown from "./sections/PropertyBreakdown";
 import DevelopmentCosts from "./sections/DevelopmentCosts";
@@ -15,72 +15,31 @@ import SensitivityAnalysis from "./sections/SensitivityAnalysis";
 const ModelingTabs = () => {
   const [activeTab, setActiveTab] = useState("property");
   const [floorConfigSaved, setFloorConfigSaved] = useState(0);
-  const [unitAllocationSaved, setUnitAllocationSaved] = useState(0);
   
-  const handlersRegistered = useRef(false);
-  const eventTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Define callbacks outside of useEffect to prevent dependency issues
   const handleFloorConfigSave = useCallback(() => {
     console.log('Floor configuration save event detected');
-    
-    // Clear any existing timeout
-    if (eventTimeoutRef.current) {
-      clearTimeout(eventTimeoutRef.current);
-    }
-    
-    // Set a timeout to update the state after a delay
-    eventTimeoutRef.current = setTimeout(() => {
-      setFloorConfigSaved(prev => prev + 1);
-      eventTimeoutRef.current = null;
-    }, 300); // 300ms debounce
+    setFloorConfigSaved(prev => prev + 1);
   }, []);
   
-  const handleUnitAllocationSave = useCallback(() => {
-    console.log('Unit allocation save event detected');
-    
-    // Clear any existing timeout
-    if (eventTimeoutRef.current) {
-      clearTimeout(eventTimeoutRef.current);
-    }
-    
-    // Set a timeout to update the state after a delay
-    eventTimeoutRef.current = setTimeout(() => {
-      setUnitAllocationSaved(prev => prev + 1);
-      eventTimeoutRef.current = null;
-    }, 300); // 300ms debounce
-  }, []);
-  
-  // Register event handlers only once
   useEffect(() => {
-    // Skip if handlers are already registered or if not in browser
-    if (handlersRegistered.current || typeof window === 'undefined') return;
+    let timeoutId: number | undefined;
     
-    // Set flag to indicate handlers are registered
-    handlersRegistered.current = true;
-    
-    console.log('Registering event handlers for floor config and unit allocation');
-    
-    // Add event listeners
-    window.addEventListener('floorConfigSaved', handleFloorConfigSave);
-    window.addEventListener('unitAllocationChanged', handleUnitAllocationSave);
-    
-    // Cleanup function
-    return () => {
-      console.log('Cleaning up event handlers');
-      
-      // Clean up timeouts to prevent memory leaks
-      if (eventTimeoutRef.current) {
-        clearTimeout(eventTimeoutRef.current);
+    const debouncedHandler = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
-      
-      // Remove event listeners if window exists
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('floorConfigSaved', handleFloorConfigSave);
-        window.removeEventListener('unitAllocationChanged', handleUnitAllocationSave);
+      timeoutId = window.setTimeout(handleFloorConfigSave, 300);
+    };
+    
+    window.addEventListener('floorConfigSaved', debouncedHandler);
+    
+    return () => {
+      window.removeEventListener('floorConfigSaved', debouncedHandler);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
       }
     };
-  }, []); // Empty dependency array since callbacks are stable
+  }, [handleFloorConfigSave]);
 
   return (
     <div className="w-full space-y-4">
@@ -91,9 +50,7 @@ const ModelingTabs = () => {
       <Tabs value={activeTab} className="w-full" onValueChange={(value) => setActiveTab(value)}>
         <div className="mt-4 bg-white rounded-md p-6 border border-gray-200">
           <TabsContent value="property" className="space-y-4">
-            <PropertyBreakdown 
-              key={`property-breakdown-${floorConfigSaved}-${unitAllocationSaved}`}
-            />
+            <PropertyBreakdown key={`property-breakdown-${floorConfigSaved}`} />
           </TabsContent>
           
           <TabsContent value="devCosts" className="space-y-4">

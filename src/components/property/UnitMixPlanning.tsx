@@ -26,54 +26,32 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import UnitTypeDistributionChart from "./UnitTypeDistributionChart";
 
-const COLOR_OPTIONS = [
-  "#4f46e5", // indigo
-  "#0ea5e9", // sky
-  "#10b981", // emerald
-  "#f59e0b", // amber
-  "#ef4444", // red
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#f97316", // orange
-  "#16a34a", // green
-  "#6366f1", // indigo
-];
+const getCapacityColor = (percentUsed: number): string => {
+  if (percentUsed > 100) return "bg-red-500"; // Over capacity
+  if (percentUsed >= 85) return "bg-green-500"; // Good utilization
+  return "bg-amber-400"; // Under utilized
+};
 
 const SUGGESTED_CATEGORIES = [
-  { 
-    name: "residential", 
-    icon: <Home className="h-4 w-4" />,
-    description: "Apartments, condos, and living spaces"
-  },
-  { 
-    name: "retail", 
-    icon: <Store className="h-4 w-4" />,
-    description: "Shops, stores, and commercial spaces"
-  },
-  { 
-    name: "office", 
-    icon: <Building className="h-4 w-4" />,
-    description: "Office spaces and workplaces"
-  },
-  { 
-    name: "hospitality", 
-    icon: <Hotel className="h-4 w-4" />,
-    description: "Hotels, short-term rentals, and lodging"
-  },
-  { 
-    name: "food & beverage", 
-    icon: <Coffee className="h-4 w-4" />,
-    description: "Restaurants, cafes, and eateries"
-  }
+  { name: "residential", icon: <Home className="h-4 w-4" />, description: "Apartments, condos, and living spaces" },
+  { name: "office", icon: <Building2 className="h-4 w-4" />, description: "Commercial office spaces" },
+  { name: "retail", icon: <Store className="h-4 w-4" />, description: "Shops, restaurants, and commercial storefronts" },
+  { name: "hotel", icon: <Hotel className="h-4 w-4" />, description: "Hotel rooms and hospitality spaces" },
+  { name: "amenity", icon: <Coffee className="h-4 w-4" />, description: "Shared amenities and common areas" }
 ];
 
-const getCapacityColor = (percent: number) => {
-  if (percent >= 100) return "bg-green-500";
-  if (percent >= 75) return "bg-green-400";
-  if (percent >= 50) return "bg-yellow-400";
-  if (percent >= 25) return "bg-orange-400";
-  return "bg-red-400";
-};
+const COLOR_OPTIONS = [
+  "#3B82F6", // Blue
+  "#10B981", // Green
+  "#F59E0B", // Amber
+  "#8B5CF6", // Purple
+  "#EC4899", // Pink
+  "#6B7280", // Gray
+  "#EF4444", // Red
+  "#14B8A6", // Teal
+  "#F97316", // Orange
+  "#8B5CF6"  // Indigo
+];
 
 const UnitMixPlanning: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("list");
@@ -165,33 +143,6 @@ const UnitMixPlanning: React.FC = () => {
     
     return totals;
   }, [unitTypes]);
-  
-  const isValidFloorForUnitType = useCallback((floorNumber: number, unitTypeId: string) => {
-    const unitType = unitTypes.find(u => u.id === unitTypeId);
-    if (!unitType) return false;
-    
-    const floorArea = getFloorArea(floorNumber);
-    console.log(`Checking floor ${floorNumber} with total area: ${floorArea} sq ft`);
-    
-    if (floorArea <= 0) {
-      console.log(`Floor ${floorNumber} has no valid area`);
-      return false;
-    }
-    
-    const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
-    console.log(`Floor ${floorNumber} already has ${allocatedArea} sq ft allocated`);
-    
-    const availableArea = Math.max(0, floorArea - allocatedArea);
-    console.log(`Floor ${floorNumber} has ${availableArea} sq ft available`);
-    
-    const unitSize = parseInt(unitType.typicalSize) || 0;
-    console.log(`Unit ${unitType.name} requires ${unitSize} sq ft`);
-    
-    const unitFits = availableArea >= unitSize;
-    console.log(`Can unit fit on floor ${floorNumber}? ${unitFits ? 'Yes' : 'No'}`);
-    
-    return unitFits;
-  }, [unitTypes, getFloorArea, calculateAllocatedAreaByFloor]);
   
   const handleAddUnitType = useCallback((category?: string) => {
     if (!hasCategories) {
@@ -416,41 +367,23 @@ const UnitMixPlanning: React.FC = () => {
     let allocatedCount = 0;
     
     selectedFloors.forEach(floorNumber => {
-      console.log(`Attempting to allocate to floor ${floorNumber}...`);
-      
-      if (!isValidFloorForUnitType(floorNumber, selectedUnitTypeId)) {
-        console.log(`Floor ${floorNumber} doesn't have enough space for this unit type`);
-        return; // Skip this floor
-      }
-      
       const floorConfig = floorConfigurations.find(f => f.floorNumber === floorNumber);
-      if (!floorConfig) {
-        console.log(`Floor ${floorNumber} configuration not found`);
-        return;
-      }
+      if (!floorConfig) return;
       
-      const floorArea = getFloorArea(floorNumber);
-      console.log(`Floor ${floorNumber} total area: ${floorArea} sq ft`);
+      const floorArea = floorConfig.customSquareFootage && floorConfig.customSquareFootage !== "" 
+        ? parseInt(floorConfig.customSquareFootage) 
+        : 0;
       
       const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
-      console.log(`Floor ${floorNumber} allocated area: ${allocatedArea} sq ft`);
-      
       const availableArea = Math.max(0, floorArea - allocatedArea);
-      console.log(`Floor ${floorNumber} available area: ${availableArea} sq ft`);
       
       const unitSize = parseInt(unitType.typicalSize) || 0;
-      console.log(`Unit size: ${unitSize} sq ft`);
-      
       const maxUnitsForSpace = unitSize > 0 ? Math.floor(availableArea / unitSize) : unitsPerFloor;
-      console.log(`Max units that can fit: ${maxUnitsForSpace}`);
       
       const unitsToAllocate = Math.min(unitsPerFloor, maxUnitsForSpace, remaining - allocatedCount);
-      console.log(`Units to allocate: ${unitsToAllocate}`);
       
       if (unitsToAllocate > 0) {
-        console.log(`Allocating ${unitsToAllocate} units to floor ${floorNumber}`);
-        
-        const allocationId = addAllocation({
+        addAllocation({
           unitTypeId: selectedUnitTypeId,
           floorNumber: floorNumber,
           count: unitsToAllocate.toString(),
@@ -459,7 +392,6 @@ const UnitMixPlanning: React.FC = () => {
           status: "planned"
         });
         
-        console.log(`Allocation created with ID: ${allocationId}`);
         allocatedCount += unitsToAllocate;
       }
     });
@@ -478,7 +410,7 @@ const UnitMixPlanning: React.FC = () => {
     }
     
     setAllocateDialogOpen(false);
-  }, [selectedUnitTypeId, selectedFloors, unitTypes, floorConfigurations, calculateAllocationStats, calculateAllocatedAreaByFloor, getFloorArea, addAllocation, isValidFloorForUnitType, toast]);
+  }, [selectedUnitTypeId, selectedFloors, unitTypes, floorConfigurations, calculateAllocationStats, calculateAllocatedAreaByFloor, addAllocation, toast]);
   
   const toggleCategoryCollapse = useCallback((category: string) => {
     setCollapsedCategories(prev => {
@@ -489,6 +421,20 @@ const UnitMixPlanning: React.FC = () => {
       }
     });
   }, []);
+  
+  const isValidFloorForUnitType = useCallback((floorNumber: number, unitTypeId: string) => {
+    const unitType = unitTypes.find(u => u.id === unitTypeId);
+    if (!unitType) return false;
+    
+    const floorArea = getFloorArea(floorNumber);
+    if (floorArea <= 0) return false;
+    
+    const allocatedArea = calculateAllocatedAreaByFloor(floorNumber);
+    const availableArea = Math.max(0, floorArea - allocatedArea);
+    
+    const unitSize = parseInt(unitType.typicalSize) || 0;
+    return availableArea >= unitSize;
+  }, [unitTypes, getFloorArea, calculateAllocatedAreaByFloor]);
   
   const validateInput = useCallback((value: string, type: 'size' | 'count'): string => {
     let sanitized = value.replace(/[^0-9]/g, '');
@@ -910,7 +856,7 @@ const UnitMixPlanning: React.FC = () => {
                 <Label htmlFor="category-description" className="mb-2 block">Description (optional)</Label>
                 <Input
                   id="category-description"
-                  placeholder="Enter category description"
+                  placeholder="Briefly describe this category"
                   value={newCategoryDescription}
                   onChange={(e) => setNewCategoryDescription(e.target.value)}
                 />
@@ -919,7 +865,7 @@ const UnitMixPlanning: React.FC = () => {
             
             <DialogFooter>
               <Button variant="outline" onClick={() => setNewCategoryDialogOpen(false)}>Cancel</Button>
-              <Button type="button" onClick={handleAddCategory}>Create Category</Button>
+              <Button onClick={handleAddCategory}>Add Category</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -927,108 +873,66 @@ const UnitMixPlanning: React.FC = () => {
         <AlertDialog open={deleteConfirmDialogOpen} onOpenChange={setDeleteConfirmDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Category</AlertDialogTitle>
+              <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete the "{categoryToDelete}" category? 
-                This will also remove all unit types in this category. This action cannot be undone.
+                Are you sure you want to delete the "{categoryToDelete}" category? This will remove all unit types in this category and their floor allocations.
+                This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteCategory} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
+              <AlertDialogCancel onClick={() => setCategoryToDelete(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteCategory} className="bg-red-500 hover:bg-red-600">
+                Delete Category
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
         
         <Dialog open={allocateDialogOpen} onOpenChange={setAllocateDialogOpen}>
-          <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Allocate Units to Floors</DialogTitle>
               <DialogDescription>
-                {selectedUnitTypeId && (
-                  <>
-                    {SelectedUnitTypeInfo(selectedUnitTypeId, unitTypes, calculateAllocationStats)}
-                  </>
-                )}
+                {selectedUnitTypeId && unitTypes.find(u => u.id === selectedUnitTypeId)?.name} 
+                - Select which floors to allocate units to.
               </DialogDescription>
             </DialogHeader>
             
-            <div className="py-4">
-              <Label className="mb-2 block">Select floors to allocate units</Label>
-              <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto p-2 border rounded-md">
-                {floorConfigurations
-                  .filter(f => !f.isUnderground) // Only show above ground floors
-                  .sort((a, b) => b.floorNumber - a.floorNumber) // Sort by floor number, highest first
-                  .map((floor) => {
-                    const floorArea = getFloorArea(floor.floorNumber);
-                    const allocatedArea = calculateAllocatedAreaByFloor(floor.floorNumber);
-                    const availableArea = Math.max(0, floorArea - allocatedArea);
-                    const isAvailable = selectedUnitTypeId ? isValidFloorForUnitType(floor.floorNumber, selectedUnitTypeId) : false;
-                    
-                    return (
-                      <div key={floor.floorNumber} className="flex flex-col">
-                        <Button 
-                          variant={selectedFloors.includes(floor.floorNumber) ? "default" : "outline"}
-                          size="sm"
-                          className={`justify-between ${!isAvailable ? "opacity-50" : ""}`}
-                          onClick={() => {
-                            if (isAvailable) {
-                              setSelectedFloors((prev) => {
-                                if (prev.includes(floor.floorNumber)) {
-                                  return prev.filter((f) => f !== floor.floorNumber);
-                                } else {
-                                  return [...prev, floor.floorNumber];
-                                }
-                              });
-                            }
-                          }}
-                          disabled={!isAvailable}
-                        >
-                          <span>Floor {floor.floorNumber}</span>
-                          <Checkbox 
-                            checked={selectedFloors.includes(floor.floorNumber)}
-                            className="ml-2 data-[state=checked]:bg-white data-[state=checked]:text-primary-foreground"
-                          />
-                        </Button>
-                        <div className="mt-1 text-xs text-muted-foreground text-center">
-                          {isAvailable ? (
-                            <span className="text-green-600">{availableArea.toLocaleString()} sq ft free</span>
-                          ) : (
-                            <span className="text-red-500">No space</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-              
-              <div className="mt-4 flex items-center justify-between">
-                <div className="text-sm">
-                  <span className="font-medium">{selectedFloors.length}</span> floors selected
-                </div>
-                
-                {selectedUnitTypeId && unitTypes.find(u => u.id === selectedUnitTypeId) && (
-                  <div className="text-sm">
-                    <span className="font-medium">
-                      {(() => {
-                        const unitType = unitTypes.find(u => u.id === selectedUnitTypeId);
-                        if (!unitType) return "0";
-                        
-                        const stats = calculateAllocationStats(selectedUnitTypeId);
-                        const target = parseInt(unitType.count) || 0;
-                        const remaining = Math.max(0, target - stats.totalAllocated);
-                        return remaining;
-                      })()}
-                    </span> units remaining to allocate
-                  </div>
-                )}
-              </div>
+            <div className="max-h-[300px] overflow-y-auto p-2">
+              {aboveGroundFloors.length > 0 ? (
+                aboveGroundFloors.map(floor => {
+                  const isValid = selectedUnitTypeId ? isValidFloorForUnitType(floor, selectedUnitTypeId) : false;
+                  const isSelected = selectedFloors.includes(floor);
+                  
+                  return (
+                    <div key={floor} className="flex items-center py-1">
+                      <Checkbox 
+                        id={`floor-${floor}`}
+                        checked={isSelected}
+                        disabled={!isValid}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedFloors(prev => [...prev, floor]);
+                          } else {
+                            setSelectedFloors(prev => prev.filter(f => f !== floor));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`floor-${floor}`} className={`ml-2 ${!isValid ? 'text-muted-foreground' : ''}`}>
+                        Floor {floor}
+                        {!isValid && <span className="text-xs ml-2">(Insufficient space)</span>}
+                      </Label>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center p-4 text-muted-foreground">No floors available for allocation</div>
+              )}
             </div>
             
             <DialogFooter>
               <Button variant="outline" onClick={() => setAllocateDialogOpen(false)}>Cancel</Button>
               <Button 
-                type="button" 
                 onClick={handleAllocateUnits}
                 disabled={selectedFloors.length === 0}
               >
@@ -1041,163 +945,68 @@ const UnitMixPlanning: React.FC = () => {
     );
   };
   
-  const SelectedUnitTypeInfo = (
-    unitTypeId: string, 
-    unitTypes: UnitType[], 
-    calculateAllocationStats: (unitTypeId: string) => { totalAllocated: number, floorCount: number, floors: number[] }
-  ) => {
-    const unitType = unitTypes.find(u => u.id === unitTypeId);
-    if (!unitType) return null;
-    
-    const stats = calculateAllocationStats(unitTypeId);
-    const target = parseInt(unitType.count) || 0;
-    const allocated = stats.totalAllocated;
-    const remaining = Math.max(0, target - allocated);
-    
-    return (
-      <div className="mt-2 flex flex-col gap-1">
-        <div className="flex items-center gap-1">
-          <span className="font-medium">{unitType.name}</span>
-          <span className="text-muted-foreground">({unitType.typicalSize} sq ft per unit)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-blue-500 rounded-full"
-              style={{ width: `${target ? (allocated / target) * 100 : 0}%` }}
-            ></div>
-          </div>
-          <span className="text-sm text-muted-foreground">
-            {allocated}/{target} allocated
-          </span>
-        </div>
-        {allocated > 0 && (
-          <div className="text-xs text-muted-foreground">
-            Currently allocated to {stats.floors.length} floors
-          </div>
-        )}
-      </div>
-    );
-  };
-  
   return (
-    <div className="w-full">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="list" className="flex items-center">
-            <FolderOpen className="h-4 w-4 mr-2" />
-            Unit Library
-          </TabsTrigger>
-          <TabsTrigger value="chart" className="flex items-center">
-            <PieChart className="h-4 w-4 mr-2" />
-            Distribution
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="list" className="mt-2 space-y-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Unit Mix Planning</CardTitle>
-              <CardDescription>
-                Define unit types and allocate them to specific floors
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {renderUnitLibrary()}
-            </CardContent>
-          </Card>
+    <div id="unit-mix-section" className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Unit Mix Planning</CardTitle>
+          <CardDescription>
+            Define and organize the types of units in your project, and allocate them to specific floors
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <div>
+                <h4 className="text-sm font-medium mb-1">Planning Progress</h4>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{totalUnits.toLocaleString()} units</Badge>
+                  <Badge variant="outline">{totalUnitArea.toLocaleString()} sq ft</Badge>
+                  <Badge 
+                    variant={percentPlanned > 90 ? "default" : percentPlanned > 50 ? "secondary" : "outline"}
+                  >
+                    {percentPlanned.toFixed(1)}% planned
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            
+            <Progress value={percentPlanned} className="h-2" />
+          </div>
           
-          {hasCategories && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle>Planning Progress</CardTitle>
-                <CardDescription>
-                  Status of your building's unit allocation
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total units planned</span>
-                    <span className="font-medium">{totalUnits}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total area planned</span>
-                    <span className="font-medium">{totalUnitArea.toLocaleString()} sq ft</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total buildable area</span>
-                    <span className="font-medium">{totalBuildableAreaNumber.toLocaleString()} sq ft</span>
-                  </div>
+          <Tabs defaultValue="list" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="list">
+                <div className="flex items-center">
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  Unit Library
                 </div>
-                
-                <div>
-                  <div className="flex justify-between mb-1">
-                    <span className="text-sm font-medium">Area allocation progress</span>
-                    <span className="text-sm font-medium">{percentPlanned.toFixed(1)}%</span>
-                  </div>
-                  <Progress 
-                    value={percentPlanned} 
-                    className={`h-2 ${percentPlanned < 80 ? "bg-amber-500" : "bg-green-500"}`}
-                  />
-                  {percentPlanned < 80 ? (
-                    <p className="text-xs text-amber-600 mt-1 flex items-center">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      {totalBuildableAreaNumber - totalUnitArea > 0 
-                        ? `${(totalBuildableAreaNumber - totalUnitArea).toLocaleString()} sq ft still unallocated` 
-                        : "Building is not fully allocated"}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-green-600 mt-1 flex items-center">
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      {percentPlanned >= 100 
-                        ? "Building is fully allocated" 
-                        : "Building is mostly allocated"}
-                    </p>
-                  )}
+              </TabsTrigger>
+              <TabsTrigger value="chart">
+                <div className="flex items-center">
+                  <PieChart className="mr-2 h-4 w-4" />
+                  Distribution
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="chart" className="mt-2">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Unit Distribution</CardTitle>
-              <CardDescription>
-                Visual breakdown of unit types by category
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!hasCategories ? (
-                <div className="py-12 text-center">
-                  <p className="text-muted-foreground">Add unit categories to view distribution charts</p>
-                </div>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-8">
-                  <UnitTypeDistributionChart 
-                    unitTypes={unitTypes} 
-                    categoryTotals={categoryTotals}
-                    categoryColors={allCategories.reduce((obj, cat) => {
-                      obj[cat] = getCategoryColor(cat);
-                      return obj;
-                    }, {} as Record<string, string>)}
-                  />
-                  <UnitTypeDistributionChart 
-                    unitTypes={unitTypes} 
-                    categoryTotals={categoryTotals}
-                    categoryColors={allCategories.reduce((obj, cat) => {
-                      obj[cat] = getCategoryColor(cat);
-                      return obj;
-                    }, {} as Record<string, string>)}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="list">
+              {renderUnitLibrary()}
+            </TabsContent>
+            
+            <TabsContent value="chart">
+              <UnitTypeDistributionChart 
+                unitTypes={unitTypes} 
+                categoryTotals={categoryTotals} 
+                categoryColors={allCategories.reduce((obj, cat) => {
+                  obj[cat] = getCategoryColor(cat);
+                  return obj;
+                }, {} as Record<string, string>)}
+              />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };

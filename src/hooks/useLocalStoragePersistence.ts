@@ -10,6 +10,7 @@ export const useLocalStoragePersistence = <T>(
   initialValue: T
 ): [T, React.Dispatch<React.SetStateAction<T>>, () => void] => {
   // Create state and setter
+  // Use a function to initialize state from localStorage immediately
   const [value, setValue] = useState<T>(() => {
     try {
       // Try to get value from localStorage on initial render
@@ -31,15 +32,16 @@ export const useLocalStoragePersistence = <T>(
     return initialValue;
   });
   
-  const isInitialized = useRef(false);
-  const previousValueRef = useRef<string>("");
-  
-  // Save to localStorage whenever value changes, with deep comparison
+  const [isInitialized, setIsInitialized] = useState(true);
+  const isFirstSave = useRef(true);
+
+  // Save to localStorage whenever value changes
   useEffect(() => {
-    // Skip initial render to prevent initialization loops
-    if (!isInitialized.current) {
-      isInitialized.current = true;
-      previousValueRef.current = JSON.stringify(value);
+    if (!isInitialized) return;
+    
+    // Skip the very first save to prevent initialization loops
+    if (isFirstSave.current) {
+      isFirstSave.current = false;
       return;
     }
     
@@ -49,22 +51,12 @@ export const useLocalStoragePersistence = <T>(
         return;
       }
       
-      if (value === undefined) {
-        console.warn(`Attempted to save undefined data to localStorage (${key})`);
-        return;
-      }
-      
-      // Perform deep comparison to prevent unnecessary saves
-      const valueString = JSON.stringify(value);
-      if (valueString !== previousValueRef.current) {
-        localStorage.setItem(key, valueString);
-        previousValueRef.current = valueString;
-        console.log(`Data saved to localStorage (${key}):`, value);
-      }
+      localStorage.setItem(key, JSON.stringify(value));
+      console.log(`Data saved to localStorage (${key}):`, value);
     } catch (error) {
       console.error(`Error saving data to localStorage (${key}):`, error);
     }
-  }, [key, value]);
+  }, [key, value, isInitialized]);
 
   // Function to reset stored value
   const resetValue = () => {
@@ -76,7 +68,6 @@ export const useLocalStoragePersistence = <T>(
       
       localStorage.removeItem(key);
       setValue(initialValue);
-      previousValueRef.current = JSON.stringify(initialValue);
       console.log(`Reset data in localStorage (${key}) to:`, initialValue);
     } catch (error) {
       console.error(`Error resetting data in localStorage (${key}):`, error);
@@ -87,7 +78,7 @@ export const useLocalStoragePersistence = <T>(
 };
 
 /**
- * Helper to save arbitrary data to localStorage with deep comparison
+ * Helper to save arbitrary data to localStorage
  */
 export const saveToLocalStorage = <T>(key: string, data: T): void => {
   try {
@@ -101,15 +92,8 @@ export const saveToLocalStorage = <T>(key: string, data: T): void => {
       return;
     }
     
-    // Get existing data for comparison
-    const existingItem = localStorage.getItem(key);
-    const dataString = JSON.stringify(data);
-    
-    // Only save if data has changed
-    if (existingItem !== dataString) {
-      localStorage.setItem(key, dataString);
-      console.log(`Data saved to localStorage (${key}):`, data);
-    }
+    localStorage.setItem(key, JSON.stringify(data));
+    console.log(`Data saved to localStorage (${key}):`, data);
   } catch (error) {
     console.error(`Error saving data to localStorage (${key}):`, error);
   }

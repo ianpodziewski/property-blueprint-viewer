@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
   FloorConfiguration, 
@@ -10,31 +9,15 @@ import {
 
 const STORAGE_KEY = "realEstateModel_floorConfigurations";
 
-const dispatchFloorConfigSavedEvent = (() => {
-  let timeout: number | undefined;
-  
-  return () => {
-    if (typeof window !== 'undefined') {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      
-      timeout = window.setTimeout(() => {
-        const event = new CustomEvent('floorConfigSaved');
-        window.dispatchEvent(event);
-        timeout = undefined;
-      }, 100);
-    }
-  };
-})();
+const dispatchFloorConfigSavedEvent = () => {
+  if (typeof window !== 'undefined') {
+    const event = new CustomEvent('floorConfigSaved');
+    window.dispatchEvent(event);
+  }
+};
 
 export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]) => {
   const isFirstRender = useRef(true);
-  const isUpdatingRef = useRef(false);
-  // Add a cache for floor areas to prevent recalculation
-  const floorAreaCache = useRef<Record<number, number>>({});
-  // Track when templates or configurations change to invalidate cache
-  const templateVersionRef = useRef<string>("");
   
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>(() => {
     const storedFloorConfigurations = loadFromLocalStorage<FloorConfiguration[]>(STORAGE_KEY, []);
@@ -55,44 +38,27 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     return [];
   });
 
-  const prevFloorConfigurationsRef = useRef<string>("");
+  const [isInitialized, setIsInitialized] = useState(true);
   
-  // Update template version reference when templates change
-  useEffect(() => {
-    const newTemplateVersion = JSON.stringify(floorTemplatesInput);
-    if (templateVersionRef.current !== newTemplateVersion) {
-      templateVersionRef.current = newTemplateVersion;
-      // Clear cache when templates change
-      floorAreaCache.current = {};
-    }
-  }, [floorTemplatesInput]);
+  const prevFloorConfigurationsRef = useRef<FloorConfiguration[]>([]);
 
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
-      prevFloorConfigurationsRef.current = JSON.stringify(floorConfigurations);
+      prevFloorConfigurationsRef.current = floorConfigurations;
       return;
     }
     
-    if (isUpdatingRef.current) {
-      isUpdatingRef.current = false;
-      return;
-    }
-    
-    const currentConfigString = JSON.stringify(floorConfigurations);
-    
-    if (currentConfigString !== prevFloorConfigurationsRef.current) {
+    if (isInitialized && 
+        JSON.stringify(floorConfigurations) !== JSON.stringify(prevFloorConfigurationsRef.current)) {
+      
       saveToLocalStorage(STORAGE_KEY, floorConfigurations);
       console.log("Saved floor configurations to localStorage:", floorConfigurations);
-      
-      prevFloorConfigurationsRef.current = currentConfigString;
-      
-      // Clear floor area cache when configurations change
-      floorAreaCache.current = {};
-      
       dispatchFloorConfigSavedEvent();
+      
+      prevFloorConfigurationsRef.current = floorConfigurations;
     }
-  }, [floorConfigurations]);
+  }, [floorConfigurations, isInitialized]);
 
   const updateFloorConfiguration = useCallback((
     floorNumber: number, 
@@ -101,30 +67,22 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   ) => {
     console.log(`Updating floor ${floorNumber}, field ${String(field)}`, value);
     
-    isUpdatingRef.current = true;
-    
-    setFloorConfigurations(prev => {
-      const updated = prev.map(floor => {
+    setFloorConfigurations(
+      floorConfigurations.map(floor => {
         if (floor.floorNumber === floorNumber) {
-          return { ...floor, [field]: value };
+          const updatedFloor = { ...floor, [field]: value };
+          return updatedFloor;
         }
         return floor;
-      });
-      
-      return updated;
-    });
+      })
+    );
     
     if (field === 'spaces' || field === 'buildingSystems') {
       const updatedConfigs = floorConfigurations.map(floor => 
         floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
       );
-      
-      const updatedConfigsString = JSON.stringify(updatedConfigs);
-      if (updatedConfigsString !== prevFloorConfigurationsRef.current) {
-        saveToLocalStorage(STORAGE_KEY, updatedConfigs);
-        prevFloorConfigurationsRef.current = updatedConfigsString;
-        dispatchFloorConfigSavedEvent();
-      }
+      saveToLocalStorage(STORAGE_KEY, updatedConfigs);
+      dispatchFloorConfigSavedEvent();
     }
   }, [floorConfigurations]);
 
@@ -132,9 +90,8 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     const sourceFloor = floorConfigurations.find(floor => floor.floorNumber === sourceFloorNumber);
     
     if (sourceFloor && targetFloorNumbers.length > 0) {
-      isUpdatingRef.current = true;
-      setFloorConfigurations(prev =>
-        prev.map(floor => 
+      setFloorConfigurations(
+        floorConfigurations.map(floor => 
           targetFloorNumbers.includes(floor.floorNumber)
             ? { 
                 ...floor, 
@@ -159,13 +116,12 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     field: keyof FloorConfiguration, 
     value: string | null | boolean
   ) => {
-    isUpdatingRef.current = true;
-    setFloorConfigurations(prev =>
-      prev.map(floor => 
+    setFloorConfigurations(
+      floorConfigurations.map(floor => 
         floorNumbers.includes(floor.floorNumber) ? { ...floor, [field]: value } : floor
       )
     );
-  }, []);
+  }, [floorConfigurations]);
 
   const addFloors = useCallback((
     count: number,
@@ -252,18 +208,18 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
         : [...floorConfigurations, ...newFloors];
     }
     
-    isUpdatingRef.current = true;
     setFloorConfigurations(updatedFloors);
   }, [floorConfigurations]);
 
   const removeFloors = useCallback((floorNumbers: number[]) => {
     if (floorNumbers.length > 0) {
-      isUpdatingRef.current = true;
-      setFloorConfigurations(prev => prev.filter(
+      const remainingFloors = floorConfigurations.filter(
         floor => !floorNumbers.includes(floor.floorNumber)
-      ));
+      );
+      
+      setFloorConfigurations(remainingFloors);
     }
-  }, []);
+  }, [floorConfigurations]);
 
   const reorderFloor = useCallback((floorNumber: number, direction: "up" | "down") => {
     const sortedFloors = [...floorConfigurations].sort((a, b) => b.floorNumber - a.floorNumber);
@@ -284,7 +240,6 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     currentFloor.floorNumber = targetFloor.floorNumber;
     targetFloor.floorNumber = tempFloorNumber;
     
-    isUpdatingRef.current = true;
     setFloorConfigurations([...sortedFloors]);
   }, [floorConfigurations]);
 
@@ -322,10 +277,7 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
         return config;
       });
       
-      isUpdatingRef.current = true;
       setFloorConfigurations(cleanConfigs);
-      // Clear floor area cache on import
-      floorAreaCache.current = {};
     }
   }, []);
 
@@ -333,40 +285,26 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     return floorConfigurations;
   }, [floorConfigurations]);
 
-  // Refactored getFloorArea to use caching and avoid console spam
   const getFloorArea = useCallback((floorNumber: number): number => {
-    // Check if we already calculated this floor's area
-    if (floorAreaCache.current[floorNumber] !== undefined) {
-      return floorAreaCache.current[floorNumber];
-    }
-    
     const floor = floorConfigurations.find(f => f.floorNumber === floorNumber);
-    if (!floor) {
-      floorAreaCache.current[floorNumber] = 0;
-      return 0;
-    }
-    
-    let area = 0;
+    if (!floor) return 0;
     
     if (floor.customSquareFootage && floor.customSquareFootage !== "") {
-      area = parseInt(floor.customSquareFootage) || 0;
-    } else if (floor.templateId) {
+      return parseInt(floor.customSquareFootage) || 0;
+    }
+    
+    if (floor.templateId) {
       const template = floorTemplatesInput.find(t => t.id === floor.templateId);
       if (template) {
-        area = parseInt(template.squareFootage) || 0;
+        return parseInt(template.squareFootage) || 0;
       }
     }
     
-    // Cache the result
-    floorAreaCache.current[floorNumber] = area;
-    return area;
+    return 0;
   }, [floorConfigurations, floorTemplatesInput]);
 
   const resetAllData = useCallback(() => {
-    isUpdatingRef.current = true;
     setFloorConfigurations([]);
-    // Clear floor area cache on reset
-    floorAreaCache.current = {};
   }, []);
 
   return {
