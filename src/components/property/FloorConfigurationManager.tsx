@@ -4,14 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Table, TableHeader, TableRow, TableHead, TableBody } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Edit, Copy, Settings, ChevronUp, ChevronDown, Info, AlertTriangle, ArrowRightLeft, CheckCircle, Trash, Building2, Warehouse } from "lucide-react";
+import { PlusCircle, Settings, ChevronUp, ChevronDown, ArrowRightLeft, Trash } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import FloorTemplateManager from "./FloorTemplateManager";
-import FloorEditor from "./FloorEditor";
 import { FloorConfiguration, FloorPlateTemplate, SpaceDefinition, BuildingSystemsConfig } from "@/types/propertyTypes";
 import {
   Dialog,
@@ -35,29 +33,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
-
-const getBadgeColorForUse = (useType: string): string => {
-  switch (useType) {
-    case "residential":
-      return "bg-blue-50 text-blue-800";
-    case "office":
-      return "bg-green-50 text-green-800";
-    case "retail":
-      return "bg-amber-50 text-amber-800";
-    case "parking":
-      return "bg-gray-50 text-gray-800";
-    case "hotel":
-      return "bg-purple-50 text-purple-800";
-    case "amenities":
-      return "bg-pink-50 text-pink-800";
-    case "storage":
-      return "bg-yellow-50 text-yellow-800";
-    case "mechanical":
-      return "bg-slate-50 text-slate-800";
-    default:
-      return "bg-gray-50 text-gray-800";
-  }
-};
+import ExpandableFloorRow from "./ExpandableFloorRow";
+import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
 
 interface FloorConfigurationManagerProps {
   floorConfigurations: FloorConfiguration[];
@@ -96,8 +73,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [selectedFloorForCopy, setSelectedFloorForCopy] = useState<number | null>(null);
-  const [floorEditorOpen, setFloorEditorOpen] = useState(false);
-  const [currentFloor, setCurrentFloor] = useState<number | null>(null);
   
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [floorToDelete, setFloorToDelete] = useState<number | null>(null);
@@ -113,6 +88,9 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   const [bulkEditField, setBulkEditField] = useState<keyof FloorConfiguration>("templateId");
   const [bulkEditValue, setBulkEditValue] = useState<string>("");
   
+  const [expandedFloors, setExpandedFloors] = useState<number[]>([]);
+  
+  const { copyAllocations } = useUnitAllocations();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -154,6 +132,16 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
       setAllSelected(true);
     }
   }, [floorConfigurations, allSelected, selectedRows.length]);
+  
+  const toggleFloorExpansion = useCallback((floorNumber: number) => {
+    setExpandedFloors(prev => {
+      if (prev.includes(floorNumber)) {
+        return prev.filter(num => num !== floorNumber);
+      } else {
+        return [...prev, floorNumber];
+      }
+    });
+  }, []);
   
   useEffect(() => {
     setSelectedRows([]);
@@ -251,21 +239,20 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
       return;
     }
     
+    // Copy the floor configuration
     copyFloorConfiguration(selectedFloorForCopy, selectedRows);
-    setCopyDialogOpen(false);
     
+    // Copy unit allocations too
+    copyAllocations(selectedFloorForCopy, selectedRows);
+    
+    setCopyDialogOpen(false);
     setSelectedFloorForCopy(null);
     
     toast({
       title: "Floor configuration copied",
-      description: `Copied configuration to ${selectedRows.length} floor(s).`,
+      description: `Copied configuration and unit allocations to ${selectedRows.length} floor(s).`,
     });
-  }, [selectedFloorForCopy, selectedRows, copyFloorConfiguration, toast]);
-  
-  const handleEditFloor = useCallback((floorNumber: number) => {
-    setCurrentFloor(floorNumber);
-    setFloorEditorOpen(true);
-  }, []);
+  }, [selectedFloorForCopy, selectedRows, copyFloorConfiguration, copyAllocations, toast]);
   
   const handleDeleteClick = useCallback((floorNumber: number) => {
     setFloorToDelete(floorNumber);
@@ -370,127 +357,23 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedFloors.map(floor => {
-                const template = floorTemplates.find(t => t.id === floor.templateId);
-                const floorArea = floor.customSquareFootage && floor.customSquareFootage !== "" 
-                  ? floor.customSquareFootage 
-                  : template?.squareFootage || "0";
-                const spacesCount = floor.spaces?.length || 0;
-                
-                return (
-                  <TableRow key={`floor-${floor.floorNumber}`}>
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedRows.includes(floor.floorNumber)}
-                        onCheckedChange={() => handleRowSelection(floor.floorNumber)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Badge variant={floor.isUnderground ? "outline" : "default"} className="mr-1">
-                          {floor.floorNumber}
-                        </Badge>
-                        <div className="flex flex-col ml-1">
-                          <div className="flex gap-1">
-                            {floor.floorNumber > 1 && !floor.isUnderground && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-5 w-5"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  reorderFloor(floor.floorNumber, "down");
-                                }}
-                              >
-                                <ChevronUp className="h-3 w-3" />
-                              </Button>
-                            )}
-                            {floor.floorNumber < 0 && floor.isUnderground && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-5 w-5"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  reorderFloor(floor.floorNumber, "up");
-                                }}
-                              >
-                                <ChevronUp className="h-3 w-3" />
-                              </Button>
-                            )}
-                            {((floor.isUnderground && floor.floorNumber !== -1) || 
-                                (!floor.isUnderground && floor.floorNumber !== 1)) && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-5 w-5"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  reorderFloor(floor.floorNumber, floor.isUnderground ? "down" : "up");
-                                }}
-                              >
-                                <ChevronDown className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {floor.templateId ? (
-                        getTemplateName(floor.templateId)
-                      ) : (
-                        <Badge variant="outline" className="bg-amber-100 text-amber-800 hover:bg-amber-200">
-                          Custom
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {parseInt(floorArea).toLocaleString()} sf
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge 
-                        variant="outline" 
-                        className={`capitalize ${getBadgeColorForUse(floor.primaryUse || "office")}`}
-                      >
-                        {floor.primaryUse || "office"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {spacesCount > 0 ? (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-800">
-                          {spacesCount}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-gray-100 text-gray-600">
-                          0
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex justify-center space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditFloor(floor.floorNumber)}
-                          title="Edit floor"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDeleteClick(floor.floorNumber)}
-                          title="Delete floor"
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {sortedFloors.map(floor => (
+                <ExpandableFloorRow
+                  key={`floor-${floor.floorNumber}`}
+                  floor={floor}
+                  floorTemplates={floorTemplates}
+                  isSelected={selectedRows.includes(floor.floorNumber)}
+                  onSelect={handleRowSelection}
+                  onEdit={() => toggleFloorExpansion(floor.floorNumber)}
+                  onDelete={handleDeleteClick}
+                  reorderFloor={reorderFloor}
+                  updateFloorConfiguration={updateFloorConfiguration}
+                  getTemplateName={getTemplateName}
+                  totalRows={floorConfigurations.length}
+                  isExpanded={expandedFloors.includes(floor.floorNumber)}
+                  onToggleExpand={toggleFloorExpansion}
+                />
+              ))}
             </TableBody>
           </Table>
         </ScrollArea>
@@ -505,6 +388,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         )}
       </CardContent>
       
+      {/* Add Floors Dialog */}
       <Dialog open={addFloorDialogOpen} onOpenChange={setAddFloorDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -535,16 +419,14 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="aboveGround" id="above-ground" />
-                    <Label htmlFor="above-ground" className="flex items-center cursor-pointer">
-                      <Building2 className="h-4 w-4 mr-2 text-blue-600" />
-                      <span>Above Ground</span>
+                    <Label htmlFor="above-ground" className="cursor-pointer">
+                      Above Ground
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="underground" id="underground" />
-                    <Label htmlFor="underground" className="flex items-center cursor-pointer">
-                      <Warehouse className="h-4 w-4 mr-2 text-amber-600" />
-                      <span>Underground</span>
+                    <Label htmlFor="underground" className="cursor-pointer">
+                      Underground
                     </Label>
                   </div>
                 </RadioGroup>
@@ -636,6 +518,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
+      {/* Floor Template Manager Dialog */}
       <FloorTemplateManager
         isOpen={addTemplateDialogOpen}
         onClose={() => setAddTemplateDialogOpen(false)}
@@ -645,6 +528,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         removeTemplate={removeFloorTemplate}
       />
       
+      {/* Copy Configuration Dialog */}
       <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -706,6 +590,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
+      {/* Bulk Edit Dialog */}
       <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -811,20 +696,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
-      {currentFloor !== null && (
-        <Dialog open={floorEditorOpen} onOpenChange={setFloorEditorOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <FloorEditor
-              floorNumber={currentFloor}
-              floorConfiguration={floorConfigurations.find(f => f.floorNumber === currentFloor) as FloorConfiguration}
-              floorTemplates={floorTemplates}
-              updateFloorConfiguration={updateFloorConfiguration}
-              updateFloorSpaces={updateFloorSpaces}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
-      
+      {/* Delete Floor Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

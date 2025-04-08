@@ -6,6 +6,8 @@ import { useFloorTemplates } from "./property/useFloorTemplates";
 import { useFloorConfigurations } from "./property/useFloorConfigurations";
 import { useSpaceTypes } from "./property/useSpaceTypes";
 import { useUnitMix } from "./property/useUnitMix";
+import { useUnitTypes } from "./property/useUnitTypes";
+import { useUnitAllocations } from "./property/useUnitAllocations";
 import { useVisualizationData } from "./property/useVisualizationData";
 import { SpaceDefinition, BuildingSystemsConfig } from "../types/propertyTypes";
 
@@ -25,6 +27,8 @@ export const useExtendedPropertyState = () => {
   );
   const spaceTypes = useSpaceTypes();
   const unitMix = useUnitMix();
+  const unitTypes = useUnitTypes();
+  const unitAllocations = useUnitAllocations();
   
   // Visualization data depends on all other hooks
   const visualizationData = useVisualizationData(
@@ -78,6 +82,19 @@ export const useExtendedPropertyState = () => {
     addUnitMix: unitMix.addUnitMix,
     removeUnitMix: unitMix.removeUnitMix,
     updateUnitMix: unitMix.updateUnitMix,
+    
+    // Unit Types from the new system
+    unitTypes: unitTypes.unitTypes,
+    addUnitType: unitTypes.addUnitType,
+    updateUnitType: unitTypes.updateUnitType,
+    removeUnitType: unitTypes.removeUnitType,
+    
+    // Unit Allocations
+    unitAllocations: unitAllocations.unitAllocations,
+    addUnitAllocation: unitAllocations.addAllocation,
+    updateUnitAllocation: unitAllocations.updateAllocation,
+    removeUnitAllocation: unitAllocations.removeAllocation,
+    calculateAllocatedAreaByFloor: unitAllocations.calculateAllocatedAreaByFloor,
     
     // Floor Templates
     floorTemplates: floorTemplates.floorTemplates,
