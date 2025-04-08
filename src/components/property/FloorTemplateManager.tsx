@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -317,6 +318,7 @@ const FloorTemplateManager = ({
     setSaveSuccessful(false);
     
     try {
+      // Create a template object from the form data
       const templateToSave = {
         name: String(currentTemplate.name || ""),
         squareFootage: String(currentTemplate.squareFootage || "10000"),
@@ -330,6 +332,7 @@ const FloorTemplateManager = ({
       addDebugLog(`Saving template data: ${JSON.stringify(templateToSave)}`);
       
       if (editMode === "create") {
+        // Pass the complete template object to addTemplate
         addTemplate(templateToSave);
         
         toast({

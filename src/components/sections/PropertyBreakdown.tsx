@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -105,10 +106,11 @@ const PropertyBreakdown = () => {
     updateFloorTemplate(id, template);
   }, [updateFloorTemplate]);
   
-  // Create an adapter for addFloorTemplate to fix the type mismatch
-  const adaptedAddFloorTemplate = useCallback(() => {
-    // Create a default template to satisfy the type requirement
-    const defaultTemplate: Omit<FloorPlateTemplate, "id"> = {
+  // Fix: Direct pass through of template data rather than creating default values
+  // This ensures user input values are used when creating a new template
+  const adaptedAddFloorTemplate = useCallback((defaultTemplate?: Omit<FloorPlateTemplate, "id">) => {
+    // If a template is provided, pass it through, otherwise create a default
+    const template = defaultTemplate || {
       name: "New Template",
       squareFootage: "10000",
       floorToFloorHeight: "12",
@@ -118,7 +120,7 @@ const PropertyBreakdown = () => {
       description: ""
     };
     
-    addFloorTemplate(defaultTemplate);
+    addFloorTemplate(template);
   }, [addFloorTemplate]);
   
   // Safely stop propagation to prevent unexpected behavior
