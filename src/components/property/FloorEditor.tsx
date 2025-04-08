@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -33,7 +32,6 @@ interface FloorConfiguration {
   primaryUse: string;
   secondaryUse: string | null;
   secondaryUsePercentage: string;
-  // New fields for advanced configuration
   spaces?: SpaceDefinition[];
   buildingSystems?: BuildingSystemsConfig;
 }
@@ -48,7 +46,7 @@ interface SpaceDefinition {
     width: string;
     depth: string;
   };
-  isRentable: boolean; // Updated from isCore to isRentable
+  isRentable: boolean;
 }
 
 interface BuildingSystemsConfig {
@@ -83,13 +81,13 @@ const DEFAULT_SPACES: SpaceDefinition[] = [
     id: "space-1",
     name: "Main Office Area",
     type: "office",
-    subType: null, // Changed from "open" to null to start blank
+    subType: null,
     squareFootage: "7500",
     dimensions: {
       width: "75",
       depth: "100",
     },
-    isRentable: true, // Updated from isCore to isRentable
+    isRentable: true,
   },
   {
     id: "space-2",
@@ -101,7 +99,7 @@ const DEFAULT_SPACES: SpaceDefinition[] = [
       width: "30",
       depth: "50",
     },
-    isRentable: false, // Updated from isCore to isRentable (core spaces are typically not rentable)
+    isRentable: false,
   },
 ];
 
@@ -118,7 +116,6 @@ const DEFAULT_BUILDING_SYSTEMS: BuildingSystemsConfig = {
   plenumHeight: "3",
 };
 
-// Use type options grouped by category
 const USE_TYPE_OPTIONS: Record<string, string[]> = {
   office: ["executive", "open", "conference", "reception"],
   residential: ["studio", "one_bedroom", "two_bedroom", "three_bedroom", "amenity"],
@@ -139,17 +136,13 @@ const FloorEditor = ({
 }: FloorEditorProps) => {
   const [activeTab, setActiveTab] = useState("basic");
   
-  // Convert old isCore property to new isRentable property when loading initial spaces
   const convertSpaces = (spaces: SpaceDefinition[] | undefined): SpaceDefinition[] => {
     if (!spaces || spaces.length === 0) return DEFAULT_SPACES;
     
-    // If spaces exist but don't have the isRentable property yet
     if ('isCore' in spaces[0] && !('isRentable' in spaces[0])) {
       return spaces.map(space => ({
         ...space,
-        // @ts-ignore - handling legacy data
-        isRentable: !space.isCore, 
-        // @ts-ignore - remove old property
+        isRentable: !space.isCore,
         isCore: undefined 
       }));
     }
@@ -165,7 +158,6 @@ const FloorEditor = ({
     floorConfig.buildingSystems || DEFAULT_BUILDING_SYSTEMS
   );
 
-  // Calculate gross area from template or custom value
   const getGrossArea = () => {
     if (floorConfig.customSquareFootage) {
       return parseFloat(floorConfig.customSquareFootage) || 0;
@@ -185,7 +177,6 @@ const FloorEditor = ({
   const efficiencyFactor = parseFloat(floorConfig.efficiencyFactor) || 0;
   const netArea = grossArea * (efficiencyFactor / 100);
 
-  // Current space allocation percentages
   const calculateSpaceAllocation = () => {
     const totalSpaceArea = currentSpaces.reduce((sum, space) => {
       return sum + (parseFloat(space.squareFootage) || 0);
@@ -193,7 +184,6 @@ const FloorEditor = ({
 
     const totalPercentage = totalSpaceArea > 0 ? (totalSpaceArea / grossArea) * 100 : 0;
     
-    // Calculate rentable vs. non-rentable area
     const rentableArea = currentSpaces
       .filter(space => space.isRentable)
       .reduce((sum, space) => sum + (parseFloat(space.squareFootage) || 0), 0);
@@ -201,7 +191,6 @@ const FloorEditor = ({
     const nonRentableArea = totalSpaceArea - rentableArea;
     const rentablePercentage = totalSpaceArea > 0 ? (rentableArea / totalSpaceArea) * 100 : 0;
     
-    // Calculate circulation space (spaces with type "core" and subType "corridor")
     const circulationArea = currentSpaces
       .filter(space => space.type === "core" && space.subType === "corridor")
       .reduce((sum, space) => sum + (parseFloat(space.squareFootage) || 0), 0);
@@ -219,30 +208,27 @@ const FloorEditor = ({
 
   const spaceAllocation = calculateSpaceAllocation();
 
-  // Handle adding a new space
   const handleAddSpace = () => {
     const newSpace: SpaceDefinition = {
       id: `space-${currentSpaces.length + 1}-${Date.now()}`,
       name: `Space ${currentSpaces.length + 1}`,
       type: "office",
-      subType: null, // Default to null instead of a specific subtype
+      subType: null,
       squareFootage: "0",
       dimensions: {
         width: "0",
         depth: "0",
       },
-      isRentable: true, // Default to rentable
+      isRentable: true,
     };
     
     setCurrentSpaces([...currentSpaces, newSpace]);
   };
 
-  // Handle removing a space
   const handleRemoveSpace = (spaceId: string) => {
     setCurrentSpaces(currentSpaces.filter((space) => space.id !== spaceId));
   };
 
-  // Handle updating a space property
   const handleUpdateSpace = (spaceId: string, field: keyof SpaceDefinition | string, value: any) => {
     setCurrentSpaces(
       currentSpaces.map((space) => {
@@ -257,7 +243,6 @@ const FloorEditor = ({
               }
             };
             
-            // Automatically calculate square footage when both dimensions have values
             const width = parseFloat(updatedSpace.dimensions.width) || 0;
             const depth = parseFloat(updatedSpace.dimensions.depth) || 0;
             
@@ -274,7 +259,6 @@ const FloorEditor = ({
     );
   };
 
-  // Handle updating building systems
   const handleUpdateBuildingSystems = (field: string, value: any) => {
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
@@ -293,21 +277,18 @@ const FloorEditor = ({
     }
   };
 
-  // Calculate dimensions from area
   const calculateDimensions = (spaceId: string) => {
     const space = currentSpaces.find((s) => s.id === spaceId);
     if (!space) return;
 
     const area = parseFloat(space.squareFootage) || 0;
     if (area > 0) {
-      // Assuming a square by default
       const dimension = Math.sqrt(area);
       handleUpdateSpace(spaceId, "dimensions.width", dimension.toFixed(2));
       handleUpdateSpace(spaceId, "dimensions.depth", dimension.toFixed(2));
     }
   };
 
-  // Calculate area from dimensions
   const calculateArea = (spaceId: string) => {
     const space = currentSpaces.find((s) => s.id === spaceId);
     if (!space) return;
@@ -321,7 +302,6 @@ const FloorEditor = ({
     }
   };
 
-  // Validate that dimensions match square footage
   const validateDimensionsAndArea = (spaceId: string) => {
     const space = currentSpaces.find((s) => s.id === spaceId);
     if (!space) return;
@@ -331,38 +311,30 @@ const FloorEditor = ({
     const calculatedArea = width * depth;
     const enteredArea = parseFloat(space.squareFootage) || 0;
     
-    // If dimensions are set but don't match the area, update the area
     if (width > 0 && depth > 0 && Math.abs(calculatedArea - enteredArea) > 1) {
       handleUpdateSpace(spaceId, "squareFootage", calculatedArea.toString());
     }
   };
 
-  // Save all changes
   const handleSave = () => {
-    // Update spaces if the function is provided
     if (updateSpaces) {
       updateSpaces(floorConfig.floorNumber, currentSpaces);
     } else {
-      // Fall back to the regular update function
       updateFloorConfiguration(floorConfig.floorNumber, "spaces", currentSpaces);
     }
 
-    // Update building systems if the function is provided
     if (updateBuildingSystems) {
       updateBuildingSystems(floorConfig.floorNumber, currentSystems);
     } else {
-      // Fall back to the regular update function
       updateFloorConfiguration(floorConfig.floorNumber, "buildingSystems", currentSystems);
     }
 
-    // Update rentable vs non-rentable allocation based on actual space allocation
     updateFloorConfiguration(
       floorConfig.floorNumber,
       "corePercentage",
       (100 - spaceAllocation.rentablePercentage).toFixed(1)
     );
 
-    // Close the editor
     onClose();
   };
 
@@ -673,7 +645,6 @@ const FloorEditor = ({
                             <Select 
                               value={space.type}
                               onValueChange={(value) => {
-                                // When changing type, reset subType to null
                                 handleUpdateSpace(space.id, "type", value);
                                 handleUpdateSpace(space.id, "subType", null);
                               }}
@@ -693,14 +664,14 @@ const FloorEditor = ({
                           </TableCell>
                           <TableCell>
                             <Select 
-                              value={space.subType || ""}
-                              onValueChange={(value) => handleUpdateSpace(space.id, "subType", value || null)}
+                              value={space.subType || "null"}
+                              onValueChange={(value) => handleUpdateSpace(space.id, "subType", value === "null" ? null : value)}
                             >
                               <SelectTrigger className="h-9 text-left">
                                 <SelectValue placeholder="Select subtype" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">None</SelectItem>
+                                <SelectItem value="null">None</SelectItem>
                                 {space.type && USE_TYPE_OPTIONS[space.type] ? (
                                   USE_TYPE_OPTIONS[space.type].map(subType => (
                                     <SelectItem key={subType} value={subType}>
@@ -708,7 +679,7 @@ const FloorEditor = ({
                                     </SelectItem>
                                   ))
                                 ) : (
-                                  <SelectItem value="">No subtypes available</SelectItem>
+                                  <SelectItem value="none">No subtypes available</SelectItem>
                                 )}
                               </SelectContent>
                             </Select>
@@ -740,7 +711,6 @@ const FloorEditor = ({
                                 value={space.squareFootage} 
                                 onChange={(e) => handleUpdateSpace(space.id, "squareFootage", e.target.value)}
                                 onBlur={() => {
-                                  // If dimensions are empty or zero, calculate dimensions from area
                                   const width = parseFloat(space.dimensions.width) || 0;
                                   const depth = parseFloat(space.dimensions.depth) || 0;
                                   if (width === 0 || depth === 0) {
@@ -975,22 +945,20 @@ const FloorEditor = ({
   );
 };
 
-// Helper function to get a color for a space type
 const getUseColor = (spaceType: string) => {
   const colors: Record<string, string> = {
-    "residential": "#3B82F6", // blue
-    "office": "#10B981",      // green
-    "retail": "#F59E0B",      // amber
-    "parking": "#6B7280",     // gray
-    "hotel": "#8B5CF6",       // purple
-    "amenities": "#EC4899",   // pink
-    "storage": "#78716C",     // warm gray
-    "mechanical": "#475569",  // slate
-    "core": "#94A3B8",        // slate-300
+    "residential": "#3B82F6",
+    "office": "#10B981",
+    "retail": "#F59E0B",
+    "parking": "#6B7280",
+    "hotel": "#8B5CF6",
+    "amenities": "#EC4899",
+    "storage": "#78716C",
+    "mechanical": "#475569",
+    "core": "#94A3B8",
   };
   
   return colors[spaceType] || "#9CA3AF";
 };
 
 export default FloorEditor;
-
