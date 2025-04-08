@@ -638,21 +638,6 @@ const FloorTemplateManager = ({
                       <div className="text-sm text-muted-foreground">
                         {template.squareFootage} sq ft • {template.floorToFloorHeight || "12"}' height
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge 
-                          variant="outline" 
-                          className="capitalize"
-                          style={{ 
-                            backgroundColor: `${getUseColor(template.primaryUse || "office")}20`,
-                            borderColor: getUseColor(template.primaryUse || "office")
-                          }}
-                        >
-                          {template.primaryUse || "office"}
-                        </Badge>
-                        <Badge variant="outline">
-                          {100 - parseInt(template.corePercentage || "15")}% efficient
-                        </Badge>
-                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button 
@@ -800,7 +785,6 @@ const FloorTemplateManager = ({
     );
   };
 
-  
   return (
     <>
       <Dialog 
