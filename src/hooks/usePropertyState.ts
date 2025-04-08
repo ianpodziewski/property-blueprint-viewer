@@ -215,8 +215,12 @@ export const usePropertyState = () => {
     );
   };
   
-  // Add the reset function for space types
-  const resetSpaceTypes = useCallback(() => {
+  // Reset all data
+  const resetAllData = useCallback(() => {
+    setProjectName("");
+    setProjectLocation("");
+    setProjectType("");
+    setTotalLandArea("");
     setSpaceTypes([{ 
       id: "space-1", 
       type: "", 
@@ -226,17 +230,8 @@ export const usePropertyState = () => {
       efficiencyFactor: "100",
       floorAllocation: {} 
     }]);
-  }, []);
-  
-  // Reset all data
-  const resetAllData = useCallback(() => {
-    setProjectName("");
-    setProjectLocation("");
-    setProjectType("");
-    setTotalLandArea("");
-    resetSpaceTypes();
     setUnitMixes([{ id: "unit-1", type: "Studio", count: "", squareFootage: "" }]);
-  }, [resetSpaceTypes]);
+  }, []);
 
   return {
     // Project Information
@@ -251,7 +246,6 @@ export const usePropertyState = () => {
     removeSpaceType,
     updateSpaceType,
     updateSpaceTypeFloorAllocation,
-    resetSpaceTypes,
     
     // Unit Mix
     unitMixes,

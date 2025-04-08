@@ -45,16 +45,10 @@ export const useUnitMix = () => {
     );
   }, [unitMixes]);
 
-  // Add the reset function
-  const resetUnitMix = useCallback(() => {
-    setUnitMixes([{ id: "unit-1", type: "Studio", count: "0", squareFootage: "0" }]);
-  }, []);
-
   return {
     unitMixes,
     addUnitMix,
     removeUnitMix,
-    updateUnitMix,
-    resetUnitMix
+    updateUnitMix
   };
 };
