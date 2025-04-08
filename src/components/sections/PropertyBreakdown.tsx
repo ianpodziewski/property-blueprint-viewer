@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -121,7 +122,7 @@ const PropertyBreakdown = () => {
     addFloorTemplate(defaultTemplate);
   }, [addFloorTemplate]);
   
-  // Safely stop event propagation to prevent unexpected behavior
+  // Safely stop propagation to prevent unexpected behavior
   const stopPropagation = useCallback((e: React.MouseEvent<Element, MouseEvent>) => {
     if (e && e.stopPropagation) {
       e.stopPropagation();
@@ -194,7 +195,7 @@ const PropertyBreakdown = () => {
         totalBelowGroundArea={totalBelowGroundArea}
         actualFar={actualFar}
         floorTemplates={floorTemplates}
-        addFloorTemplate={addFloorTemplate}
+        addFloorTemplate={adaptedAddFloorTemplate}
         updateFloorTemplate={adaptedUpdateFloorTemplateForBuildingParams}
         removeFloorTemplate={removeFloorTemplate}
       />
@@ -210,7 +211,7 @@ const PropertyBreakdown = () => {
         addFloors={addFloors}
         removeFloors={removeFloors}
         reorderFloor={reorderFloor}
-        addFloorTemplate={addFloorTemplate}
+        addFloorTemplate={adaptedAddFloorTemplate}
         updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
         removeFloorTemplate={removeFloorTemplate}
       />
