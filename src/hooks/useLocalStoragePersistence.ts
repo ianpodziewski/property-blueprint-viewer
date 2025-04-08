@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 type StorageValue<T> = T | null;
 
@@ -13,9 +13,15 @@ export const useLocalStoragePersistence = <T>(
   // Create state and setter
   const [value, setValue] = useState<T>(initialValue);
   const [isInitialized, setIsInitialized] = useState(false);
+  const isMounted = useRef(true);
+  
+  // Track if this is the initial render
+  const isFirstRender = useRef(true);
 
   // Load from localStorage on mount
   useEffect(() => {
+    isMounted.current = true;
+    
     try {
       const storedValue = localStorage.getItem(key);
       if (storedValue !== null) {
@@ -26,17 +32,31 @@ export const useLocalStoragePersistence = <T>(
       console.error(`Error loading data from localStorage (${key}):`, error);
       setIsInitialized(true);
     }
+    
+    return () => {
+      isMounted.current = false;
+    };
   }, [key]);
 
   // Save to localStorage whenever value changes
   useEffect(() => {
-    if (!isInitialized) return;
-    
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-      console.error(`Error saving data to localStorage (${key}):`, error);
+    if (!isInitialized || isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
+    
+    const timeoutId = setTimeout(() => {
+      if (isMounted.current) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+          console.log(`Data saved to localStorage: ${key}`);
+        } catch (error) {
+          console.error(`Error saving data to localStorage (${key}):`, error);
+        }
+      }
+    }, 300); // Debounce storage writes
+    
+    return () => clearTimeout(timeoutId);
   }, [key, value, isInitialized]);
 
   // Function to reset stored value

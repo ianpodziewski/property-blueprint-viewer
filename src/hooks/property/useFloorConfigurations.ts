@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
   FloorConfiguration, 
@@ -11,9 +10,16 @@ import { toast } from "@/components/ui/use-toast";
 import { useUIRecovery } from "@/App";
 
 const STORAGE_KEY = "realEstateModel_floorConfigurations";
+const RENDER_DEBUG = false; // Set to true to enable render debugging
 
 // Create a custom event for floor configuration changes
 export const FLOOR_CONFIG_EVENT = "floorConfigSaved";
+
+// Track render counts to detect potential infinite loops
+const renderCount = { current: 0 };
+
+// Max render count before forcing a break
+const MAX_RENDER_COUNT = 50;
 
 // Improved event dispatcher with detailed logging
 const dispatchFloorConfigEvent = (eventName: string, detail: any = {}) => {
@@ -33,6 +39,40 @@ const dispatchFloorConfigEvent = (eventName: string, detail: any = {}) => {
 };
 
 export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => {
+  // Track if mounted to prevent state updates after unmount
+  const isMounted = useRef(true);
+  
+  // Track if this is first render
+  const isFirstRender = useRef(true);
+  
+  // Debug render cycles
+  if (RENDER_DEBUG) {
+    renderCount.current++;
+    console.log(`useFloorConfigurations render #${renderCount.current}`);
+    
+    if (renderCount.current > MAX_RENDER_COUNT) {
+      console.error(`Detected potential infinite render loop in useFloorConfigurations! Breaking out.`);
+      // This is a safety mechanism to prevent browser crashes from infinite loops
+      return {
+        floorConfigurations: [],
+        setFloorConfigurations: () => {},
+        updateFloorConfiguration: () => {},
+        copyFloorConfiguration: () => {},
+        bulkEditFloorConfigurations: () => {},
+        addFloors: () => {},
+        removeFloors: () => {},
+        reorderFloor: () => {},
+        updateFloorSpaces: () => {},
+        updateFloorBuildingSystems: () => {},
+        importFloorConfigurations: () => {},
+        exportFloorConfigurations: () => [],
+        resetFloorConfigurations: () => {},
+        isProcessingOperation: false,
+        lastOperation: null
+      };
+    }
+  }
+  
   const { startProcessing, endProcessing } = useUIRecovery();
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>([
     {
@@ -55,8 +95,11 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
     timestamp: number;
     data?: any;
   } | null>(null);
+  
+  // Track if data is loaded from storage
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load configurations from localStorage
+  // Load configurations from localStorage only once on mount
   useEffect(() => {
     try {
       console.log("Loading floor configurations from storage");
@@ -79,6 +122,7 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
         console.log("Loaded floor configurations:", storedFloorConfigurations.length);
         setFloorConfigurations(storedFloorConfigurations);
       }
+      setIsLoaded(true);
     } catch (error) {
       console.error("Error loading floor configurations:", error);
       setFloorConfigurations([{
@@ -93,23 +137,37 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
         secondaryUse: null,
         secondaryUsePercentage: "0"
       }]);
+      setIsLoaded(true);
     }
+    
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
 
-  // Save configurations to localStorage
+  // Save configurations to localStorage with debouncing
   useEffect(() => {
-    try {
-      console.log("Saving floor configurations to storage:", floorConfigurations.length);
-      saveToLocalStorage(STORAGE_KEY, floorConfigurations);
-    } catch (error) {
-      console.error("Error saving floor configurations:", error);
-      toast({
-        title: "Error saving changes",
-        description: "There was an error saving your changes. Please try again.",
-        variant: "destructive"
-      });
+    if (!isLoaded || isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
-  }, [floorConfigurations]);
+    
+    const timeoutId = setTimeout(() => {
+      try {
+        console.log("Saving floor configurations to storage:", floorConfigurations.length);
+        saveToLocalStorage(STORAGE_KEY, floorConfigurations);
+      } catch (error) {
+        console.error("Error saving floor configurations:", error);
+        toast({
+          title: "Error saving changes",
+          description: "There was an error saving your changes. Please try again.",
+          variant: "destructive"
+        });
+      }
+    }, 500); // Debounce for 500ms
+    
+    return () => clearTimeout(timeoutId);
+  }, [floorConfigurations, isLoaded]);
 
   // Process state changes safely
   const safeSetFloorConfigurations = useCallback((updaterOrValue: FloorConfiguration[] | ((prev: FloorConfiguration[]) => FloorConfiguration[])) => {
@@ -121,17 +179,21 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
       setFloorConfigurations(updaterOrValue);
       
       // Schedule processing state to end
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         console.log("Ending processing state after configuration update");
-        setIsProcessingOperation(false);
-        endProcessing();
-        
-        // Notify that configurations have been updated
-        dispatchFloorConfigEvent(FLOOR_CONFIG_EVENT, { 
-          operation: "update",
-          timestamp: Date.now()
-        });
-      }, 100);
+        if (isMounted.current) {
+          setIsProcessingOperation(false);
+          endProcessing();
+          
+          // Notify that configurations have been updated
+          dispatchFloorConfigEvent(FLOOR_CONFIG_EVENT, { 
+            operation: "update",
+            timestamp: Date.now()
+          });
+        }
+      }, 200);
+      
+      return () => clearTimeout(timeoutId);
     } catch (error) {
       console.error("Error updating floor configurations:", error);
       setIsProcessingOperation(false);
@@ -145,6 +207,14 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
     }
   }, [startProcessing, endProcessing]);
 
+  // Reset function for cleanup
+  const resetRenderCount = useCallback(() => {
+    if (RENDER_DEBUG) {
+      renderCount.current = 0;
+      console.log("Reset render count");
+    }
+  }, []);
+  
   // Update a single floor configuration
   const updateFloorConfiguration = useCallback((
     floorNumber: number, 
@@ -610,7 +680,7 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
         variant: "destructive"
       });
     }
-  }, [safeSetFloorConfigurations, startProcessing, endProcessing]);
+  }, [safeSetFloorConfigurations, startProcessing]);
 
   // Export floor configurations
   const exportFloorConfigurations = useCallback(() => {
@@ -664,6 +734,16 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
       document.removeEventListener('click', handleUIEvent, true);
     };
   }, [isProcessingOperation]);
+
+  // Track component lifecycle
+  useEffect(() => {
+    isMounted.current = true;
+    
+    return () => {
+      isMounted.current = false;
+      resetRenderCount();
+    };
+  }, [resetRenderCount]);
 
   return {
     floorConfigurations,

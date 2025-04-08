@@ -7,11 +7,19 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PropertyProvider } from "./contexts/PropertyContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { closeAllDialogs } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
 
-const queryClient = new QueryClient();
+// Create a more stable QueryClient with retry settings
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1, // Reduce retries to prevent loop issues
+      staleTime: 30000, // Increase stale time to reduce refetches
+    },
+  }
+});
 
 // Create a UI recovery context
 export interface UIRecoveryContextType {
@@ -19,6 +27,7 @@ export interface UIRecoveryContextType {
   startProcessing: () => void;
   endProcessing: () => void;
   forceUIRecovery: () => void;
+  resetRenderCounts: () => void;
 }
 
 const UIRecoveryContext = createContext<UIRecoveryContextType>({
@@ -26,26 +35,72 @@ const UIRecoveryContext = createContext<UIRecoveryContextType>({
   startProcessing: () => {},
   endProcessing: () => {},
   forceUIRecovery: () => {},
+  resetRenderCounts: () => {},
 });
 
 export const useUIRecovery = () => useContext(UIRecoveryContext);
 
+const MAX_PROCESSING_TIME = 5000; // Maximum time to allow processing state
+
 const UIRecoveryProvider = ({ children }: { children: React.ReactNode }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [recoveryCount, setRecoveryCount] = useState(0);
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const renderCountRef = useRef<Record<string, number>>({});
+  
+  // Track component rendering to detect potential infinite loops
+  const trackRender = useCallback((componentId: string) => {
+    if (!renderCountRef.current[componentId]) {
+      renderCountRef.current[componentId] = 0;
+    }
+    renderCountRef.current[componentId]++;
+    
+    // Log if a component is rendering excessively
+    if (renderCountRef.current[componentId] > 50) {
+      console.warn(`Component ${componentId} has rendered ${renderCountRef.current[componentId]} times. Potential infinite loop detected.`);
+    }
+  }, []);
+  
+  // Reset render counters - useful when navigating
+  const resetRenderCounts = useCallback(() => {
+    renderCountRef.current = {};
+    console.log("Render count trackers reset");
+  }, []);
 
-  const startProcessing = () => {
+  const startProcessing = useCallback(() => {
     console.log("UI Processing started");
     setIsProcessing(true);
-  };
+    
+    // Safety timeout to prevent stuck processing state
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    
+    processingTimeoutRef.current = setTimeout(() => {
+      console.log("Processing timeout exceeded. Force ending processing state.");
+      setIsProcessing(false);
+    }, MAX_PROCESSING_TIME);
+  }, []);
 
-  const endProcessing = () => {
+  const endProcessing = useCallback(() => {
     console.log("UI Processing ended");
+    
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+    
     setIsProcessing(false);
-  };
+  }, []);
 
-  const forceUIRecovery = () => {
+  const forceUIRecovery = useCallback(() => {
     console.log("Force UI recovery triggered");
+    
+    // Cancel any ongoing processing timeout
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
     
     // Close any stale dialogs
     closeAllDialogs();
@@ -56,12 +111,15 @@ const UIRecoveryProvider = ({ children }: { children: React.ReactNode }) => {
     // Reset processing state
     setIsProcessing(false);
     
+    // Reset render counters
+    resetRenderCounts();
+    
     toast({
       title: "UI Recovery",
       description: "The interface has been refreshed.",
       duration: 2000,
     });
-  };
+  }, [resetRenderCounts]);
 
   // Set up a keyboard shortcut for emergency UI recovery (Ctrl+Alt+R)
   useEffect(() => {
@@ -74,9 +132,18 @@ const UIRecoveryProvider = ({ children }: { children: React.ReactNode }) => {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [forceUIRecovery]);
+
+  // Cleanup processingTimeout on unmount
+  useEffect(() => {
+    return () => {
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+      }
+    };
   }, []);
 
-  // Clean up any stale UI elements on mount
+  // Clean up any stale UI elements on mount and recovery
   useEffect(() => {
     const cleanup = () => {
       document.querySelectorAll('[role="dialog"]').forEach(dialog => {
@@ -86,7 +153,7 @@ const UIRecoveryProvider = ({ children }: { children: React.ReactNode }) => {
       });
     };
     
-    // Run cleanup on mount
+    // Run cleanup on mount and recovery
     cleanup();
     
     // Set up interval to check for stuck dialogs
@@ -116,7 +183,8 @@ const UIRecoveryProvider = ({ children }: { children: React.ReactNode }) => {
       isProcessing, 
       startProcessing, 
       endProcessing, 
-      forceUIRecovery 
+      forceUIRecovery,
+      resetRenderCounts
     }}>
       {children}
     </UIRecoveryContext.Provider>

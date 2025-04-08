@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useProperty } from "@/contexts/PropertyContext";
 import { useDevelopmentCosts } from "./useDevelopmentCosts";
 import { useDevelopmentTimeline } from "./useDevelopmentTimeline";
@@ -13,6 +13,8 @@ import { clearAllModelData } from "./useLocalStoragePersistence";
 // This is a master hook that combines all the section hooks
 export const useModelState = () => {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'error' | 'reset' | null>(null);
+  const saveStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMounted = useRef(true);
   
   const propertyState = useProperty();
   const developmentCostsState = useDevelopmentCosts();
@@ -22,6 +24,17 @@ export const useModelState = () => {
   const financingState = useFinancingState();
   const dispositionState = useDispositionState();
   const sensitivityState = useSensitivityState();
+  
+  // Set up cleanup on unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      if (saveStatusTimeoutRef.current) {
+        clearTimeout(saveStatusTimeoutRef.current);
+      }
+    };
+  }, []);
   
   // Reset all data in localStorage
   const resetAllData = useCallback(() => {
@@ -42,18 +55,43 @@ export const useModelState = () => {
     revenueState, financingState, dispositionState, sensitivityState
   ]);
   
-  // Clear save status notification
+  // Clear save status notification with auto-clear timer
   const clearSaveStatus = useCallback(() => {
-    setSaveStatus(null);
+    if (isMounted.current) {
+      setSaveStatus(null);
+    }
   }, []);
+  
+  // Auto-clear save status after a delay
+  useEffect(() => {
+    if (saveStatus) {
+      if (saveStatusTimeoutRef.current) {
+        clearTimeout(saveStatusTimeoutRef.current);
+      }
+      
+      saveStatusTimeoutRef.current = setTimeout(() => {
+        if (isMounted.current) {
+          setSaveStatus(null);
+        }
+      }, 3000);
+    }
+    
+    return () => {
+      if (saveStatusTimeoutRef.current) {
+        clearTimeout(saveStatusTimeoutRef.current);
+      }
+    };
+  }, [saveStatus]);
 
-  // Master handlers
+  // Master handlers with debounce for state updates
   const handleTextChange = useCallback((
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, 
     setter: (value: string) => void
   ) => {
     setter(e.target.value);
-    setSaveStatus('saved');
+    if (isMounted.current) {
+      setSaveStatus('saved');
+    }
   }, []);
   
   const handleNumberChange = useCallback((
@@ -66,12 +104,16 @@ export const useModelState = () => {
     // Allow empty string or valid numbers within range
     if (value === '') {
       setter(value);
-      setSaveStatus('saved');
+      if (isMounted.current) {
+        setSaveStatus('saved');
+      }
     } else {
       const numValue = Number(value);
       if (!isNaN(numValue) && numValue >= min && (max === undefined || numValue <= max)) {
         setter(value);
-        setSaveStatus('saved');
+        if (isMounted.current) {
+          setSaveStatus('saved');
+        }
       }
     }
   }, []);
@@ -88,7 +130,9 @@ export const useModelState = () => {
     setter: (value: string) => void
   ) => {
     setter(value);
-    setSaveStatus('saved');
+    if (isMounted.current) {
+      setSaveStatus('saved');
+    }
   }, []);
   
   const handleBooleanChange = useCallback((
@@ -96,7 +140,9 @@ export const useModelState = () => {
     setter: (value: boolean) => void
   ) => {
     setter(value);
-    setSaveStatus('saved');
+    if (isMounted.current) {
+      setSaveStatus('saved');
+    }
   }, []);
   
   const handleDateChange = useCallback((
@@ -104,7 +150,9 @@ export const useModelState = () => {
     setter: (date: Date | undefined) => void
   ) => {
     setter(date);
-    setSaveStatus('saved');
+    if (isMounted.current) {
+      setSaveStatus('saved');
+    }
   }, []);
   
   return {

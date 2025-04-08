@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useCallback } from 'react';
 import { 
   FloorConfiguration, 
   FloorPlateTemplate, 
@@ -648,21 +648,30 @@ export const PropertyProvider: React.FC<{ children: ReactNode }> = ({ children }
     return initial;
   });
 
-  // Save state to localStorage whenever it changes
+  // Use a debounced save to prevent excessive localStorage writes
   useEffect(() => {
-    try {
-      saveToLocalStorage(STORAGE_KEYS.PROPERTY_STATE, state);
-    } catch (error) {
-      console.error('Failed to save property state:', error);
-    }
+    const timeoutId = setTimeout(() => {
+      try {
+        saveToLocalStorage(STORAGE_KEYS.PROPERTY_STATE, state);
+        console.log('Property state saved to localStorage');
+      } catch (error) {
+        console.error('Failed to save property state:', error);
+      }
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(timeoutId);
   }, [state]);
 
   // Calculate building areas and FAR whenever floor configurations or templates change
   useEffect(() => {
+    // Create memoized values to prevent unnecessary recalculations
+    const aboveGroundFloors = state.floorConfigurations.filter(f => !f.isUnderground);
+    const belowGroundFloors = state.floorConfigurations.filter(f => f.isUnderground);
+    
     let aboveGround = 0;
     let belowGround = 0;
 
-    state.floorConfigurations.forEach(floor => {
+    aboveGroundFloors.forEach(floor => {
       let squareFootage = 0;
       if (floor.templateId) {
         const template = state.floorTemplates.find(t => t.id === floor.templateId);
@@ -675,23 +684,49 @@ export const PropertyProvider: React.FC<{ children: ReactNode }> = ({ children }
         squareFootage = parseFloat(floor.customSquareFootage) || 0;
       }
 
-      if (floor.isUnderground) {
-        belowGround += squareFootage;
-      } else {
-        aboveGround += squareFootage;
+      aboveGround += squareFootage;
+    });
+    
+    belowGroundFloors.forEach(floor => {
+      let squareFootage = 0;
+      if (floor.templateId) {
+        const template = state.floorTemplates.find(t => t.id === floor.templateId);
+        if (template) {
+          squareFootage = parseFloat(template.squareFootage) || 0;
+        }
       }
+
+      if (floor.customSquareFootage) {
+        squareFootage = parseFloat(floor.customSquareFootage) || 0;
+      }
+
+      belowGround += squareFootage;
     });
 
     const landArea = parseFloat(state.totalLandArea) || 0;
     const actualFar = landArea > 0 ? aboveGround / landArea : 0;
 
-    dispatch({ 
-      type: 'UPDATE_CALCULATED_VALUES', 
-      totalAboveGround: aboveGround,
-      totalBelowGround: belowGround,
-      actualFar
-    });
-  }, [state.floorConfigurations, state.floorTemplates, state.totalLandArea]);
+    // Only dispatch if values actually changed
+    const totalAboveGroundChanged = Math.abs(state.totalAboveGroundArea - aboveGround) > 0.001;
+    const totalBelowGroundChanged = Math.abs(state.totalBelowGroundArea - belowGround) > 0.001;
+    const actualFarChanged = Math.abs(state.actualFar - actualFar) > 0.001;
+    
+    if (totalAboveGroundChanged || totalBelowGroundChanged || actualFarChanged) {
+      dispatch({ 
+        type: 'UPDATE_CALCULATED_VALUES', 
+        totalAboveGround: aboveGround,
+        totalBelowGround: belowGround,
+        actualFar
+      });
+    }
+  }, [
+    state.floorConfigurations, 
+    state.floorTemplates, 
+    state.totalLandArea,
+    state.totalAboveGroundArea,
+    state.totalBelowGroundArea,
+    state.actualFar
+  ]);
 
   return (
     <PropertyContext.Provider value={{ state, dispatch }}>
