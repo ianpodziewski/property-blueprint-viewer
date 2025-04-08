@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -105,6 +104,22 @@ const PropertyBreakdown = () => {
   const adaptedUpdateFloorTemplateForConfigManager = useCallback((id: string, template: Partial<FloorPlateTemplate>) => {
     updateFloorTemplate(id, template);
   }, [updateFloorTemplate]);
+  
+  // Create an adapter for addFloorTemplate to fix the type mismatch
+  const adaptedAddFloorTemplate = useCallback(() => {
+    // Create a default template to satisfy the type requirement
+    const defaultTemplate: Omit<FloorPlateTemplate, "id"> = {
+      name: "New Template",
+      squareFootage: "10000",
+      floorToFloorHeight: "12",
+      efficiencyFactor: "85",
+      corePercentage: "15",
+      primaryUse: "office",
+      description: ""
+    };
+    
+    addFloorTemplate(defaultTemplate);
+  }, [addFloorTemplate]);
   
   // Safely stop event propagation to prevent unexpected behavior
   const stopPropagation = useCallback((e: React.MouseEvent<Element, MouseEvent>) => {
