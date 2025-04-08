@@ -13,7 +13,8 @@ import FloorEditor from "./FloorEditor";
 import { 
   FloorPlateTemplate,
   FloorConfiguration, 
-  SpaceDefinition
+  SpaceDefinition,
+  BuildingSystemsConfig
 } from "@/types/propertyTypes";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -31,6 +32,8 @@ interface FloorConfigurationManagerProps {
     field: keyof FloorConfiguration, 
     value: any
   ) => void;
+  updateFloorSpaces: (floorNumber: number, spaces: SpaceDefinition[]) => void;
+  updateFloorBuildingSystems?: (floorNumber: number, systems: BuildingSystemsConfig) => void;
 }
 
 const FloorConfigurationManager = ({
@@ -38,7 +41,9 @@ const FloorConfigurationManager = ({
   floorTemplates,
   updateFloorConfiguration,
   copyFloorConfiguration,
-  bulkEditFloorConfigurations
+  bulkEditFloorConfigurations,
+  updateFloorSpaces,
+  updateFloorBuildingSystems
 }: FloorConfigurationManagerProps) => {
   const [selectedFloor, setSelectedFloor] = useState<FloorConfiguration | null>(null);
   const [isFloorEditorOpen, setIsFloorEditorOpen] = useState(false);
@@ -569,6 +574,7 @@ const FloorConfigurationManager = ({
           floorTemplates={floorTemplates}
           updateFloorConfiguration={updateFloorConfiguration}
           updateSpaces={updateFloorSpaces}
+          updateBuildingSystems={updateFloorBuildingSystems}
         />
       )}
       
