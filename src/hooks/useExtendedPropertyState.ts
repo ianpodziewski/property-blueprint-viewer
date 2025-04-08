@@ -756,8 +756,16 @@ export const useExtendedPropertyState = () => {
   };
 
   const updateFloorBuildingSystems = (floorNumber: number, systems: BuildingSystemsConfig) => {
-    console.log(`Updating building systems for floor ${floorNumber}`, systems);
-    updateFloorConfiguration(floorNumber, 'buildingSystems', systems);
+    const validatedSystems = {
+      ...systems,
+      elevators: systems.elevators || {
+        passenger: "0",
+        service: "0",
+        freight: "0"
+      }
+    };
+    console.log(`Updating building systems for floor ${floorNumber}`, validatedSystems);
+    updateFloorConfiguration(floorNumber, 'buildingSystems', validatedSystems);
   };
 
   return {

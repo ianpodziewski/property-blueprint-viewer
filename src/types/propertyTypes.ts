@@ -48,7 +48,7 @@ export interface SpaceDefinition {
 }
 
 export interface BuildingSystemsConfig {
-  elevators?: {
+  elevators: {  // Changed from optional to required
     passenger: string;
     service: string;
     freight: string;
