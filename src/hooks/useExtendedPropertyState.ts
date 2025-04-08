@@ -1,79 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "./useLocalStoragePersistence";
-
-interface SpaceType {
-  id: string;
-  type: string;
-  squareFootage: string;
-  units: string;
-  phase: string;
-  efficiencyFactor: string;
-  floorAllocation: Record<number, string>; // floor number -> percentage
-}
-
-interface UnitMix {
-  id: string;
-  type: string;
-  count: string;
-  squareFootage: string;
-}
-
-interface Issue {
-  type: string;
-  message: string;
-  severity: 'warning' | 'error';
-}
-
-interface FloorPlateTemplate {
-  id: string;
-  name: string;
-  squareFootage: string;
-  floorToFloorHeight: string;
-  efficiencyFactor: string;
-  corePercentage: string;
-}
-
-interface SpaceDefinition {
-  id: string;
-  name?: string;
-  type: string;
-  subType?: string | null;
-  squareFootage: string;
-  dimensions?: {
-    width: string;
-    depth: string;
-  };
-  isRentable?: boolean;
-  percentage: number;
-}
-
-interface BuildingSystemsConfig {
-  elevators?: {
-    passenger: string;
-    service: string;
-    freight: string;
-  };
-  hvacSystem?: string;
-  hvacZones?: string;
-  floorLoadCapacity?: string;
-  ceilingHeight?: string;
-  plenumHeight?: string;
-}
-
-interface FloorConfiguration {
-  floorNumber: number;
-  isUnderground: boolean;
-  templateId: string | null;
-  customSquareFootage: string;
-  floorToFloorHeight: string;
-  efficiencyFactor: string;
-  corePercentage: string;
-  primaryUse: string;
-  secondaryUse: string | null;
-  secondaryUsePercentage: string;
-  spaces?: SpaceDefinition[];
-  buildingSystems?: BuildingSystemsConfig;
-}
+import { 
+  SpaceType, 
+  UnitMix, 
+  Issue, 
+  FloorPlateTemplate, 
+  SpaceDefinition, 
+  BuildingSystemsConfig, 
+  FloorConfiguration 
+} from "../types/propertyTypes";
 
 const STORAGE_KEYS = {
   PROJECT_INFO: "realEstateModel_extendedProjectInfo",
@@ -82,6 +17,14 @@ const STORAGE_KEYS = {
   UNIT_MIX: "realEstateModel_extendedUnitMix",
   FLOOR_TEMPLATES: "realEstateModel_floorTemplates",
   FLOOR_CONFIGURATIONS: "realEstateModel_floorConfigurations"
+};
+
+// Add an event dispatcher for floor config updates
+const dispatchFloorConfigSavedEvent = () => {
+  if (typeof window !== 'undefined') {
+    const event = new CustomEvent('floorConfigSaved');
+    window.dispatchEvent(event);
+  }
 };
 
 export const useExtendedPropertyState = () => {
@@ -524,6 +467,7 @@ export const useExtendedPropertyState = () => {
         floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
       );
       saveToLocalStorage(STORAGE_KEYS.FLOOR_CONFIGURATIONS, updatedConfigs);
+      dispatchFloorConfigSavedEvent();
     }
   };
   
@@ -543,7 +487,9 @@ export const useExtendedPropertyState = () => {
                 corePercentage: sourceFloor.corePercentage,
                 primaryUse: sourceFloor.primaryUse,
                 secondaryUse: sourceFloor.secondaryUse,
-                secondaryUsePercentage: sourceFloor.secondaryUsePercentage
+                secondaryUsePercentage: sourceFloor.secondaryUsePercentage,
+                spaces: sourceFloor.spaces ? [...sourceFloor.spaces] : undefined,
+                buildingSystems: sourceFloor.buildingSystems ? {...sourceFloor.buildingSystems} : undefined
               } 
             : floor
         )

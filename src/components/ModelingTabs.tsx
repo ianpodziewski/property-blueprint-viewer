@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import MainNavigation from "./MainNavigation";
 import PropertyBreakdown from "./sections/PropertyBreakdown";
@@ -12,16 +12,22 @@ import Financing from "./sections/Financing";
 import Disposition from "./sections/Disposition";
 import SensitivityAnalysis from "./sections/SensitivityAnalysis";
 
-// Add an event listener for the custom save event
-if (typeof window !== 'undefined') {
-  window.addEventListener('floorConfigSaved', () => {
-    console.log('Floor configuration save event detected');
-    // This event will help trigger state updates in components that need it
-  });
-}
-
 const ModelingTabs = () => {
   const [activeTab, setActiveTab] = useState("property");
+  
+  // Add an event listener for the custom save event
+  useEffect(() => {
+    const handleFloorConfigSave = () => {
+      console.log('Floor configuration save event detected');
+      // This event will help trigger state updates in components that need it
+    };
+    
+    window.addEventListener('floorConfigSaved', handleFloorConfigSave);
+    
+    return () => {
+      window.removeEventListener('floorConfigSaved', handleFloorConfigSave);
+    };
+  }, []);
 
   return (
     <div className="w-full space-y-4">

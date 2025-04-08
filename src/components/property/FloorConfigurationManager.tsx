@@ -9,57 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Edit, Copy, Layout } from "lucide-react";
 import FloorEditor from "./FloorEditor";
-
-interface FloorPlateTemplate {
-  id: string;
-  name: string;
-  squareFootage: string;
-  floorToFloorHeight: string;
-  efficiencyFactor: string;
-  corePercentage: string;
-}
-
-interface SpaceDefinition {
-  id: string;
-  name: string;
-  type: string;
-  subType: string | null;
-  squareFootage: string;
-  dimensions: {
-    width: string;
-    depth: string;
-  };
-  isRentable: boolean;
-}
-
-interface BuildingSystemsConfig {
-  elevators: {
-    passenger: string;
-    service: string;
-    freight: string;
-  };
-  hvacSystem: string;
-  hvacZones: string;
-  floorLoadCapacity: string;
-  ceilingHeight: string;
-  plenumHeight: string;
-}
-
-interface FloorConfiguration {
-  floorNumber: number;
-  isUnderground: boolean;
-  templateId: string | null;
-  customSquareFootage: string;
-  floorToFloorHeight: string;
-  efficiencyFactor: string;
-  corePercentage: string;
-  primaryUse: string;
-  secondaryUse: string | null;
-  secondaryUsePercentage: string;
-  // New fields for advanced configuration
-  spaces?: SpaceDefinition[];
-  buildingSystems?: BuildingSystemsConfig;
-}
+import { 
+  FloorPlateTemplate,
+  FloorConfiguration, 
+  SpaceDefinition,
+  BuildingSystemsConfig 
+} from "@/types/propertyTypes";
 
 interface FloorConfigurationManagerProps {
   floorConfigurations: FloorConfiguration[];
@@ -189,7 +144,7 @@ const FloorConfigurationManager = ({
     
     return { totalSpaces, totalPlannedArea, rentableArea };
   };
-  
+
   return (
     <Card>
       <CardHeader>
