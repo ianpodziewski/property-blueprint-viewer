@@ -14,6 +14,7 @@ import FloorConfigurationManager from "@/components/property/FloorConfigurationM
 import { useModelState } from "@/hooks/useModelState";
 import { Separator } from "@/components/ui/separator"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SpaceDefinition } from "@/types/propertyTypes";
 
 const PropertyBreakdown = () => {
   

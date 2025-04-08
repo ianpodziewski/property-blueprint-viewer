@@ -18,6 +18,7 @@ import {
   FloorPlateTemplate,
   FloorConfiguration,
   SpaceDefinition,
+  BuildingSystemsConfig,
 } from "@/types/propertyTypes";
 
 interface FloorEditorProps {
