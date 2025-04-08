@@ -46,6 +46,17 @@ interface FloorConfiguration {
   secondaryUsePercentage: string;
 }
 
+interface SpaceDefinition {
+  id: string;
+  type: string;
+  squareFootage: string;
+  percentage: number;
+}
+
+interface BuildingSystemsConfig {
+  // Define the structure of building systems configuration
+}
+
 const STORAGE_KEYS = {
   PROJECT_INFO: "realEstateModel_extendedProjectInfo",
   BUILDING_PARAMS: "realEstateModel_buildingParams",
@@ -475,13 +486,27 @@ export const useExtendedPropertyState = () => {
   const updateFloorConfiguration = (
     floorNumber: number, 
     field: keyof FloorConfiguration, 
-    value: string | null | boolean
+    value: string | null | boolean | SpaceDefinition[] | BuildingSystemsConfig
   ) => {
+    console.log(`Updating floor ${floorNumber}, field ${String(field)}`, value);
+    
     setFloorConfigurations(
-      floorConfigurations.map(floor => 
-        floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
-      )
+      floorConfigurations.map(floor => {
+        if (floor.floorNumber === floorNumber) {
+          const updatedFloor = { ...floor, [field]: value };
+          return updatedFloor;
+        }
+        return floor;
+      })
     );
+    
+    // Force save to localStorage right away for critical updates
+    if (field === "spaces" || field === "buildingSystems") {
+      const updatedConfigs = floorConfigurations.map(floor => 
+        floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
+      );
+      saveToLocalStorage(STORAGE_KEYS.FLOOR_CONFIGURATIONS, updatedConfigs);
+    }
   };
   
   const copyFloorConfiguration = (sourceFloorNumber: number, targetFloorNumber: number) => {
@@ -815,6 +840,18 @@ export const useExtendedPropertyState = () => {
     setFloorConfigurations([]);
   }, []);
 
+  // Update spaces for a specific floor
+  const updateFloorSpaces = (floorNumber: number, spaces: SpaceDefinition[]) => {
+    console.log(`Updating spaces for floor ${floorNumber}`, spaces);
+    updateFloorConfiguration(floorNumber, "spaces", spaces);
+  };
+  
+  // Update building systems for a specific floor
+  const updateFloorBuildingSystems = (floorNumber: number, systems: BuildingSystemsConfig) => {
+    console.log(`Updating building systems for floor ${floorNumber}`, systems);
+    updateFloorConfiguration(floorNumber, "buildingSystems", systems);
+  };
+  
   return {
     // Project Information
     projectName, setProjectName,
@@ -844,6 +881,8 @@ export const useExtendedPropertyState = () => {
     updateFloorConfiguration,
     copyFloorConfiguration,
     bulkEditFloorConfigurations,
+    updateFloorSpaces,
+    updateFloorBuildingSystems,
     
     // Space Types
     spaceTypes, 

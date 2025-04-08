@@ -12,6 +12,14 @@ import Financing from "./sections/Financing";
 import Disposition from "./sections/Disposition";
 import SensitivityAnalysis from "./sections/SensitivityAnalysis";
 
+// Add an event listener for the custom save event
+if (typeof window !== 'undefined') {
+  window.addEventListener('floorConfigSaved', () => {
+    console.log('Floor configuration save event detected');
+    // This event will help trigger state updates in components that need it
+  });
+}
+
 const ModelingTabs = () => {
   const [activeTab, setActiveTab] = useState("property");
 

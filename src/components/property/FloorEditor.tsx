@@ -322,10 +322,19 @@ const FloorEditor = ({
   };
 
   const handleSave = () => {
+    const sanitizedSpaces = currentSpaces.map(space => ({
+      ...space,
+      squareFootage: space.squareFootage || "0",
+      dimensions: {
+        width: space.dimensions.width || "0",
+        depth: space.dimensions.depth || "0"
+      }
+    }));
+
     if (updateSpaces) {
-      updateSpaces(floorConfig.floorNumber, currentSpaces);
+      updateSpaces(floorConfig.floorNumber, sanitizedSpaces);
     } else {
-      updateFloorConfiguration(floorConfig.floorNumber, "spaces", currentSpaces);
+      updateFloorConfiguration(floorConfig.floorNumber, "spaces", sanitizedSpaces);
     }
 
     if (updateBuildingSystems) {
@@ -340,7 +349,34 @@ const FloorEditor = ({
       (100 - spaceAllocation.rentablePercentage).toFixed(1)
     );
 
+    if (floorConfig.primaryUse) {
+      updateFloorConfiguration(
+        floorConfig.floorNumber,
+        "primaryUse",
+        floorConfig.primaryUse
+      );
+    }
+    
+    if (floorConfig.secondaryUse) {
+      updateFloorConfiguration(
+        floorConfig.floorNumber,
+        "secondaryUse",
+        floorConfig.secondaryUse
+      );
+      updateFloorConfiguration(
+        floorConfig.floorNumber,
+        "secondaryUsePercentage",
+        floorConfig.secondaryUsePercentage
+      );
+    }
+
     onClose();
+    
+    if (window.localStorage) {
+      console.log("Saving floor configuration to localStorage...");
+      const event = new Event('floorConfigSaved');
+      window.dispatchEvent(event);
+    }
   };
 
   return (
