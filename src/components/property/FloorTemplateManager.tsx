@@ -73,7 +73,7 @@ const FloorTemplateManager = ({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasFormErrors, setHasFormErrors] = useState(false);
-  const [validationMessages, setValidationMessages: React.Dispatch<React.SetStateAction<{[key: string]: string}>>] = useState<{[key: string]: string}>({});
+  const [validationMessages, setValidationMessages] = useState<{[key: string]: string}>({});
   const [saveSuccessful, setSaveSuccessful] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
@@ -312,7 +312,6 @@ const FloorTemplateManager = ({
     setSaveSuccessful(false);
     
     try {
-      // Create a template object from the form data
       const templateToSave = {
         name: String(currentTemplate.name || ""),
         squareFootage: String(currentTemplate.squareFootage || "10000"),
@@ -325,7 +324,6 @@ const FloorTemplateManager = ({
       addDebugLog(`Saving template data: ${JSON.stringify(templateToSave)}`);
       
       if (editMode === "create") {
-        // Pass the complete template object to addTemplate
         addTemplate(templateToSave);
         
         toast({
@@ -913,4 +911,48 @@ const FloorTemplateManager = ({
             </DialogDescription>
           </DialogHeader>
           <div className="py-4" onClick={(e) => e.stopPropagation()}>
-            {editMode
+            {editMode === "view" ? (
+              <>
+                {renderTemplateList()}
+                {renderTemplatePreview()}
+                
+                <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this template?
+                        This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={cancelDelete} disabled={isProcessing}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={confirmDelete}
+                        disabled={isProcessing}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader className="mr-2 h-4 w-4 animate-spin" />
+                            <span>Deleting...</span>
+                          </>
+                        ) : (
+                          "Delete Template"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            ) : (
+              renderForm()
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+export default FloorTemplateManager;

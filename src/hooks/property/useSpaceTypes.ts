@@ -34,8 +34,9 @@ export const useSpaceTypes = () => {
     
     // Migrate stored data to remove efficiency factor if it exists
     const migratedSpaceTypes = storedSpaceTypes.map(space => {
-      if ('efficiencyFactor' in space) {
-        const { efficiencyFactor, ...rest } = space as any;
+      const spaceData = space as any;
+      if ('efficiencyFactor' in spaceData) {
+        const { efficiencyFactor, ...rest } = spaceData;
         return rest;
       }
       return space;
