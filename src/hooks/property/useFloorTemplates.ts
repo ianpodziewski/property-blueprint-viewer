@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { FloorPlateTemplate } from "@/types/propertyTypes";
@@ -7,30 +8,39 @@ const STORAGE_KEY = "realEstateModel_floorTemplates";
 export const useFloorTemplates = () => {
   // Initialize state directly with data from localStorage
   const [floorTemplates, setFloorTemplates] = useState<FloorPlateTemplate[]>(() => {
-    const storedFloorTemplates = loadFromLocalStorage<FloorPlateTemplate[]>(STORAGE_KEY, []);
-    
-    // Migrate stored data to remove efficiency factor if it exists
-    const migratedTemplates = storedFloorTemplates.map(template => {
-      if ('efficiencyFactor' in template) {
-        const { efficiencyFactor, ...rest } = template as any;
-        return rest;
-      }
-      return template;
-    });
-    
-    console.log("Initialized floor templates from localStorage:", migratedTemplates);
-    return migratedTemplates;
+    try {
+      const storedFloorTemplates = loadFromLocalStorage<FloorPlateTemplate[]>(STORAGE_KEY, []);
+      
+      // Migrate stored data to remove efficiency factor if it exists
+      const migratedTemplates = storedFloorTemplates.map(template => {
+        if ('efficiencyFactor' in template) {
+          const { efficiencyFactor, ...rest } = template as any;
+          return rest;
+        }
+        return template;
+      });
+      
+      console.log("Initialized floor templates from localStorage:", migratedTemplates);
+      return migratedTemplates;
+    } catch (error) {
+      console.error("Error loading floor templates from localStorage:", error);
+      return [];
+    }
   });
   
   // Save floor templates to localStorage whenever they change
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, floorTemplates);
-    console.log("Saved floor templates to localStorage:", floorTemplates);
-    
-    // Dispatch a custom event to notify other components that templates have changed
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent('floorTemplatesChanged', { detail: floorTemplates });
-      window.dispatchEvent(event);
+    try {
+      saveToLocalStorage(STORAGE_KEY, floorTemplates);
+      console.log("Saved floor templates to localStorage:", floorTemplates);
+      
+      // Dispatch a custom event to notify other components that templates have changed
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('floorTemplatesChanged', { detail: floorTemplates });
+        window.dispatchEvent(event);
+      }
+    } catch (error) {
+      console.error("Error saving floor templates to localStorage:", error);
     }
   }, [floorTemplates]);
 

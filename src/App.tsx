@@ -7,20 +7,36 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { isLocalStorageAvailable } from "./hooks/useLocalStoragePersistence";
 
 // Create QueryClient outside component to persist across renders
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Add a log to track full page loads
+  // Add a log to track full page loads and check localStorage availability
   useEffect(() => {
     console.log("App mounted - full browser refresh detected");
     
     // Check if localStorage is accessible
-    if (typeof window !== 'undefined' && window.localStorage) {
-      console.log("localStorage is available");
+    if (isLocalStorageAvailable()) {
+      console.log("localStorage is available and will be used for data persistence");
+      
+      // Log all stored real estate model keys for debugging
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const modelKeys = Object.keys(localStorage).filter(key => 
+          key.startsWith('realEstateModel_')
+        );
+        
+        console.log("Found stored model data keys:", modelKeys);
+        
+        // Log the size of each key for debugging
+        modelKeys.forEach(key => {
+          const size = localStorage.getItem(key)?.length || 0;
+          console.log(`Key "${key}" size: ${size} bytes`);
+        });
+      }
     } else {
-      console.error("localStorage is not available");
+      console.error("localStorage is not available - data persistence will not work");
     }
   }, []);
 

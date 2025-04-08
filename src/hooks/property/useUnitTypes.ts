@@ -19,19 +19,47 @@ const generateRandomColor = (): string => {
 export const useUnitTypes = () => {
   // Initialize state directly with data from localStorage
   const [unitTypes, setUnitTypes] = useState<UnitType[]>(() => {
-    return loadFromLocalStorage(STORAGE_KEY, []);
+    try {
+      const storedTypes = loadFromLocalStorage(STORAGE_KEY, []);
+      console.log("Loaded unit types from localStorage:", storedTypes);
+      return storedTypes;
+    } catch (error) {
+      console.error("Error loading unit types from localStorage:", error);
+      return [];
+    }
   });
   
   const [customCategories, setCustomCategories] = useState<string[]>(() => {
-    return loadFromLocalStorage(CATEGORIES_STORAGE_KEY, []);
+    try {
+      const storedCategories = loadFromLocalStorage(CATEGORIES_STORAGE_KEY, []);
+      console.log("Loaded unit categories from localStorage:", storedCategories);
+      return storedCategories;
+    } catch (error) {
+      console.error("Error loading unit categories from localStorage:", error);
+      return [];
+    }
   });
   
   const [categoryColors, setCategoryColors] = useState<Record<string, string>>(() => {
-    return loadFromLocalStorage(CATEGORY_COLORS_KEY, {});
+    try {
+      const storedColors = loadFromLocalStorage(CATEGORY_COLORS_KEY, {});
+      console.log("Loaded category colors from localStorage:", storedColors);
+      return storedColors;
+    } catch (error) {
+      console.error("Error loading category colors from localStorage:", error);
+      return {};
+    }
   });
   
   const [categoryDescriptions, setCategoryDescriptions] = useState<Record<string, string>>(() => {
-    return loadFromLocalStorage(CATEGORY_DESCRIPTIONS_KEY, {});
+    try {
+      const storedDescriptions = loadFromLocalStorage(CATEGORY_DESCRIPTIONS_KEY, {});
+      console.log("Loaded category descriptions from localStorage:", storedDescriptions);
+      return storedDescriptions;
+    } catch (error) {
+      console.error("Error loading category descriptions from localStorage:", error);
+      return {};
+    }
   });
   
   const [recentlyDeletedCategory, setRecentlyDeletedCategory] = useState<{
@@ -41,45 +69,51 @@ export const useUnitTypes = () => {
     description: string;
   } | null>(null);
   
-  // Load data from localStorage on mount
-  useEffect(() => {
-    console.log("Initialized unit types data from localStorage:", {
-      unitTypes,
-      categories: customCategories,
-      colors: categoryColors,
-      descriptions: categoryDescriptions
-    });
-  }, [unitTypes, customCategories, categoryColors, categoryDescriptions]);
-
   // Save data to localStorage whenever they change
   useEffect(() => {
-    saveToLocalStorage(STORAGE_KEY, unitTypes);
-    console.log("Saved unit types to localStorage:", unitTypes);
-    
-    // Dispatch event to notify other components
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent('unitTypesChanged', { detail: unitTypes });
-      window.dispatchEvent(event);
+    try {
+      saveToLocalStorage(STORAGE_KEY, unitTypes);
+      console.log("Saved unit types to localStorage:", unitTypes);
+      
+      // Dispatch event to notify other components
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('unitTypesChanged', { detail: unitTypes });
+        window.dispatchEvent(event);
+      }
+    } catch (error) {
+      console.error("Error saving unit types to localStorage:", error);
     }
   }, [unitTypes]);
   
   useEffect(() => {
-    saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
-    console.log("Saved categories to localStorage:", customCategories);
-    
-    // Dispatch event to notify other components
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent('unitCategoriesChanged', { detail: customCategories });
-      window.dispatchEvent(event);
+    try {
+      saveToLocalStorage(CATEGORIES_STORAGE_KEY, customCategories);
+      console.log("Saved categories to localStorage:", customCategories);
+      
+      // Dispatch event to notify other components
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('unitCategoriesChanged', { detail: customCategories });
+        window.dispatchEvent(event);
+      }
+    } catch (error) {
+      console.error("Error saving categories to localStorage:", error);
     }
   }, [customCategories]);
 
   useEffect(() => {
-    saveToLocalStorage(CATEGORY_COLORS_KEY, categoryColors);
+    try {
+      saveToLocalStorage(CATEGORY_COLORS_KEY, categoryColors);
+    } catch (error) {
+      console.error("Error saving category colors to localStorage:", error);
+    }
   }, [categoryColors]);
 
   useEffect(() => {
-    saveToLocalStorage(CATEGORY_DESCRIPTIONS_KEY, categoryDescriptions);
+    try {
+      saveToLocalStorage(CATEGORY_DESCRIPTIONS_KEY, categoryDescriptions);
+    } catch (error) {
+      console.error("Error saving category descriptions to localStorage:", error);
+    }
   }, [categoryDescriptions]);
 
   // Get color for a specific category
