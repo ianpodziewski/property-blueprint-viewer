@@ -559,7 +559,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
             <div>
               <Label htmlFor="source-floor">Source Floor</Label>
               <Select 
-                value={selectedFloorForCopy?.toString() || ""} 
+                value={selectedFloorForCopy?.toString() || undefined} 
                 onValueChange={(value) => setSelectedFloorForCopy(parseInt(value))}
               >
                 <SelectTrigger>

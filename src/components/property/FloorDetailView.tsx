@@ -111,14 +111,14 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
               <div>
                 <Label htmlFor={`floor-template-${floor.floorNumber}`}>Template</Label>
                 <Select 
-                  value={floor.templateId || ""} 
+                  value={floor.templateId || undefined} 
                   onValueChange={handleTemplateChange}
                 >
                   <SelectTrigger id={`floor-template-${floor.floorNumber}`}>
                     <SelectValue placeholder="Select a template" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Custom</SelectItem>
+                    <SelectItem value="none">Custom</SelectItem>
                     {floorTemplates.map(template => (
                       <SelectItem key={template.id} value={template.id}>
                         {template.name}
