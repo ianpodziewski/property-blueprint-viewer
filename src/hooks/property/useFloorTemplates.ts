@@ -10,7 +10,7 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
 
   // Load floor templates from localStorage on mount
   useEffect(() => {
-    const storedFloorTemplates = loadFromLocalStorage(STORAGE_KEY, []);
+    const storedFloorTemplates = loadFromLocalStorage<FloorPlateTemplate[]>(STORAGE_KEY, []);
     
     // Migrate stored data to remove efficiency factor if it exists
     const migratedTemplates = storedFloorTemplates.map(template => {
@@ -66,10 +66,16 @@ export const useFloorTemplates = (floorConfigurations: FloorConfiguration[], set
     );
   }, [floorTemplates, floorConfigurations, setFloorConfigurations]);
 
+  // Reset all floor templates
+  const resetAllData = useCallback(() => {
+    setFloorTemplates([]);
+  }, []);
+
   return {
     floorTemplates,
     addFloorTemplate,
     updateFloorTemplate,
-    removeFloorTemplate
+    removeFloorTemplate,
+    resetAllData
   };
 };

@@ -8,11 +8,11 @@ import { useRevenueState } from "./useRevenueState";
 import { useFinancingState } from "./useFinancingState";
 import { useDispositionState } from "./useDispositionState";
 import { useSensitivityState } from "./useSensitivityState";
-import { clearAllModelData } from "./useLocalStoragePersistence";
+import { clearAllModelData, exportAllModelData, importAllModelData } from "./useLocalStoragePersistence";
 
 // This is a master hook that combines all the section hooks
 export const useModelState = () => {
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'error' | 'reset' | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'error' | 'reset' | 'exported' | 'imported' | null>(null);
   
   const propertyState = usePropertyState();
   const developmentCostsState = useDevelopmentCosts();
@@ -37,10 +37,52 @@ export const useModelState = () => {
     if (sensitivityState.resetAllData) sensitivityState.resetAllData();
     
     setSaveStatus('reset');
+    
+    // Force page refresh to ensure all components reload with the reset data
+    window.location.reload();
   }, [
     propertyState, developmentCostsState, timelineState, expensesState, 
     revenueState, financingState, dispositionState, sensitivityState
   ]);
+  
+  // Export all data from localStorage
+  const exportAllData = useCallback(() => {
+    const data = exportAllModelData();
+    const dataStr = JSON.stringify(data, null, 2);
+    
+    // Create a blob and download link
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `real-estate-model-data-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    setSaveStatus('exported');
+    setTimeout(() => clearSaveStatus(), 3000);
+  }, []);
+  
+  // Import data to localStorage
+  const importAllData = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        importAllModelData(data);
+        setSaveStatus('imported');
+        
+        // Force page refresh to reload with the imported data
+        window.location.reload();
+      } catch (error) {
+        console.error('Error parsing import data:', error);
+        setSaveStatus('error');
+      }
+    };
+    reader.readAsText(file);
+  }, []);
   
   // Clear save status notification
   const clearSaveStatus = useCallback(() => {
@@ -128,6 +170,8 @@ export const useModelState = () => {
     // Data persistence
     saveStatus,
     clearSaveStatus,
-    resetAllData
+    resetAllData,
+    exportAllData,
+    importAllData
   };
 };

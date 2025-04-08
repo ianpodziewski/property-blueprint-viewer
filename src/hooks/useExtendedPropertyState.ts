@@ -44,8 +44,18 @@ export const useExtendedPropertyState = () => {
   // Function to reset all data
   const resetAllData = useCallback(() => {
     // Reset individual state hooks
-    // These would ideally have their own reset methods
-  }, []);
+    if (projectInfo.resetAllData) projectInfo.resetAllData();
+    if (floorConfigurations.resetAllData) floorConfigurations.resetAllData();
+    if (floorTemplates.resetAllData) floorTemplates.resetAllData();
+    if (buildingParams.resetAllData) buildingParams.resetAllData();
+    if (spaceTypes.resetAllData) spaceTypes.resetAllData();
+    if (unitMix.resetAllData) unitMix.resetAllData();
+    if (unitTypes.resetAllData) unitTypes.resetAllData();
+    if (unitAllocations.resetAllData) unitAllocations.resetAllData();
+  }, [
+    projectInfo, floorConfigurations, floorTemplates, 
+    buildingParams, spaceTypes, unitMix, unitTypes, unitAllocations
+  ]);
 
   // Return all the properties and methods from individual hooks
   return {

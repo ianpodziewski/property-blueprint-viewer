@@ -95,3 +95,60 @@ export const clearAllModelData = (): void => {
     console.error('Error clearing model data from localStorage:', error);
   }
 };
+
+/**
+ * Helper to check if localStorage is available
+ */
+export const isLocalStorageAvailable = (): boolean => {
+  try {
+    const testKey = '__test_storage__';
+    localStorage.setItem(testKey, 'test');
+    localStorage.removeItem(testKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
+ * Helper to export all model data from localStorage
+ */
+export const exportAllModelData = (): Record<string, any> => {
+  try {
+    const keys = Object.keys(localStorage);
+    const modelKeys = keys.filter(key => key.startsWith('realEstateModel_'));
+    
+    const exportData: Record<string, any> = {};
+    modelKeys.forEach(key => {
+      try {
+        const value = localStorage.getItem(key);
+        if (value) {
+          exportData[key] = JSON.parse(value);
+        }
+      } catch (e) {
+        console.error(`Error exporting data for key ${key}:`, e);
+      }
+    });
+    
+    return exportData;
+  } catch (error) {
+    console.error('Error exporting model data from localStorage:', error);
+    return {};
+  }
+};
+
+/**
+ * Helper to import model data into localStorage
+ */
+export const importAllModelData = (data: Record<string, any>): void => {
+  try {
+    Object.entries(data).forEach(([key, value]) => {
+      if (key.startsWith('realEstateModel_')) {
+        localStorage.setItem(key, JSON.stringify(value));
+      }
+    });
+    console.log('All model data imported to localStorage');
+  } catch (error) {
+    console.error('Error importing model data to localStorage:', error);
+  }
+};

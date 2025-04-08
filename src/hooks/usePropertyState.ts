@@ -51,46 +51,52 @@ export const usePropertyState = () => {
   
   // Load data from localStorage on component mount
   useEffect(() => {
-    const storedProjectInfo = loadFromLocalStorage(STORAGE_KEYS.PROJECT_INFO, {
-      projectName: "",
-      projectLocation: "",
-      projectType: ""
-    });
-    
-    setProjectName(storedProjectInfo.projectName);
-    setProjectLocation(storedProjectInfo.projectLocation);
-    setProjectType(storedProjectInfo.projectType);
-    
-    const storedTotalLandArea = loadFromLocalStorage(STORAGE_KEYS.TOTAL_LAND_AREA, "");
-    setTotalLandArea(storedTotalLandArea);
-    
-    const storedSpaceTypes = loadFromLocalStorage(STORAGE_KEYS.SPACE_TYPES, [
-      { 
-        id: "space-1", 
-        type: "", 
-        squareFootage: "", 
-        units: "", 
-        phase: "",
-        floorAllocation: {}
-      }
-    ]);
-    
-    // Migrate old data structure if needed
-    const migratedSpaceTypes = storedSpaceTypes.map(space => {
-      // If the old data has efficiencyFactor, create a new object without it
-      if ('efficiencyFactor' in space) {
-        const { efficiencyFactor, ...restSpace } = space as any;
-        return restSpace;
-      }
-      return space;
-    });
-    
-    setSpaceTypes(migratedSpaceTypes);
-    
-    const storedUnitMix = loadFromLocalStorage(STORAGE_KEYS.UNIT_MIX, [
-      { id: "unit-1", type: "Studio", count: "", squareFootage: "" }
-    ]);
-    setUnitMixes(storedUnitMix);
+    try {
+      const storedProjectInfo = loadFromLocalStorage(STORAGE_KEYS.PROJECT_INFO, {
+        projectName: "",
+        projectLocation: "",
+        projectType: ""
+      });
+      
+      setProjectName(storedProjectInfo.projectName);
+      setProjectLocation(storedProjectInfo.projectLocation);
+      setProjectType(storedProjectInfo.projectType);
+      
+      const storedTotalLandArea = loadFromLocalStorage(STORAGE_KEYS.TOTAL_LAND_AREA, "");
+      setTotalLandArea(storedTotalLandArea);
+      
+      const storedSpaceTypes = loadFromLocalStorage(STORAGE_KEYS.SPACE_TYPES, [
+        { 
+          id: "space-1", 
+          type: "", 
+          squareFootage: "", 
+          units: "", 
+          phase: "",
+          floorAllocation: {}
+        }
+      ]);
+      
+      // Migrate old data structure if needed
+      const migratedSpaceTypes = storedSpaceTypes.map(space => {
+        // If the old data has efficiencyFactor, create a new object without it
+        if ('efficiencyFactor' in space) {
+          const { efficiencyFactor, ...restSpace } = space as any;
+          return restSpace;
+        }
+        return space;
+      });
+      
+      setSpaceTypes(migratedSpaceTypes);
+      
+      const storedUnitMix = loadFromLocalStorage(STORAGE_KEYS.UNIT_MIX, [
+        { id: "unit-1", type: "Studio", count: "", squareFootage: "" }
+      ]);
+      setUnitMixes(storedUnitMix);
+
+      console.log("Successfully loaded data from localStorage");
+    } catch (error) {
+      console.error("Error loading data from localStorage:", error);
+    }
   }, []);
   
   // Save project info to localStorage whenever it changes

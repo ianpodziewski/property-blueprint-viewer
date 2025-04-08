@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
@@ -20,7 +21,7 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>([]);
 
   useEffect(() => {
-    const storedFloorConfigurations = loadFromLocalStorage(STORAGE_KEY, []);
+    const storedFloorConfigurations = loadFromLocalStorage<FloorConfiguration[]>(STORAGE_KEY, []);
     
     if (storedFloorConfigurations.length > 0) {
       const migratedConfigs = storedFloorConfigurations.map(config => {
@@ -280,6 +281,11 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
     return floorConfigurations;
   }, [floorConfigurations]);
 
+  // Reset all floor configurations
+  const resetAllData = useCallback(() => {
+    setFloorConfigurations([]);
+  }, []);
+
   return {
     floorConfigurations,
     setFloorConfigurations,
@@ -292,6 +298,7 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
     updateFloorSpaces,
     updateFloorBuildingSystems,
     importFloorConfigurations,
-    exportFloorConfigurations
+    exportFloorConfigurations,
+    resetAllData
   };
 };
