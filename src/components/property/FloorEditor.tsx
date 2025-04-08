@@ -48,7 +48,7 @@ interface SpaceDefinition {
     width: string;
     depth: string;
   };
-  isCore: boolean;
+  isRentable: boolean; // Updated from isCore to isRentable
 }
 
 interface BuildingSystemsConfig {
@@ -83,13 +83,13 @@ const DEFAULT_SPACES: SpaceDefinition[] = [
     id: "space-1",
     name: "Main Office Area",
     type: "office",
-    subType: "open",
+    subType: null, // Changed from "open" to null to start blank
     squareFootage: "7500",
     dimensions: {
       width: "75",
       depth: "100",
     },
-    isCore: false,
+    isRentable: true, // Updated from isCore to isRentable
   },
   {
     id: "space-2",
@@ -101,7 +101,7 @@ const DEFAULT_SPACES: SpaceDefinition[] = [
       width: "30",
       depth: "50",
     },
-    isCore: true,
+    isRentable: false, // Updated from isCore to isRentable (core spaces are typically not rentable)
   },
 ];
 
@@ -138,9 +138,29 @@ const FloorEditor = ({
   updateBuildingSystems,
 }: FloorEditorProps) => {
   const [activeTab, setActiveTab] = useState("basic");
+  
+  // Convert old isCore property to new isRentable property when loading initial spaces
+  const convertSpaces = (spaces: SpaceDefinition[] | undefined): SpaceDefinition[] => {
+    if (!spaces || spaces.length === 0) return DEFAULT_SPACES;
+    
+    // If spaces exist but don't have the isRentable property yet
+    if ('isCore' in spaces[0] && !('isRentable' in spaces[0])) {
+      return spaces.map(space => ({
+        ...space,
+        // @ts-ignore - handling legacy data
+        isRentable: !space.isCore, 
+        // @ts-ignore - remove old property
+        isCore: undefined 
+      }));
+    }
+    
+    return spaces;
+  };
+  
   const [currentSpaces, setCurrentSpaces] = useState<SpaceDefinition[]>(
-    floorConfig.spaces || DEFAULT_SPACES
+    convertSpaces(floorConfig.spaces)
   );
+  
   const [currentSystems, setCurrentSystems] = useState<BuildingSystemsConfig>(
     floorConfig.buildingSystems || DEFAULT_BUILDING_SYSTEMS
   );
@@ -172,16 +192,27 @@ const FloorEditor = ({
     }, 0);
 
     const totalPercentage = totalSpaceArea > 0 ? (totalSpaceArea / grossArea) * 100 : 0;
-    const coreArea = currentSpaces
-      .filter(space => space.isCore)
+    
+    // Calculate rentable vs. non-rentable area
+    const rentableArea = currentSpaces
+      .filter(space => space.isRentable)
       .reduce((sum, space) => sum + (parseFloat(space.squareFootage) || 0), 0);
-    const corePercentage = totalSpaceArea > 0 ? (coreArea / totalSpaceArea) * 100 : 0;
+    
+    const nonRentableArea = totalSpaceArea - rentableArea;
+    const rentablePercentage = totalSpaceArea > 0 ? (rentableArea / totalSpaceArea) * 100 : 0;
+    
+    // Calculate circulation space (spaces with type "core" and subType "corridor")
+    const circulationArea = currentSpaces
+      .filter(space => space.type === "core" && space.subType === "corridor")
+      .reduce((sum, space) => sum + (parseFloat(space.squareFootage) || 0), 0);
 
     return {
       totalSpaceArea,
       totalPercentage: Math.min(totalPercentage, 100),
-      coreArea,
-      corePercentage,
+      rentableArea,
+      nonRentableArea,
+      rentablePercentage,
+      circulationArea,
       unallocatedArea: Math.max(0, grossArea - totalSpaceArea)
     };
   };
@@ -194,13 +225,13 @@ const FloorEditor = ({
       id: `space-${currentSpaces.length + 1}-${Date.now()}`,
       name: `Space ${currentSpaces.length + 1}`,
       type: "office",
-      subType: null,
+      subType: null, // Default to null instead of a specific subtype
       squareFootage: "0",
       dimensions: {
         width: "0",
         depth: "0",
       },
-      isCore: false,
+      isRentable: true, // Default to rentable
     };
     
     setCurrentSpaces([...currentSpaces, newSpace]);
@@ -218,13 +249,23 @@ const FloorEditor = ({
         if (space.id === spaceId) {
           if (field === "dimensions.width" || field === "dimensions.depth") {
             const [parent, child] = field.split(".");
-            return {
+            const updatedSpace = {
               ...space,
               dimensions: {
                 ...space.dimensions,
                 [child]: value
               }
             };
+            
+            // Automatically calculate square footage when both dimensions have values
+            const width = parseFloat(updatedSpace.dimensions.width) || 0;
+            const depth = parseFloat(updatedSpace.dimensions.depth) || 0;
+            
+            if (width > 0 && depth > 0) {
+              updatedSpace.squareFootage = (width * depth).toString();
+            }
+            
+            return updatedSpace;
           }
           return { ...space, [field]: value };
         }
@@ -280,6 +321,22 @@ const FloorEditor = ({
     }
   };
 
+  // Validate that dimensions match square footage
+  const validateDimensionsAndArea = (spaceId: string) => {
+    const space = currentSpaces.find((s) => s.id === spaceId);
+    if (!space) return;
+    
+    const width = parseFloat(space.dimensions.width) || 0;
+    const depth = parseFloat(space.dimensions.depth) || 0;
+    const calculatedArea = width * depth;
+    const enteredArea = parseFloat(space.squareFootage) || 0;
+    
+    // If dimensions are set but don't match the area, update the area
+    if (width > 0 && depth > 0 && Math.abs(calculatedArea - enteredArea) > 1) {
+      handleUpdateSpace(spaceId, "squareFootage", calculatedArea.toString());
+    }
+  };
+
   // Save all changes
   const handleSave = () => {
     // Update spaces if the function is provided
@@ -298,11 +355,11 @@ const FloorEditor = ({
       updateFloorConfiguration(floorConfig.floorNumber, "buildingSystems", currentSystems);
     }
 
-    // Update core percentage based on actual space allocation
+    // Update rentable vs non-rentable allocation based on actual space allocation
     updateFloorConfiguration(
       floorConfig.floorNumber,
       "corePercentage",
-      spaceAllocation.corePercentage.toFixed(1)
+      (100 - spaceAllocation.rentablePercentage).toFixed(1)
     );
 
     // Close the editor
@@ -552,13 +609,19 @@ const FloorEditor = ({
                   </div>
                   <div>
                     <div className="flex justify-between">
-                      <span className="text-sm font-medium">Core & Circulation:</span>
-                      <span>{spaceAllocation.coreArea.toLocaleString()} sq ft ({spaceAllocation.corePercentage.toFixed(1)}%)</span>
+                      <span className="text-sm font-medium">Rentable Space:</span>
+                      <span>{spaceAllocation.rentableArea.toLocaleString()} sq ft ({(spaceAllocation.rentablePercentage).toFixed(1)}%)</span>
                     </div>
                     <div className="flex justify-between mt-1">
-                      <span className="text-sm font-medium">Net Usable Area:</span>
-                      <span>{(spaceAllocation.totalSpaceArea - spaceAllocation.coreArea).toLocaleString()} sq ft</span>
+                      <span className="text-sm font-medium">Non-Rentable Space:</span>
+                      <span>{spaceAllocation.nonRentableArea.toLocaleString()} sq ft</span>
                     </div>
+                    {spaceAllocation.circulationArea > 0 && (
+                      <div className="flex justify-between mt-1">
+                        <span className="text-sm font-medium">Circulation Space:</span>
+                        <span>{spaceAllocation.circulationArea.toLocaleString()} sq ft</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="mt-4">
@@ -583,9 +646,9 @@ const FloorEditor = ({
                       <TableHead className="w-[180px]">Space Name</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Subtype</TableHead>
-                      <TableHead className="text-right">Square Footage</TableHead>
                       <TableHead className="text-right">Dimensions</TableHead>
-                      <TableHead className="text-center">Core</TableHead>
+                      <TableHead className="text-right">Square Footage</TableHead>
+                      <TableHead className="text-center">Rentable</TableHead>
                       <TableHead className="w-[100px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -603,14 +666,19 @@ const FloorEditor = ({
                             <Input 
                               value={space.name} 
                               onChange={(e) => handleUpdateSpace(space.id, "name", e.target.value)}
+                              className="text-left"
                             />
                           </TableCell>
                           <TableCell>
                             <Select 
                               value={space.type}
-                              onValueChange={(value) => handleUpdateSpace(space.id, "type", value)}
+                              onValueChange={(value) => {
+                                // When changing type, reset subType to null
+                                handleUpdateSpace(space.id, "type", value);
+                                handleUpdateSpace(space.id, "subType", null);
+                              }}
                             >
-                              <SelectTrigger className="h-9">
+                              <SelectTrigger className="h-9 text-left">
                                 <SelectValue placeholder="Type" />
                               </SelectTrigger>
                               <SelectContent>
@@ -628,10 +696,11 @@ const FloorEditor = ({
                               value={space.subType || ""}
                               onValueChange={(value) => handleUpdateSpace(space.id, "subType", value || null)}
                             >
-                              <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Subtype" />
+                              <SelectTrigger className="h-9 text-left">
+                                <SelectValue placeholder="Select subtype" />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="">None</SelectItem>
                                 {space.type && USE_TYPE_OPTIONS[space.type] ? (
                                   USE_TYPE_OPTIONS[space.type].map(subType => (
                                     <SelectItem key={subType} value={subType}>
@@ -645,23 +714,13 @@ const FloorEditor = ({
                             </Select>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex items-center gap-2">
-                              <Input 
-                                className="text-right"
-                                value={space.squareFootage} 
-                                onChange={(e) => handleUpdateSpace(space.id, "squareFootage", e.target.value)}
-                                onBlur={() => calculateDimensions(space.id)}
-                              />
-                              <span className="text-xs whitespace-nowrap">sq ft</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
                             <div className="flex items-center gap-1">
                               <Input 
                                 className="text-right max-w-16"
                                 value={space.dimensions.width} 
                                 onChange={(e) => handleUpdateSpace(space.id, "dimensions.width", e.target.value)}
                                 onBlur={() => calculateArea(space.id)}
+                                placeholder="W"
                               />
                               <span className="text-xs">×</span>
                               <Input 
@@ -669,15 +728,36 @@ const FloorEditor = ({
                                 value={space.dimensions.depth} 
                                 onChange={(e) => handleUpdateSpace(space.id, "dimensions.depth", e.target.value)}
                                 onBlur={() => calculateArea(space.id)}
+                                placeholder="L"
                               />
                               <span className="text-xs whitespace-nowrap">ft</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center gap-2">
+                              <Input 
+                                className="text-right"
+                                value={space.squareFootage} 
+                                onChange={(e) => handleUpdateSpace(space.id, "squareFootage", e.target.value)}
+                                onBlur={() => {
+                                  // If dimensions are empty or zero, calculate dimensions from area
+                                  const width = parseFloat(space.dimensions.width) || 0;
+                                  const depth = parseFloat(space.dimensions.depth) || 0;
+                                  if (width === 0 || depth === 0) {
+                                    calculateDimensions(space.id);
+                                  } else {
+                                    validateDimensionsAndArea(space.id);
+                                  }
+                                }}
+                              />
+                              <span className="text-xs whitespace-nowrap">sq ft</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
                             <input
                               type="checkbox"
-                              checked={space.isCore}
-                              onChange={(e) => handleUpdateSpace(space.id, "isCore", e.target.checked)}
+                              checked={space.isRentable}
+                              onChange={(e) => handleUpdateSpace(space.id, "isRentable", e.target.checked)}
                               className="h-4 w-4"
                             />
                           </TableCell>
@@ -710,6 +790,13 @@ const FloorEditor = ({
                     }, {} as Record<string, number>)
                   ).map(([type, area]) => {
                     const percentage = grossArea > 0 ? (area / grossArea) * 100 : 0;
+                    const rentableInType = currentSpaces
+                      .filter(space => space.type === type && space.isRentable)
+                      .reduce((sum, space) => sum + (parseFloat(space.squareFootage) || 0), 0);
+                    
+                    const nonRentableInType = area - rentableInType;
+                    const rentablePercentage = area > 0 ? (rentableInType / area) * 100 : 0;
+                    
                     return (
                       <div key={type} className="space-y-1">
                         <div className="flex justify-between text-sm">
@@ -725,6 +812,12 @@ const FloorEditor = ({
                             }}
                           />
                         </div>
+                        {area > 0 && (
+                          <div className="flex text-xs text-gray-500 justify-between">
+                            <span>Rentable: {rentablePercentage.toFixed(0)}%</span>
+                            <span>Non-rentable: {(100 - rentablePercentage).toFixed(0)}%</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

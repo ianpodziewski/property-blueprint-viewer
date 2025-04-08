@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +29,7 @@ interface SpaceDefinition {
     width: string;
     depth: string;
   };
-  isCore: boolean;
+  isRentable: boolean;
 }
 
 interface BuildingSystemsConfig {
@@ -94,7 +93,6 @@ const FloorConfigurationManager = ({
   const [copySourceFloor, setCopySourceFloor] = useState<string>("");
   const [copyTargetFloor, setCopyTargetFloor] = useState<string>("");
   
-  // Group configurations by above/below ground
   const aboveGroundConfigs = floorConfigurations
     .filter(config => !config.isUnderground)
     .sort((a, b) => b.floorNumber - a.floorNumber);
@@ -103,19 +101,16 @@ const FloorConfigurationManager = ({
     .filter(config => config.isUnderground)
     .sort((a, b) => a.floorNumber - b.floorNumber);
   
-  // Find template name for a floor
   const getTemplateName = (templateId: string | null) => {
     if (!templateId) return "Custom";
     const template = floorTemplates.find(t => t.id === templateId);
     return template ? template.name : "Custom";
   };
   
-  // Handle floor selection for editing
   const handleEditFloor = (floor: FloorConfiguration) => {
     setSelectedFloor(floor);
   };
   
-  // Toggle selection for bulk edit
   const toggleFloorSelection = (floorNumber: number) => {
     if (selectedFloors.includes(floorNumber)) {
       setSelectedFloors(selectedFloors.filter(f => f !== floorNumber));
@@ -124,16 +119,13 @@ const FloorConfigurationManager = ({
     }
   };
   
-  // Select a range of floors
   const selectFloorRange = () => {
     const start = parseInt(groupStartFloor);
     const end = parseInt(groupEndFloor);
     
     if (!isNaN(start) && !isNaN(end)) {
-      // Handle both above and below ground floors
       const floorNumbers = [];
       
-      // Find all floors in the range
       for (const config of floorConfigurations) {
         const floorNum = config.floorNumber;
         if ((floorNum >= start && floorNum <= end) || (floorNum <= start && floorNum >= end)) {
@@ -145,12 +137,10 @@ const FloorConfigurationManager = ({
     }
   };
   
-  // Apply bulk edit to selected floors
   const applyBulkEdit = (field: keyof FloorConfiguration, value: any) => {
     bulkEditFloorConfigurations(selectedFloors, field, value);
   };
   
-  // Handle copy between floors
   const handleCopy = () => {
     const source = parseInt(copySourceFloor);
     const target = parseInt(copyTargetFloor);
@@ -161,7 +151,6 @@ const FloorConfigurationManager = ({
     }
   };
   
-  // Calculate net square footage
   const calculateNetArea = (config: FloorConfiguration) => {
     let grossArea = 0;
     
@@ -178,12 +167,10 @@ const FloorConfigurationManager = ({
     return grossArea * (efficiency / 100);
   };
 
-  // Update spaces for a floor
   const updateSpaces = (floorNumber: number, spaces: SpaceDefinition[]) => {
     updateFloorConfiguration(floorNumber, "spaces", spaces);
   };
 
-  // Update building systems for a floor
   const updateBuildingSystems = (floorNumber: number, systems: BuildingSystemsConfig) => {
     updateFloorConfiguration(floorNumber, "buildingSystems", systems);
   };
@@ -196,7 +183,11 @@ const FloorConfigurationManager = ({
       return sum + (parseFloat(space.squareFootage) || 0);
     }, 0);
     
-    return { totalSpaces, totalPlannedArea };
+    const rentableArea = config.spaces
+      .filter(space => space.isRentable)
+      .reduce((sum, space) => sum + (parseFloat(space.squareFootage) || 0), 0);
+    
+    return { totalSpaces, totalPlannedArea, rentableArea };
   };
   
   return (
@@ -227,7 +218,6 @@ const FloorConfigurationManager = ({
         </div>
       </CardHeader>
       <CardContent>
-        {/* Bulk Edit Controls */}
         {bulkEditMode && (
           <div className="mb-6 bg-muted/30 p-4 rounded-lg border">
             <h3 className="text-sm font-medium mb-3">Bulk Edit Controls</h3>
@@ -331,7 +321,6 @@ const FloorConfigurationManager = ({
           </div>
         )}
         
-        {/* Above Ground Floors */}
         <h3 className="text-sm font-medium mb-2">Above Ground Floors</h3>
         <div className="overflow-x-auto">
           <Table>
@@ -411,7 +400,6 @@ const FloorConfigurationManager = ({
           </Table>
         </div>
         
-        {/* Below Ground Floors */}
         {belowGroundConfigs.length > 0 && (
           <>
             <h3 className="text-sm font-medium mb-2 mt-8">Below Ground Floors</h3>
@@ -496,7 +484,6 @@ const FloorConfigurationManager = ({
         )}
       </CardContent>
       
-      {/* Floor Editor Dialog */}
       {selectedFloor && (
         <FloorEditor
           isOpen={true}
@@ -509,7 +496,6 @@ const FloorConfigurationManager = ({
         />
       )}
       
-      {/* Copy Floor Dialog */}
       <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -559,17 +545,16 @@ const FloorConfigurationManager = ({
   );
 };
 
-// Helper to get color for a space type
 const getUseColor = (spaceType: string) => {
   const colors: Record<string, string> = {
-    "residential": "#3B82F6", // blue
-    "office": "#10B981",      // green
-    "retail": "#F59E0B",      // amber
-    "parking": "#6B7280",     // gray
-    "hotel": "#8B5CF6",       // purple
-    "amenities": "#EC4899",   // pink
-    "storage": "#78716C",     // warm gray
-    "mechanical": "#475569",  // slate
+    "residential": "#3B82F6",
+    "office": "#10B981",
+    "retail": "#F59E0B",
+    "parking": "#6B7280",
+    "hotel": "#8B5CF6",
+    "amenities": "#EC4899",
+    "storage": "#78716C",
+    "mechanical": "#475569",
   };
   
   return colors[spaceType] || "#9CA3AF";
