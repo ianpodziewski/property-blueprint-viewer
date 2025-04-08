@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Save, X, Copy } from "lucide-react";
+import { Edit, Copy, Layout } from "lucide-react";
+import FloorEditor from "./FloorEditor";
 
 interface FloorPlateTemplate {
   id: string;
@@ -17,6 +18,32 @@ interface FloorPlateTemplate {
   floorToFloorHeight: string;
   efficiencyFactor: string;
   corePercentage: string;
+}
+
+interface SpaceDefinition {
+  id: string;
+  name: string;
+  type: string;
+  subType: string | null;
+  squareFootage: string;
+  dimensions: {
+    width: string;
+    depth: string;
+  };
+  isCore: boolean;
+}
+
+interface BuildingSystemsConfig {
+  elevators: {
+    passenger: string;
+    service: string;
+    freight: string;
+  };
+  hvacSystem: string;
+  hvacZones: string;
+  floorLoadCapacity: string;
+  ceilingHeight: string;
+  plenumHeight: string;
 }
 
 interface FloorConfiguration {
@@ -30,6 +57,9 @@ interface FloorConfiguration {
   primaryUse: string;
   secondaryUse: string | null;
   secondaryUsePercentage: string;
+  // New fields for advanced configuration
+  spaces?: SpaceDefinition[];
+  buildingSystems?: BuildingSystemsConfig;
 }
 
 interface FloorConfigurationManagerProps {
@@ -38,13 +68,13 @@ interface FloorConfigurationManagerProps {
   updateFloorConfiguration: (
     floorNumber: number, 
     field: keyof FloorConfiguration, 
-    value: string | null | boolean
+    value: any
   ) => void;
   copyFloorConfiguration: (sourceFloorNumber: number, targetFloorNumber: number) => void;
   bulkEditFloorConfigurations: (
     floorNumbers: number[], 
     field: keyof FloorConfiguration, 
-    value: string | null | boolean
+    value: any
   ) => void;
 }
 
@@ -116,7 +146,7 @@ const FloorConfigurationManager = ({
   };
   
   // Apply bulk edit to selected floors
-  const applyBulkEdit = (field: keyof FloorConfiguration, value: string | null | boolean) => {
+  const applyBulkEdit = (field: keyof FloorConfiguration, value: any) => {
     bulkEditFloorConfigurations(selectedFloors, field, value);
   };
   
@@ -146,6 +176,27 @@ const FloorConfigurationManager = ({
     
     const efficiency = parseFloat(config.efficiencyFactor) || 0;
     return grossArea * (efficiency / 100);
+  };
+
+  // Update spaces for a floor
+  const updateSpaces = (floorNumber: number, spaces: SpaceDefinition[]) => {
+    updateFloorConfiguration(floorNumber, "spaces", spaces);
+  };
+
+  // Update building systems for a floor
+  const updateBuildingSystems = (floorNumber: number, systems: BuildingSystemsConfig) => {
+    updateFloorConfiguration(floorNumber, "buildingSystems", systems);
+  };
+  
+  const getSpacesInfo = (config: FloorConfiguration) => {
+    if (!config.spaces || config.spaces.length === 0) return null;
+    
+    const totalSpaces = config.spaces.length;
+    const totalPlannedArea = config.spaces.reduce((sum, space) => {
+      return sum + (parseFloat(space.squareFootage) || 0);
+    }, 0);
+    
+    return { totalSpaces, totalPlannedArea };
   };
   
   return (
@@ -292,6 +343,7 @@ const FloorConfigurationManager = ({
                 <TableHead>Net Area</TableHead>
                 <TableHead>Height</TableHead>
                 <TableHead>Primary Use</TableHead>
+                <TableHead>Space Planning</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -332,6 +384,17 @@ const FloorConfigurationManager = ({
                       <span className="capitalize">{config.primaryUse}</span>
                     </div>
                   </TableCell>
+                  <TableCell>
+                    {getSpacesInfo(config) ? (
+                      <Badge variant="outline" className="bg-muted/30 hover:bg-muted cursor-default">
+                        {getSpacesInfo(config)!.totalSpaces} spaces • {getSpacesInfo(config)!.totalPlannedArea.toLocaleString()} sf
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        Not configured
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button 
                       variant="ghost" 
@@ -339,7 +402,7 @@ const FloorConfigurationManager = ({
                       onClick={() => handleEditFloor(config)}
                       className="px-2 h-7"
                     >
-                      <Edit className="h-3.5 w-3.5" />
+                      <Edit className="h-3.5 w-3.5 mr-1" /> Edit
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -362,6 +425,7 @@ const FloorConfigurationManager = ({
                     <TableHead>Net Area</TableHead>
                     <TableHead>Height</TableHead>
                     <TableHead>Primary Use</TableHead>
+                    <TableHead>Space Planning</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -402,6 +466,17 @@ const FloorConfigurationManager = ({
                           <span className="capitalize">{config.primaryUse}</span>
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {getSpacesInfo(config) ? (
+                          <Badge variant="outline" className="bg-muted/30 hover:bg-muted cursor-default">
+                            {getSpacesInfo(config)!.totalSpaces} spaces • {getSpacesInfo(config)!.totalPlannedArea.toLocaleString()} sf
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            Not configured
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <Button 
                           variant="ghost" 
@@ -409,7 +484,7 @@ const FloorConfigurationManager = ({
                           onClick={() => handleEditFloor(config)}
                           className="px-2 h-7"
                         >
-                          <Edit className="h-3.5 w-3.5" />
+                          <Edit className="h-3.5 w-3.5 mr-1" /> Edit
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -421,13 +496,16 @@ const FloorConfigurationManager = ({
         )}
       </CardContent>
       
-      {/* Floor Edit Dialog */}
+      {/* Floor Editor Dialog */}
       {selectedFloor && (
-        <FloorEditDialog 
-          floor={selectedFloor}
+        <FloorEditor
+          isOpen={true}
+          onClose={() => setSelectedFloor(null)}
+          floorConfig={selectedFloor}
           floorTemplates={floorTemplates}
           updateFloorConfiguration={updateFloorConfiguration}
-          onClose={() => setSelectedFloor(null)}
+          updateSpaces={updateSpaces}
+          updateBuildingSystems={updateBuildingSystems}
         />
       )}
       
@@ -478,194 +556,6 @@ const FloorConfigurationManager = ({
         </DialogContent>
       </Dialog>
     </Card>
-  );
-};
-
-interface FloorEditDialogProps {
-  floor: FloorConfiguration;
-  floorTemplates: FloorPlateTemplate[];
-  updateFloorConfiguration: (floorNumber: number, field: keyof FloorConfiguration, value: string | null | boolean) => void;
-  onClose: () => void;
-}
-
-const FloorEditDialog = ({ 
-  floor, 
-  floorTemplates,
-  updateFloorConfiguration,
-  onClose
-}: FloorEditDialogProps) => {
-  return (
-    <Dialog open={true} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>
-            Edit Floor {floor.floorNumber < 0 ? `B${Math.abs(floor.floorNumber)}` : floor.floorNumber}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-6 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label>Floor Template</Label>
-              <Select
-                value={floor.templateId || "null"}
-                onValueChange={(value) => {
-                  updateFloorConfiguration(
-                    floor.floorNumber, 
-                    "templateId", 
-                    value === "null" ? null : value
-                  );
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select template" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="null">Custom (No Template)</SelectItem>
-                  {floorTemplates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="custom-sqft">Custom Square Footage</Label>
-              <Input
-                id="custom-sqft"
-                type="number"
-                placeholder="0"
-                value={floor.customSquareFootage}
-                onChange={(e) => {
-                  updateFloorConfiguration(floor.floorNumber, "customSquareFootage", e.target.value);
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                Overrides template value if set
-              </p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="floor-height">Floor-to-Floor Height (ft)</Label>
-              <Input
-                id="floor-height"
-                type="number"
-                placeholder="12"
-                value={floor.floorToFloorHeight}
-                onChange={(e) => {
-                  updateFloorConfiguration(floor.floorNumber, "floorToFloorHeight", e.target.value);
-                }}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="eff-factor">Efficiency Factor (%)</Label>
-              <Input
-                id="eff-factor"
-                type="number"
-                placeholder="85"
-                value={floor.efficiencyFactor}
-                onChange={(e) => {
-                  updateFloorConfiguration(floor.floorNumber, "efficiencyFactor", e.target.value);
-                }}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="core-pct">Core & Circulation (%)</Label>
-              <Input
-                id="core-pct"
-                type="number"
-                placeholder="15"
-                value={floor.corePercentage}
-                onChange={(e) => {
-                  updateFloorConfiguration(floor.floorNumber, "corePercentage", e.target.value);
-                }}
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-            <div className="md:col-span-2 space-y-2">
-              <Label>Primary Use</Label>
-              <Select
-                value={floor.primaryUse}
-                onValueChange={(value) => {
-                  updateFloorConfiguration(floor.floorNumber, "primaryUse", value);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select primary use" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="residential">Residential</SelectItem>
-                  <SelectItem value="office">Office</SelectItem>
-                  <SelectItem value="retail">Retail</SelectItem>
-                  <SelectItem value="parking">Parking</SelectItem>
-                  <SelectItem value="hotel">Hotel</SelectItem>
-                  <SelectItem value="amenities">Amenities</SelectItem>
-                  <SelectItem value="storage">Storage</SelectItem>
-                  <SelectItem value="mechanical">Mechanical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="md:col-span-2 space-y-2">
-              <Label>Secondary Use</Label>
-              <Select
-                value={floor.secondaryUse || "null"}
-                onValueChange={(value) => {
-                  updateFloorConfiguration(
-                    floor.floorNumber, 
-                    "secondaryUse", 
-                    value === "null" ? null : value
-                  );
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select secondary use" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="null">None</SelectItem>
-                  <SelectItem value="residential">Residential</SelectItem>
-                  <SelectItem value="office">Office</SelectItem>
-                  <SelectItem value="retail">Retail</SelectItem>
-                  <SelectItem value="parking">Parking</SelectItem>
-                  <SelectItem value="hotel">Hotel</SelectItem>
-                  <SelectItem value="amenities">Amenities</SelectItem>
-                  <SelectItem value="storage">Storage</SelectItem>
-                  <SelectItem value="mechanical">Mechanical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="secondary-pct">Secondary (% of floor)</Label>
-              <Input
-                id="secondary-pct"
-                type="number"
-                placeholder="0"
-                disabled={!floor.secondaryUse}
-                value={floor.secondaryUsePercentage}
-                onChange={(e) => {
-                  updateFloorConfiguration(floor.floorNumber, "secondaryUsePercentage", e.target.value);
-                }}
-              />
-            </div>
-          </div>
-          
-          <div className="flex justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={onClose}>
-              <X className="h-4 w-4 mr-2" /> Cancel
-            </Button>
-            <Button onClick={onClose}>
-              <Save className="h-4 w-4 mr-2" /> Save Changes
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 };
 
