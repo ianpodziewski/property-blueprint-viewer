@@ -33,6 +33,33 @@ interface FloorPlateTemplate {
   corePercentage: string;
 }
 
+interface SpaceDefinition {
+  id: string;
+  name?: string;
+  type: string;
+  subType?: string | null;
+  squareFootage: string;
+  dimensions?: {
+    width: string;
+    depth: string;
+  };
+  isRentable?: boolean;
+  percentage: number;
+}
+
+interface BuildingSystemsConfig {
+  elevators?: {
+    passenger: string;
+    service: string;
+    freight: string;
+  };
+  hvacSystem?: string;
+  hvacZones?: string;
+  floorLoadCapacity?: string;
+  ceilingHeight?: string;
+  plenumHeight?: string;
+}
+
 interface FloorConfiguration {
   floorNumber: number;
   isUnderground: boolean;
@@ -44,17 +71,8 @@ interface FloorConfiguration {
   primaryUse: string;
   secondaryUse: string | null;
   secondaryUsePercentage: string;
-}
-
-interface SpaceDefinition {
-  id: string;
-  type: string;
-  squareFootage: string;
-  percentage: number;
-}
-
-interface BuildingSystemsConfig {
-  // Define the structure of building systems configuration
+  spaces?: SpaceDefinition[];
+  buildingSystems?: BuildingSystemsConfig;
 }
 
 const STORAGE_KEYS = {
@@ -501,7 +519,7 @@ export const useExtendedPropertyState = () => {
     );
     
     // Force save to localStorage right away for critical updates
-    if (field === "spaces" || field === "buildingSystems") {
+    if (field === 'spaces' || field === 'buildingSystems') {
       const updatedConfigs = floorConfigurations.map(floor => 
         floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
       );
@@ -843,13 +861,13 @@ export const useExtendedPropertyState = () => {
   // Update spaces for a specific floor
   const updateFloorSpaces = (floorNumber: number, spaces: SpaceDefinition[]) => {
     console.log(`Updating spaces for floor ${floorNumber}`, spaces);
-    updateFloorConfiguration(floorNumber, "spaces", spaces);
+    updateFloorConfiguration(floorNumber, 'spaces', spaces);
   };
   
   // Update building systems for a specific floor
   const updateFloorBuildingSystems = (floorNumber: number, systems: BuildingSystemsConfig) => {
     console.log(`Updating building systems for floor ${floorNumber}`, systems);
-    updateFloorConfiguration(floorNumber, "buildingSystems", systems);
+    updateFloorConfiguration(floorNumber, 'buildingSystems', systems);
   };
   
   return {
