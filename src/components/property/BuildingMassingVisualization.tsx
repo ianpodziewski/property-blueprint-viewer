@@ -32,7 +32,7 @@ const BuildingMassingVisualization: React.FC<BuildingMassingVisualizationProps> 
   floorTemplates
 }) => {
   const { calculateAllocatedAreaByFloor, getAllocationsByFloor } = useUnitAllocations();
-  const { getUnitTypeById, getAllCategories } = useUnitTypes();
+  const { getUnitTypeById, getAllCategories, unitTypes } = useUnitTypes();
   
   // Helper to calculate utilization for a floor
   const calculateFloorUtilization = (floorNumber: number) => {
@@ -153,19 +153,23 @@ const BuildingMassingVisualization: React.FC<BuildingMassingVisualizationProps> 
           <div>
             {/* Category Legend */}
             <div className="mb-6 flex flex-wrap justify-center gap-2">
-              {getAllCategories().map(category => (
-                <Badge 
-                  key={category} 
-                  variant="outline" 
-                  className="px-2 py-0.5 text-xs"
-                  style={{ 
-                    backgroundColor: `${getUnitTypeById(unitTypes.find(ut => ut.category === category)?.id || "")?.color}40` || "#E5DEFF40",
-                    borderColor: getUnitTypeById(unitTypes.find(ut => ut.category === category)?.id || "")?.color || "#E5DEFF"
-                  }}
-                >
-                  {category}
-                </Badge>
-              ))}
+              {getAllCategories().map(category => {
+                const categoryUnitTypes = unitTypes.filter(ut => ut.category === category);
+                const firstUnitType = categoryUnitTypes[0];
+                return (
+                  <Badge 
+                    key={category} 
+                    variant="outline" 
+                    className="px-2 py-0.5 text-xs"
+                    style={{ 
+                      backgroundColor: firstUnitType ? `${firstUnitType.color}40` : "#E5DEFF40",
+                      borderColor: firstUnitType ? firstUnitType.color : "#E5DEFF"
+                    }}
+                  >
+                    {category}
+                  </Badge>
+                );
+              })}
             </div>
             
             {/* Above Ground Floors */}

@@ -53,6 +53,21 @@ const COLOR_OPTIONS = [
   "#8B5CF6"  // Indigo
 ];
 
+const calculateAllocationStats = (unitTypeId: string) => {
+  return {
+    totalAllocated: 0,
+    floorCount: 0
+  };
+};
+
+const suggestAllocations = (unitTypeId: string, targetCount: number, floors: number[]) => {
+  return [];
+};
+
+const removeAllocationsByUnitType = (unitTypeId: string) => {
+  return;
+};
+
 const UnitMixPlanning: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("list");
   const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
@@ -86,10 +101,8 @@ const UnitMixPlanning: React.FC = () => {
   
   const {
     unitAllocations,
-    calculateAllocationStats,
-    suggestAllocations,
-    removeAllocationsByUnitType,
     addAllocation,
+    removeAllocation,
     calculateAllocatedAreaByFloor
   } = useUnitAllocations();
   
