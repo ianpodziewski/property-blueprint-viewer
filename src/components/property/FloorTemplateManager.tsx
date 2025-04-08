@@ -1,6 +1,5 @@
-
-import { useState, useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Copy, Plus, Trash, AlertTriangle, Loader } from "lucide-react";
+import { Edit, Copy, Plus, Trash, AlertTriangle, Loader, CheckCircle } from "lucide-react";
 import { FloorPlateTemplate } from "@/types/propertyTypes";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,7 +51,6 @@ const FloorTemplateManager = ({
   updateTemplate,
   removeTemplate
 }: FloorTemplateManagerProps) => {
-  // Add toast for user feedback
   const { toast } = useToast();
   
   const [editMode, setEditMode] = useState<"create" | "edit" | "view">("view");
@@ -61,32 +59,91 @@ const FloorTemplateManager = ({
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasFormErrors, setHasFormErrors] = useState(false);
+  const [validationMessages, setValidationMessages] = useState<{[key: string]: string}>({});
+  const [saveSuccessful, setSaveSuccessful] = useState(false);
+  
+  const [formModified, setFormModified] = useState(false);
+  const originalTemplateRef = useRef<TemplateFormData>(defaultTemplateData);
 
-  // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setEditMode("view");
       setCurrentTemplate(defaultTemplateData);
+      setFormModified(false);
+      setSaveSuccessful(false);
+      setHasFormErrors(false);
+      setValidationMessages({});
+      originalTemplateRef.current = {...defaultTemplateData};
     }
   }, [isOpen]);
 
-  // Clean up state when component unmounts
   useEffect(() => {
     return () => {
       setDeleteConfirmOpen(false);
       setTemplateToDelete(null);
       setSelectedTemplateId(null);
       setIsProcessing(false);
+      setHasFormErrors(false);
+      setValidationMessages({});
+      setFormModified(false);
+      setSaveSuccessful(false);
     };
   }, []);
 
+  const validateTemplateForm = (): boolean => {
+    const errors: {[key: string]: string} = {};
+    
+    if (!currentTemplate.name.trim()) {
+      errors.name = "Template name is required";
+    }
+    
+    if (!currentTemplate.squareFootage || parseFloat(currentTemplate.squareFootage) <= 0) {
+      errors.squareFootage = "Valid square footage is required";
+    }
+    
+    if (!currentTemplate.floorToFloorHeight || parseFloat(currentTemplate.floorToFloorHeight) <= 0) {
+      errors.floorToFloorHeight = "Valid floor height is required";
+    }
+    
+    if (!currentTemplate.primaryUse) {
+      errors.primaryUse = "Primary use is required";
+    }
+    
+    if (!currentTemplate.efficiencyFactor || 
+        parseFloat(currentTemplate.efficiencyFactor) < 0 || 
+        parseFloat(currentTemplate.efficiencyFactor) > 100) {
+      errors.efficiencyFactor = "Efficiency factor must be between 0-100%";
+    }
+    
+    setValidationMessages(errors);
+    setHasFormErrors(Object.keys(errors).length > 0);
+    
+    return Object.keys(errors).length === 0;
+  };
+
   const handleCreateNew = useCallback(() => {
-    setCurrentTemplate(defaultTemplateData);
+    const newTemplate = {
+      name: "",
+      squareFootage: "10000",
+      floorToFloorHeight: "12",
+      primaryUse: "office",
+      efficiencyFactor: "85",
+      corePercentage: "15",
+      description: ""
+    };
+    
+    setCurrentTemplate(newTemplate);
+    originalTemplateRef.current = {...newTemplate};
+    setFormModified(false);
     setEditMode("create");
+    setSaveSuccessful(false);
+    setHasFormErrors(false);
+    setValidationMessages({});
   }, []);
 
   const handleEdit = useCallback((template: FloorPlateTemplate) => {
-    setCurrentTemplate({
+    const templateToEdit = {
       id: template.id,
       name: template.name,
       squareFootage: template.squareFootage,
@@ -95,12 +152,19 @@ const FloorTemplateManager = ({
       efficiencyFactor: template.efficiencyFactor || "85",
       corePercentage: template.corePercentage || "15",
       description: template.description || ""
-    });
+    };
+    
+    setCurrentTemplate(templateToEdit);
+    originalTemplateRef.current = {...templateToEdit};
+    setFormModified(false);
     setEditMode("edit");
+    setSaveSuccessful(false);
+    setHasFormErrors(false);
+    setValidationMessages({});
   }, []);
 
   const handleDuplicate = useCallback((template: FloorPlateTemplate) => {
-    setCurrentTemplate({
+    const duplicatedTemplate = {
       name: `${template.name} (Copy)`,
       squareFootage: template.squareFootage,
       floorToFloorHeight: template.floorToFloorHeight || "12",
@@ -108,12 +172,18 @@ const FloorTemplateManager = ({
       efficiencyFactor: template.efficiencyFactor || "85",
       corePercentage: template.corePercentage || "15",
       description: template.description || ""
-    });
+    };
+    
+    setCurrentTemplate(duplicatedTemplate);
+    originalTemplateRef.current = {...duplicatedTemplate};
+    setFormModified(false);
     setEditMode("create");
+    setSaveSuccessful(false);
+    setHasFormErrors(false);
+    setValidationMessages({});
   }, []);
 
   const handleDelete = useCallback((templateId: string, event?: React.MouseEvent) => {
-    // Prevent event propagation to parent elements
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -129,7 +199,6 @@ const FloorTemplateManager = ({
     setIsProcessing(true);
     
     try {
-      // If the template being deleted is currently selected, deselect it
       if (selectedTemplateId === templateToDelete) {
         setSelectedTemplateId(null);
       }
@@ -160,40 +229,48 @@ const FloorTemplateManager = ({
   }, []);
 
   const handleSave = useCallback(() => {
+    if (!validateTemplateForm()) {
+      toast({
+        title: "Validation Error",
+        description: "Please check the form for errors and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsProcessing(true);
+    setSaveSuccessful(false);
     
     try {
+      const templateToSave = {
+        name: currentTemplate.name,
+        squareFootage: currentTemplate.squareFootage,
+        floorToFloorHeight: currentTemplate.floorToFloorHeight,
+        primaryUse: currentTemplate.primaryUse,
+        efficiencyFactor: currentTemplate.efficiencyFactor,
+        corePercentage: currentTemplate.corePercentage,
+        description: currentTemplate.description
+      };
+      
       if (editMode === "create") {
-        addTemplate({
-          name: currentTemplate.name || "New Template",
-          squareFootage: currentTemplate.squareFootage,
-          floorToFloorHeight: currentTemplate.floorToFloorHeight,
-          primaryUse: currentTemplate.primaryUse,
-          efficiencyFactor: currentTemplate.efficiencyFactor,
-          corePercentage: currentTemplate.corePercentage,
-          description: currentTemplate.description
-        });
+        addTemplate(templateToSave);
         toast({
           title: "Template created",
           description: "New floor template has been created successfully.",
         });
       } else if (editMode === "edit" && currentTemplate.id) {
-        updateTemplate(currentTemplate.id, {
-          name: currentTemplate.name || "Updated Template",
-          squareFootage: currentTemplate.squareFootage,
-          floorToFloorHeight: currentTemplate.floorToFloorHeight,
-          primaryUse: currentTemplate.primaryUse,
-          efficiencyFactor: currentTemplate.efficiencyFactor,
-          corePercentage: currentTemplate.corePercentage,
-          description: currentTemplate.description
-        });
+        updateTemplate(currentTemplate.id, templateToSave);
         toast({
           title: "Template updated",
           description: "The floor template has been updated successfully.",
         });
       }
       
-      setEditMode("view");
+      setSaveSuccessful(true);
+      setFormModified(false);
+      setTimeout(() => {
+        setEditMode("view");
+      }, 800);
     } catch (error) {
       console.error("Error saving template:", error);
       toast({
@@ -201,18 +278,30 @@ const FloorTemplateManager = ({
         description: "Failed to save the template. Please try again.",
         variant: "destructive",
       });
+      setSaveSuccessful(false);
     } finally {
       setIsProcessing(false);
     }
-  }, [editMode, currentTemplate, addTemplate, updateTemplate, toast]);
+  }, [editMode, currentTemplate, addTemplate, updateTemplate, toast, validateTemplateForm]);
 
   const handleCancel = useCallback(() => {
-    setEditMode("view");
-    setCurrentTemplate(defaultTemplateData);
-  }, []);
+    if (formModified) {
+      if (window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
+        setEditMode("view");
+        setCurrentTemplate(defaultTemplateData);
+        setFormModified(false);
+        setHasFormErrors(false);
+        setValidationMessages({});
+      }
+    } else {
+      setEditMode("view");
+      setCurrentTemplate(defaultTemplateData);
+      setHasFormErrors(false);
+      setValidationMessages({});
+    }
+  }, [formModified]);
 
   const handleTemplateSelect = useCallback((templateId: string, event?: React.MouseEvent) => {
-    // Prevent event bubbling if event is provided
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -221,18 +310,39 @@ const FloorTemplateManager = ({
   }, [selectedTemplateId]);
 
   const handleModalClose = useCallback(() => {
-    // Prevent closing if in middle of an operation
     if (isProcessing) return;
     
-    // If in edit/create mode, confirm before closing
-    if (editMode !== "view") {
+    if (editMode !== "view" && formModified) {
       if (confirm("You have unsaved changes. Are you sure you want to close?")) {
         onClose();
       }
     } else {
       onClose();
     }
-  }, [onClose, editMode, isProcessing]);
+  }, [onClose, editMode, isProcessing, formModified]);
+
+  const handleInputChange = useCallback((
+    field: keyof TemplateFormData,
+    value: string
+  ) => {
+    setCurrentTemplate(prev => ({ ...prev, [field]: value }));
+    
+    if (!formModified) {
+      setFormModified(true);
+    }
+    
+    if (validationMessages[field]) {
+      setValidationMessages(prev => {
+        const updated = { ...prev };
+        delete updated[field];
+        return updated;
+      });
+      
+      if (Object.keys(validationMessages).length <= 1) {
+        setHasFormErrors(false);
+      }
+    }
+  }, [formModified, validationMessages]);
 
   const renderForm = () => (
     <div className="space-y-4">
@@ -241,10 +351,15 @@ const FloorTemplateManager = ({
         <Input
           id="template-name"
           value={currentTemplate.name}
-          onChange={(e) => setCurrentTemplate({ ...currentTemplate, name: e.target.value })}
+          onChange={(e) => handleInputChange('name', e.target.value)}
           placeholder="Standard Office Floor"
           disabled={isProcessing}
+          className={validationMessages.name ? "border-red-500" : ""}
+          aria-invalid={!!validationMessages.name}
         />
+        {validationMessages.name && (
+          <p className="text-xs text-red-500 mt-1">{validationMessages.name}</p>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -253,10 +368,15 @@ const FloorTemplateManager = ({
             id="template-area"
             type="number"
             value={currentTemplate.squareFootage}
-            onChange={(e) => setCurrentTemplate({ ...currentTemplate, squareFootage: e.target.value })}
+            onChange={(e) => handleInputChange('squareFootage', e.target.value)}
             placeholder="10000"
             disabled={isProcessing}
+            className={validationMessages.squareFootage ? "border-red-500" : ""}
+            aria-invalid={!!validationMessages.squareFootage}
           />
+          {validationMessages.squareFootage && (
+            <p className="text-xs text-red-500 mt-1">{validationMessages.squareFootage}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="template-height">Floor-to-Floor Height (ft)</Label>
@@ -264,10 +384,15 @@ const FloorTemplateManager = ({
             id="template-height"
             type="number"
             value={currentTemplate.floorToFloorHeight}
-            onChange={(e) => setCurrentTemplate({ ...currentTemplate, floorToFloorHeight: e.target.value })}
+            onChange={(e) => handleInputChange('floorToFloorHeight', e.target.value)}
             placeholder="12"
             disabled={isProcessing}
+            className={validationMessages.floorToFloorHeight ? "border-red-500" : ""}
+            aria-invalid={!!validationMessages.floorToFloorHeight}
           />
+          {validationMessages.floorToFloorHeight && (
+            <p className="text-xs text-red-500 mt-1">{validationMessages.floorToFloorHeight}</p>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -275,10 +400,13 @@ const FloorTemplateManager = ({
           <Label htmlFor="template-use">Primary Use</Label>
           <Select
             value={currentTemplate.primaryUse}
-            onValueChange={(value) => setCurrentTemplate({ ...currentTemplate, primaryUse: value })}
+            onValueChange={(value) => handleInputChange('primaryUse', value)}
             disabled={isProcessing}
           >
-            <SelectTrigger id="template-use">
+            <SelectTrigger 
+              id="template-use"
+              className={validationMessages.primaryUse ? "border-red-500" : ""}
+            >
               <SelectValue placeholder="Select use" />
             </SelectTrigger>
             <SelectContent>
@@ -292,6 +420,9 @@ const FloorTemplateManager = ({
               <SelectItem value="mechanical">Mechanical</SelectItem>
             </SelectContent>
           </Select>
+          {validationMessages.primaryUse && (
+            <p className="text-xs text-red-500 mt-1">{validationMessages.primaryUse}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="template-efficiency">Efficiency Factor (%)</Label>
@@ -299,10 +430,17 @@ const FloorTemplateManager = ({
             id="template-efficiency"
             type="number"
             value={currentTemplate.efficiencyFactor}
-            onChange={(e) => setCurrentTemplate({ ...currentTemplate, efficiencyFactor: e.target.value })}
+            onChange={(e) => handleInputChange('efficiencyFactor', e.target.value)}
             placeholder="85"
             disabled={isProcessing}
+            min="0"
+            max="100"
+            className={validationMessages.efficiencyFactor ? "border-red-500" : ""}
+            aria-invalid={!!validationMessages.efficiencyFactor}
           />
+          {validationMessages.efficiencyFactor && (
+            <p className="text-xs text-red-500 mt-1">{validationMessages.efficiencyFactor}</p>
+          )}
         </div>
       </div>
       <div className="space-y-2">
@@ -310,11 +448,21 @@ const FloorTemplateManager = ({
         <Input
           id="template-description"
           value={currentTemplate.description}
-          onChange={(e) => setCurrentTemplate({ ...currentTemplate, description: e.target.value })}
+          onChange={(e) => handleInputChange('description', e.target.value)}
           placeholder="Description of this template"
           disabled={isProcessing}
         />
       </div>
+      
+      {hasFormErrors && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm mt-4">
+          <p className="flex items-center">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            Please correct the errors above before saving.
+          </p>
+        </div>
+      )}
+      
       <div className="flex justify-end space-x-2 pt-4">
         <Button 
           variant="outline" 
@@ -325,18 +473,30 @@ const FloorTemplateManager = ({
         </Button>
         <Button 
           onClick={handleSave}
-          disabled={isProcessing}
+          disabled={isProcessing || hasFormErrors}
+          className={saveSuccessful ? "bg-green-600 hover:bg-green-700" : ""}
         >
           {isProcessing ? (
             <>
               <Loader className="mr-2 h-4 w-4 animate-spin" />
               <span>{editMode === "create" ? "Creating..." : "Updating..."}</span>
             </>
+          ) : saveSuccessful ? (
+            <>
+              <CheckCircle className="mr-2 h-4 w-4" />
+              <span>Saved Successfully</span>
+            </>
           ) : (
             editMode === "create" ? "Create Template" : "Update Template"
           )}
         </Button>
       </div>
+      
+      {editMode === "create" && (
+        <div className="text-xs text-muted-foreground mt-2 text-center">
+          All fields (except Description) are required.
+        </div>
+      )}
     </div>
   );
 
@@ -411,6 +571,7 @@ const FloorTemplateManager = ({
                         }}
                         className="px-2 h-8"
                         disabled={isProcessing}
+                        type="button"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -423,6 +584,7 @@ const FloorTemplateManager = ({
                         }}
                         className="px-2 h-8"
                         disabled={isProcessing}
+                        type="button"
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
@@ -544,6 +706,9 @@ const FloorTemplateManager = ({
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Manage Floor Templates</DialogTitle>
+            <DialogDescription>
+              Create and manage floor plate templates for your building design.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             {editMode === "view" ? (
@@ -601,7 +766,6 @@ const FloorTemplateManager = ({
   );
 };
 
-// Helper function to get color based on use type
 const getUseColor = (spaceType: string) => {
   const colors: Record<string, string> = {
     "residential": "#3B82F6",
@@ -618,4 +782,3 @@ const getUseColor = (spaceType: string) => {
 };
 
 export default FloorTemplateManager;
-
