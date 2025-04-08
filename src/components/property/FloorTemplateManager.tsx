@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Copy, Plus, Trash, AlertTriangle, Loader, CheckCircle, RefreshCcw } from "lucide-react";
@@ -27,8 +26,6 @@ interface TemplateFormData {
   name: string;
   squareFootage: string;
   floorToFloorHeight: string;
-  primaryUse: string;
-  corePercentage: string;
   description: string;
 }
 
@@ -36,8 +33,6 @@ const defaultTemplateData: TemplateFormData = {
   name: "",
   squareFootage: "10000",
   floorToFloorHeight: "12",
-  primaryUse: "office",
-  corePercentage: "15",
   description: ""
 };
 
@@ -132,16 +127,6 @@ const FloorTemplateManager = ({
       errors.floorToFloorHeight = "Valid floor height is required";
     }
     
-    if (!currentTemplate.primaryUse) {
-      errors.primaryUse = "Primary use is required";
-    }
-    
-    if (!currentTemplate.corePercentage || 
-        parseFloat(currentTemplate.corePercentage) < 0 || 
-        parseFloat(currentTemplate.corePercentage) > 100) {
-      errors.corePercentage = "Core percentage must be between 0-100%";
-    }
-    
     setValidationMessages(errors);
     setHasFormErrors(Object.keys(errors).length > 0);
     
@@ -153,8 +138,6 @@ const FloorTemplateManager = ({
       name: "",
       squareFootage: "10000",
       floorToFloorHeight: "12",
-      primaryUse: "office",
-      corePercentage: "15",
       description: ""
     };
     
@@ -174,8 +157,6 @@ const FloorTemplateManager = ({
       name: template.name || "",
       squareFootage: template.squareFootage || "10000",
       floorToFloorHeight: template.floorToFloorHeight || "12",
-      primaryUse: template.primaryUse || "office",
-      corePercentage: template.corePercentage || "15",
       description: template.description || ""
     };
     
@@ -194,8 +175,6 @@ const FloorTemplateManager = ({
       name: `${template.name || "Template"} (Copy)`,
       squareFootage: template.squareFootage || "10000",
       floorToFloorHeight: template.floorToFloorHeight || "12",
-      primaryUse: template.primaryUse || "office",
-      corePercentage: template.corePercentage || "15",
       description: template.description || ""
     };
     
@@ -316,8 +295,6 @@ const FloorTemplateManager = ({
         name: String(currentTemplate.name || ""),
         squareFootage: String(currentTemplate.squareFootage || "10000"),
         floorToFloorHeight: String(currentTemplate.floorToFloorHeight || "12"),
-        primaryUse: String(currentTemplate.primaryUse || "office"),
-        corePercentage: String(currentTemplate.corePercentage || "15"),
         description: String(currentTemplate.description || "")
       };
       
@@ -336,8 +313,6 @@ const FloorTemplateManager = ({
           name: templateToSave.name,
           squareFootage: templateToSave.squareFootage,
           floorToFloorHeight: templateToSave.floorToFloorHeight,
-          primaryUse: templateToSave.primaryUse,
-          corePercentage: templateToSave.corePercentage,
           description: templateToSave.description
         });
         
@@ -534,54 +509,6 @@ const FloorTemplateManager = ({
           />
           {validationMessages.floorToFloorHeight && (
             <p className="text-xs text-red-500 mt-1">{validationMessages.floorToFloorHeight}</p>
-          )}
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="template-use">Primary Use</Label>
-          <Select
-            value={currentTemplate.primaryUse}
-            onValueChange={(value) => handleInputChange('primaryUse', value)}
-            disabled={isProcessing}
-          >
-            <SelectTrigger 
-              id="template-use"
-              className={validationMessages.primaryUse ? "border-red-500" : ""}
-            >
-              <SelectValue placeholder="Select use" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="residential">Residential</SelectItem>
-              <SelectItem value="office">Office</SelectItem>
-              <SelectItem value="retail">Retail</SelectItem>
-              <SelectItem value="parking">Parking</SelectItem>
-              <SelectItem value="hotel">Hotel</SelectItem>
-              <SelectItem value="amenities">Amenities</SelectItem>
-              <SelectItem value="storage">Storage</SelectItem>
-              <SelectItem value="mechanical">Mechanical</SelectItem>
-            </SelectContent>
-          </Select>
-          {validationMessages.primaryUse && (
-            <p className="text-xs text-red-500 mt-1">{validationMessages.primaryUse}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="template-core">Core Percentage (%)</Label>
-          <Input
-            id="template-core"
-            type="number"
-            value={currentTemplate.corePercentage}
-            onChange={(e) => handleInputChange('corePercentage', e.target.value)}
-            placeholder="15"
-            disabled={isProcessing}
-            min="0"
-            max="100"
-            className={validationMessages.corePercentage ? "border-red-500" : ""}
-            aria-invalid={!!validationMessages.corePercentage}
-          />
-          {validationMessages.corePercentage && (
-            <p className="text-xs text-red-500 mt-1">{validationMessages.corePercentage}</p>
           )}
         </div>
       </div>
@@ -809,12 +736,7 @@ const FloorTemplateManager = ({
             <div className="space-y-2">
               <div className="w-full aspect-[3/2] bg-muted/30 rounded-md border flex items-center justify-center">
                 <div 
-                  className="w-2/3 h-3/4 rounded-md" 
-                  style={{ 
-                    backgroundColor: `${getUseColor(template.primaryUse || "office")}40`,
-                    borderColor: getUseColor(template.primaryUse || "office"),
-                    borderWidth: 1
-                  }}
+                  className="w-2/3 h-3/4 rounded-md bg-muted/50 border"
                 ></div>
               </div>
               <div className="text-center text-sm text-muted-foreground">Visual representation</div>
@@ -828,24 +750,8 @@ const FloorTemplateManager = ({
                 <dd>{parseInt(template.squareFootage).toLocaleString()} sq ft</dd>
               </div>
               <div className="flex justify-between">
-                <dt>Rentable Area:</dt>
-                <dd>
-                  {Math.round(parseInt(template.squareFootage) * ((100 - parseInt(template.corePercentage || "15")) / 100)).toLocaleString()} sq ft
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt>Core Area:</dt>
-                <dd>
-                  {Math.round(parseInt(template.squareFootage) * (parseInt(template.corePercentage || "15") / 100)).toLocaleString()} sq ft
-                </dd>
-              </div>
-              <div className="flex justify-between">
                 <dt>Floor Height:</dt>
                 <dd>{template.floorToFloorHeight || "12"} ft</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt>Primary Use:</dt>
-                <dd className="capitalize">{template.primaryUse || "office"}</dd>
               </div>
               {template.description && (
                 <div className="pt-2 mt-2 border-t">
@@ -890,6 +796,7 @@ const FloorTemplateManager = ({
     );
   };
 
+  
   return (
     <>
       <Dialog 
