@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
@@ -18,38 +17,12 @@ const dispatchFloorConfigSavedEvent = () => {
 };
 
 export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => {
-  const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>([
-    {
-      floorNumber: 1,
-      isUnderground: false,
-      templateId: "template-1",
-      customSquareFootage: "",
-      floorToFloorHeight: "12",
-      corePercentage: "15",
-      primaryUse: "office",
-      secondaryUse: null,
-      secondaryUsePercentage: "0"
-    }
-  ]);
+  const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>([]);
 
-  // Load floor configurations from localStorage on mount
   useEffect(() => {
-    const storedFloorConfigurations = loadFromLocalStorage(STORAGE_KEY, [
-      {
-        floorNumber: 1,
-        isUnderground: false,
-        templateId: "template-1",
-        customSquareFootage: "",
-        floorToFloorHeight: "12",
-        corePercentage: "15",
-        primaryUse: "office",
-        secondaryUse: null,
-        secondaryUsePercentage: "0"
-      }
-    ]);
+    const storedFloorConfigurations = loadFromLocalStorage(STORAGE_KEY, []);
     
     if (storedFloorConfigurations.length > 0) {
-      // Migrate stored data to remove efficiency factor if it exists
       const migratedConfigs = storedFloorConfigurations.map(config => {
         if ('efficiencyFactor' in config) {
           const { efficiencyFactor, ...rest } = config as any;
@@ -62,7 +35,6 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
     }
   }, []);
 
-  // Save floor configurations to localStorage whenever they change
   useEffect(() => {
     saveToLocalStorage(STORAGE_KEY, floorConfigurations);
   }, [floorConfigurations]);
@@ -225,7 +197,6 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
       );
       
       if (remainingFloors.length === 0) {
-        // If we removed all floors, create a default floor
         const defaultFloor: FloorConfiguration = {
           floorNumber: 1,
           isUnderground: false,
@@ -293,7 +264,6 @@ export const useFloorConfigurations = (floorTemplates: FloorPlateTemplate[]) => 
 
   const importFloorConfigurations = useCallback((configurations: FloorConfiguration[]) => {
     if (configurations && configurations.length > 0) {
-      // Clean up any efficiency factors when importing
       const cleanConfigs = configurations.map(config => {
         if ('efficiencyFactor' in config) {
           const { efficiencyFactor, ...rest } = config as any;

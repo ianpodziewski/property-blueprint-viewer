@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,7 +7,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Table, TableHeader, TableRow, TableHead, TableBody } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Settings, ChevronUp, ChevronDown, ArrowRightLeft, Trash } from "lucide-react";
+import { PlusCircle, Settings, ChevronUp, ChevronDown, ArrowRightLeft, Trash, Building } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import FloorTemplateManager from "./FloorTemplateManager";
@@ -241,10 +240,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
       return;
     }
     
-    // Copy the floor configuration
     copyFloorConfiguration(selectedFloorForCopy, selectedRows);
-    
-    // Copy unit allocations too
     copyAllocations(selectedFloorForCopy, selectedRows);
     
     setCopyDialogOpen(false);
@@ -340,52 +336,64 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[500px]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox 
-                    checked={allSelected} 
-                    onCheckedChange={handleSelectAll}
+        {floorConfigurations.length > 0 ? (
+          <ScrollArea className="h-[500px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox 
+                      checked={allSelected} 
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead className="w-20">Floor</TableHead>
+                  <TableHead className="w-[180px]">Template</TableHead>
+                  <TableHead className="w-[140px] text-right">Floor Plate (sf)</TableHead>
+                  <TableHead className="w-[140px] text-center">Primary Use</TableHead>
+                  <TableHead className="w-20 text-center">Spaces</TableHead>
+                  <TableHead className="w-[120px] text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedFloors.map(floor => (
+                  <ExpandableFloorRow
+                    key={`floor-${floor.floorNumber}`}
+                    floor={floor}
+                    floorTemplates={floorTemplates}
+                    isSelected={selectedRows.includes(floor.floorNumber)}
+                    onSelect={handleRowSelection}
+                    onEdit={() => toggleFloorExpansion(floor.floorNumber)}
+                    onDelete={handleDeleteClick}
+                    reorderFloor={reorderFloor}
+                    updateFloorConfiguration={updateFloorConfiguration}
+                    getTemplateName={getTemplateName}
+                    totalRows={floorConfigurations.length}
+                    isExpanded={expandedFloors.includes(floor.floorNumber)}
+                    onToggleExpand={toggleFloorExpansion}
                   />
-                </TableHead>
-                <TableHead className="w-20">Floor</TableHead>
-                <TableHead className="w-[180px]">Template</TableHead>
-                <TableHead className="w-[140px] text-right">Floor Plate (sf)</TableHead>
-                <TableHead className="w-[140px] text-center">Primary Use</TableHead>
-                <TableHead className="w-20 text-center">Spaces</TableHead>
-                <TableHead className="w-[120px] text-center">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedFloors.map(floor => (
-                <ExpandableFloorRow
-                  key={`floor-${floor.floorNumber}`}
-                  floor={floor}
-                  floorTemplates={floorTemplates}
-                  isSelected={selectedRows.includes(floor.floorNumber)}
-                  onSelect={handleRowSelection}
-                  onEdit={() => toggleFloorExpansion(floor.floorNumber)}
-                  onDelete={handleDeleteClick}
-                  reorderFloor={reorderFloor}
-                  updateFloorConfiguration={updateFloorConfiguration}
-                  getTemplateName={getTemplateName}
-                  totalRows={floorConfigurations.length}
-                  isExpanded={expandedFloors.includes(floor.floorNumber)}
-                  onToggleExpand={toggleFloorExpansion}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-        
-        {floorConfigurations.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-muted-foreground mb-4">No floors added yet</div>
-            <Button onClick={() => setAddFloorDialogOpen(true)}>
-              <PlusCircle className="w-4 h-4 mr-1" /> Add Your First Floor
-            </Button>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        ) : (
+          <div className="text-center py-12 border border-dashed rounded-lg border-gray-300 bg-gray-50">
+            <div className="flex flex-col items-center justify-center space-y-4 p-8">
+              <Building className="h-16 w-16 text-gray-400" />
+              <div className="space-y-2 text-center">
+                <h3 className="font-semibold text-lg">No floors defined yet</h3>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Your building needs floors to define spaces and unit allocations. Click 'Add Floors' to start building your structure.
+                </p>
+              </div>
+              <Button 
+                onClick={() => setAddFloorDialogOpen(true)} 
+                size="lg" 
+                className="mt-4"
+              >
+                <PlusCircle className="w-5 h-5 mr-2" /> Add Your First Floor
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
@@ -394,8 +402,12 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
       <Dialog open={addFloorDialogOpen} onOpenChange={setAddFloorDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Floors</DialogTitle>
-            <DialogDescription>Add new floors to your building</DialogDescription>
+            <DialogTitle>{floorConfigurations.length === 0 ? "Add Your First Floor" : "Add Floors"}</DialogTitle>
+            <DialogDescription>
+              {floorConfigurations.length === 0 
+                ? "Start by adding the first floor to your building" 
+                : "Add new floors to your building"}
+            </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
@@ -453,6 +465,11 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                   ))}
                 </SelectContent>
               </Select>
+              {floorConfigurations.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  You can create templates to reuse floor configurations across multiple floors
+                </p>
+              )}
             </div>
             
             <div>
@@ -514,7 +531,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
               Cancel
             </Button>
             <Button onClick={handleAddFloors}>
-              Add Floors
+              {floorConfigurations.length === 0 ? "Create Floor" : "Add Floors"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -31,7 +31,7 @@ const UnitTypeDistributionChart: React.FC<UnitTypeDistributionChartProps> = ({
   // If no data, show placeholder
   if (data.length === 0) {
     return (
-      <div className="flex items-center justify-center p-12">
+      <div className="flex items-center justify-center h-full p-12">
         <p className="text-muted-foreground">No unit data to display</p>
       </div>
     );
