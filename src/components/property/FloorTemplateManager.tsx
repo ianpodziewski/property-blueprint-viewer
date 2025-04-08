@@ -330,15 +330,7 @@ const FloorTemplateManager = ({
       addDebugLog(`Saving template data: ${JSON.stringify(templateToSave)}`);
       
       if (editMode === "create") {
-        addTemplate({
-          name: templateToSave.name,
-          squareFootage: templateToSave.squareFootage,
-          floorToFloorHeight: templateToSave.floorToFloorHeight,
-          primaryUse: templateToSave.primaryUse,
-          efficiencyFactor: templateToSave.efficiencyFactor,
-          corePercentage: templateToSave.corePercentage,
-          description: templateToSave.description
-        });
+        addTemplate(templateToSave);
         
         toast({
           title: "Template created",

@@ -303,13 +303,13 @@ export const useExtendedPropertyState = () => {
     
     const newTemplate: FloorPlateTemplate = {
       id: newId,
-      name: String(template.name || "Template " + (floorTemplates.length + 1)),
-      squareFootage: String(template.squareFootage || "10000"),
-      floorToFloorHeight: String(template.floorToFloorHeight || "12"),
-      efficiencyFactor: String(template.efficiencyFactor || "85"),
-      corePercentage: String(template.corePercentage || "15"),
-      primaryUse: String(template.primaryUse || "office"),
-      description: String(template.description || "")
+      name: template.name,
+      squareFootage: template.squareFootage,
+      floorToFloorHeight: template.floorToFloorHeight,
+      efficiencyFactor: template.efficiencyFactor,
+      corePercentage: template.corePercentage,
+      primaryUse: template.primaryUse,
+      description: template.description || ""
     };
     
     console.log("Final template being added:", newTemplate);
