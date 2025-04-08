@@ -123,10 +123,7 @@ const AlertDialogContent = React.forwardRef<
         // Call the original onClick handler if provided
         if (props.onClick) props.onClick(e);
       }}
-      onPointerDownOutside={(e) => {
-        // Prevent dismissing when clicking outside
-        e.preventDefault();
-      }}
+      // Remove the onPointerDownOutside prop since it's not supported
       {...props}
     />
   </AlertDialogPortal>
