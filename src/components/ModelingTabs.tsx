@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import MainNavigation from "./MainNavigation";
 import PropertyBreakdown from "./sections/PropertyBreakdown";
@@ -17,56 +16,42 @@ const ModelingTabs = () => {
   const [floorConfigSaved, setFloorConfigSaved] = useState(0);
   const [unitAllocationSaved, setUnitAllocationSaved] = useState(0);
   
-  // Create a more robust debounced event handler to prevent infinite loops
+  const handlersRegistered = useRef(false);
+  
   const handleFloorConfigSave = useCallback(() => {
     console.log('Floor configuration save event detected');
-    setFloorConfigSaved(prev => prev + 1);
+    window.requestAnimationFrame(() => {
+      setFloorConfigSaved(prev => prev + 1);
+    });
   }, []);
   
   const handleUnitAllocationSave = useCallback(() => {
     console.log('Unit allocation save event detected');
-    setUnitAllocationSaved(prev => prev + 1);
+    window.requestAnimationFrame(() => {
+      setUnitAllocationSaved(prev => prev + 1);
+    });
   }, []);
   
-  // Use separate useEffects with clear dependencies to avoid circular updates
   useEffect(() => {
-    let timeoutId: number | undefined;
-    const debouncedFloorConfigHandler = () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      timeoutId = window.setTimeout(handleFloorConfigSave, 300);
+    if (handlersRegistered.current) return;
+    handlersRegistered.current = true;
+    
+    const floorConfigHandler = (event: Event) => {
+      handleFloorConfigSave();
     };
     
-    window.addEventListener('floorConfigSaved', debouncedFloorConfigHandler);
+    const unitAllocationHandler = (event: Event) => {
+      handleUnitAllocationSave();
+    };
+    
+    window.addEventListener('floorConfigSaved', floorConfigHandler);
+    window.addEventListener('unitAllocationChanged', unitAllocationHandler);
     
     return () => {
-      window.removeEventListener('floorConfigSaved', debouncedFloorConfigHandler);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      window.removeEventListener('floorConfigSaved', floorConfigHandler);
+      window.removeEventListener('unitAllocationChanged', unitAllocationHandler);
     };
-  }, [handleFloorConfigSave]);
-  
-  // Separate effect for unit allocation changes - no longer triggering floor config saves
-  useEffect(() => {
-    let timeoutId: number | undefined;
-    const debouncedUnitAllocationHandler = () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      timeoutId = window.setTimeout(handleUnitAllocationSave, 300);
-    };
-    
-    window.addEventListener('unitAllocationChanged', debouncedUnitAllocationHandler);
-    
-    return () => {
-      window.removeEventListener('unitAllocationChanged', debouncedUnitAllocationHandler);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [handleUnitAllocationSave]);
+  }, [handleFloorConfigSave, handleUnitAllocationSave]);
 
   return (
     <div className="w-full space-y-4">

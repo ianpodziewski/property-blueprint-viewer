@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { FloorConfiguration, FloorPlateTemplate } from "@/types/propertyTypes";
 
@@ -17,6 +17,9 @@ export const useBuildingParameters = (
     total: number;
     far: number;
   }>({ aboveGround: 0, belowGround: 0, total: 0, far: 0 });
+  
+  // Add a ref to track the version of configurations and templates
+  const configVersionRef = useRef<string>("");
   
   // Initialize state directly with data from localStorage
   const [farAllowance, setFarAllowance] = useState<string>(() => {
@@ -79,49 +82,74 @@ export const useBuildingParameters = (
     }
   }, [farAllowance, totalLandArea, buildingFootprint]);
 
-  // Calculate building areas based on floor configurations with memoization to prevent needless recalculation
-  useEffect(() => {
+  // Use useMemo to optimize building area calculations
+  // This will only recompute when floor configurations or templates actually change
+  const buildingAreas = useMemo(() => {
+    // Generate a version identifier to detect real changes
+    const newConfigVersion = JSON.stringify({
+      configs: floorConfigurations.map(f => ({
+        id: f.floorNumber,
+        template: f.templateId,
+        custom: f.customSquareFootage,
+        isUnderground: f.isUnderground
+      })),
+      templates: floorTemplates.map(t => ({ id: t.id, sqft: t.squareFootage }))
+    });
+    
+    // Skip recalculation if nothing changed
+    if (configVersionRef.current === newConfigVersion) {
+      return {
+        aboveGround: prevBuildingParams.current.aboveGround,
+        belowGround: prevBuildingParams.current.belowGround,
+        total: prevBuildingParams.current.total
+      };
+    }
+    
+    // Store the new version reference
+    configVersionRef.current = newConfigVersion;
+    
+    // Perform the actual calculation
     let aboveGround = 0;
     let belowGround = 0;
 
-    floorConfigurations.forEach(floor => {
+    for (const floor of floorConfigurations) {
       let squareFootage = 0;
+      
       if (floor.templateId) {
         const template = floorTemplates.find(t => t.id === floor.templateId);
         if (template) {
           squareFootage = parseFloat(template.squareFootage) || 0;
         }
       }
-
+      
       if (floor.customSquareFootage) {
         squareFootage = parseFloat(floor.customSquareFootage) || 0;
       }
-
+      
       if (floor.isUnderground) {
         belowGround += squareFootage;
       } else {
         aboveGround += squareFootage;
       }
-    });
-
-    // Only update state if values actually changed to prevent render loops
-    const newTotal = aboveGround + belowGround;
-    
-    if (aboveGround !== prevBuildingParams.current.aboveGround) {
-      setTotalAboveGroundArea(aboveGround);
-      prevBuildingParams.current.aboveGround = aboveGround;
     }
     
-    if (belowGround !== prevBuildingParams.current.belowGround) {
-      setTotalBelowGroundArea(belowGround);
-      prevBuildingParams.current.belowGround = belowGround;
-    }
+    // Log the calculation result (fewer logs)
+    console.log(`Building area calculation: Above ground: ${aboveGround}, Below ground: ${belowGround}, Total: ${aboveGround + belowGround} sq ft`);
     
-    if (newTotal !== prevBuildingParams.current.total) {
-      setTotalBuildableArea(newTotal);
-      prevBuildingParams.current.total = newTotal;
-    }
+    // Update our reference to current values
+    prevBuildingParams.current.aboveGround = aboveGround;
+    prevBuildingParams.current.belowGround = belowGround;
+    prevBuildingParams.current.total = aboveGround + belowGround;
+    
+    return { aboveGround, belowGround, total: aboveGround + belowGround };
   }, [floorConfigurations, floorTemplates]);
+
+  // Update state based on memoized calculations
+  useEffect(() => {
+    setTotalAboveGroundArea(buildingAreas.aboveGround);
+    setTotalBelowGroundArea(buildingAreas.belowGround);
+    setTotalBuildableArea(buildingAreas.total);
+  }, [buildingAreas]);
 
   // Calculate actual FAR with memoization to prevent needless recalculation
   useEffect(() => {
@@ -147,6 +175,7 @@ export const useBuildingParameters = (
     // The calculated values will be reset through the effects
     isInitialized.current = false; // Reset initialization flag
     prevBuildingParams.current = { aboveGround: 0, belowGround: 0, total: 0, far: 0 }; // Reset previous values
+    configVersionRef.current = ""; // Reset config version reference
   }, []);
 
   return {

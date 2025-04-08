@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
   FloorConfiguration, 
@@ -30,6 +31,10 @@ const dispatchFloorConfigSavedEvent = (() => {
 export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]) => {
   const isFirstRender = useRef(true);
   const isUpdatingRef = useRef(false);
+  // Add a cache for floor areas to prevent recalculation
+  const floorAreaCache = useRef<Record<number, number>>({});
+  // Track when templates or configurations change to invalidate cache
+  const templateVersionRef = useRef<string>("");
   
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>(() => {
     const storedFloorConfigurations = loadFromLocalStorage<FloorConfiguration[]>(STORAGE_KEY, []);
@@ -51,6 +56,16 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   });
 
   const prevFloorConfigurationsRef = useRef<string>("");
+  
+  // Update template version reference when templates change
+  useEffect(() => {
+    const newTemplateVersion = JSON.stringify(floorTemplatesInput);
+    if (templateVersionRef.current !== newTemplateVersion) {
+      templateVersionRef.current = newTemplateVersion;
+      // Clear cache when templates change
+      floorAreaCache.current = {};
+    }
+  }, [floorTemplatesInput]);
 
   useEffect(() => {
     if (isFirstRender.current) {
@@ -71,6 +86,9 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
       console.log("Saved floor configurations to localStorage:", floorConfigurations);
       
       prevFloorConfigurationsRef.current = currentConfigString;
+      
+      // Clear floor area cache when configurations change
+      floorAreaCache.current = {};
       
       dispatchFloorConfigSavedEvent();
     }
@@ -306,6 +324,8 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
       
       isUpdatingRef.current = true;
       setFloorConfigurations(cleanConfigs);
+      // Clear floor area cache on import
+      floorAreaCache.current = {};
     }
   }, []);
 
@@ -313,43 +333,40 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     return floorConfigurations;
   }, [floorConfigurations]);
 
+  // Refactored getFloorArea to use caching and avoid console spam
   const getFloorArea = useCallback((floorNumber: number): number => {
-    console.log(`Getting area for floor ${floorNumber}`);
-    console.log(`Current floor configurations:`, floorConfigurations);
-    console.log(`Available templates:`, floorTemplatesInput);
+    // Check if we already calculated this floor's area
+    if (floorAreaCache.current[floorNumber] !== undefined) {
+      return floorAreaCache.current[floorNumber];
+    }
     
     const floor = floorConfigurations.find(f => f.floorNumber === floorNumber);
     if (!floor) {
-      console.log(`Floor ${floorNumber} not found`);
+      floorAreaCache.current[floorNumber] = 0;
       return 0;
     }
     
-    if (floor.customSquareFootage && floor.customSquareFootage !== "") {
-      const area = parseInt(floor.customSquareFootage) || 0;
-      console.log(`Floor ${floorNumber} has custom area: ${area} sq ft`);
-      return area;
-    }
+    let area = 0;
     
-    if (floor.templateId) {
+    if (floor.customSquareFootage && floor.customSquareFootage !== "") {
+      area = parseInt(floor.customSquareFootage) || 0;
+    } else if (floor.templateId) {
       const template = floorTemplatesInput.find(t => t.id === floor.templateId);
       if (template) {
-        const area = parseInt(template.squareFootage) || 0;
-        console.log(`Floor ${floorNumber} uses template "${template.name}" with area: ${area} sq ft`);
-        return area;
-      } else {
-        console.log(`Template ${floor.templateId} not found for floor ${floorNumber}`);
+        area = parseInt(template.squareFootage) || 0;
       }
-    } else {
-      console.log(`Floor ${floorNumber} has no template assigned`);
     }
     
-    console.log(`No valid area found for floor ${floorNumber}, returning 0`);
-    return 0;
+    // Cache the result
+    floorAreaCache.current[floorNumber] = area;
+    return area;
   }, [floorConfigurations, floorTemplatesInput]);
 
   const resetAllData = useCallback(() => {
     isUpdatingRef.current = true;
     setFloorConfigurations([]);
+    // Clear floor area cache on reset
+    floorAreaCache.current = {};
   }, []);
 
   return {

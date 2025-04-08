@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
@@ -31,6 +30,28 @@ export const useExtendedPropertyState = () => {
   const unitTypes = useUnitTypes();
   const unitAllocations = useUnitAllocations();
   
+  // Use ref to prevent updates from visualization data changes triggering new visualizations
+  const lastVisualizationData = useRef({
+    spaceTypes: JSON.stringify(spaceTypes.spaceTypes),
+    actualFar: buildingParams.actualFar,
+    farAllowance: buildingParams.farAllowance,
+    totalBuildableArea: buildingParams.totalBuildableArea,
+    totalAllocatedArea: spaceTypes.totalAllocatedArea,
+    floorConfigurations: JSON.stringify(floorConfigurations.floorConfigurations),
+    floorTemplates: JSON.stringify(floorTemplates.floorTemplates)
+  });
+  
+  // Only update visualization data when inputs actually change
+  const shouldUpdateVisualization = 
+    JSON.stringify(spaceTypes.spaceTypes) !== lastVisualizationData.current.spaceTypes ||
+    buildingParams.actualFar !== lastVisualizationData.current.actualFar ||
+    buildingParams.farAllowance !== lastVisualizationData.current.farAllowance ||
+    buildingParams.totalBuildableArea !== lastVisualizationData.current.totalBuildableArea ||
+    spaceTypes.totalAllocatedArea !== lastVisualizationData.current.totalAllocatedArea ||
+    JSON.stringify(floorConfigurations.floorConfigurations) !== lastVisualizationData.current.floorConfigurations ||
+    JSON.stringify(floorTemplates.floorTemplates) !== lastVisualizationData.current.floorTemplates;
+  
+  // Only get new visualization data when needed
   const visualizationData = useVisualizationData(
     spaceTypes.spaceTypes,
     buildingParams.actualFar,
@@ -40,6 +61,19 @@ export const useExtendedPropertyState = () => {
     floorConfigurations.floorConfigurations,
     floorTemplates.floorTemplates
   );
+  
+  // Update reference when visualization data inputs change
+  if (shouldUpdateVisualization) {
+    lastVisualizationData.current = {
+      spaceTypes: JSON.stringify(spaceTypes.spaceTypes),
+      actualFar: buildingParams.actualFar,
+      farAllowance: buildingParams.farAllowance,
+      totalBuildableArea: buildingParams.totalBuildableArea,
+      totalAllocatedArea: spaceTypes.totalAllocatedArea,
+      floorConfigurations: JSON.stringify(floorConfigurations.floorConfigurations),
+      floorTemplates: JSON.stringify(floorTemplates.floorTemplates)
+    };
+  }
   
   // Listen for template changes and update floor configurations - with protection
   useEffect(() => {
