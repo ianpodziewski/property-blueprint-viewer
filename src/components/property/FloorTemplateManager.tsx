@@ -153,7 +153,7 @@ const FloorTemplateManager = ({
   };
 
   const handleCreateNew = useCallback(() => {
-    // Create a completely fresh template with all fields explicitly set
+    // Create a completely fresh template with all fields explicitly set to defaults
     const newTemplate = {
       name: "",
       squareFootage: "10000",
@@ -326,22 +326,31 @@ const FloorTemplateManager = ({
     setSaveSuccessful(false);
     
     try {
-      // Create a clean copy of template data to prevent reference issues
+      // Create a new object to avoid reference issues - CRITICAL FIX
       const templateToSave = {
-        name: currentTemplate.name,
-        squareFootage: currentTemplate.squareFootage,
-        floorToFloorHeight: currentTemplate.floorToFloorHeight,
-        primaryUse: currentTemplate.primaryUse,
-        efficiencyFactor: currentTemplate.efficiencyFactor,
-        corePercentage: currentTemplate.corePercentage,
-        description: currentTemplate.description
+        name: String(currentTemplate.name),
+        squareFootage: String(currentTemplate.squareFootage),
+        floorToFloorHeight: String(currentTemplate.floorToFloorHeight),
+        primaryUse: String(currentTemplate.primaryUse),
+        efficiencyFactor: String(currentTemplate.efficiencyFactor),
+        corePercentage: String(currentTemplate.corePercentage),
+        description: String(currentTemplate.description || "")
       };
       
       addDebugLog(`Saving template data: ${JSON.stringify(templateToSave)}`);
       
       if (editMode === "create") {
-        // Add the new template
-        addTemplate(templateToSave);
+        // Add the new template - explicit values to ensure they're saved properly
+        addTemplate({
+          name: templateToSave.name,
+          squareFootage: templateToSave.squareFootage,
+          floorToFloorHeight: templateToSave.floorToFloorHeight,
+          primaryUse: templateToSave.primaryUse,
+          efficiencyFactor: templateToSave.efficiencyFactor,
+          corePercentage: templateToSave.corePercentage,
+          description: templateToSave.description
+        });
+        
         toast({
           title: "Template created",
           description: "New floor template has been created successfully.",
@@ -349,7 +358,16 @@ const FloorTemplateManager = ({
         addDebugLog("New template created successfully");
       } else if (editMode === "edit" && currentTemplate.id) {
         // Update the existing template
-        updateTemplate(currentTemplate.id, templateToSave);
+        updateTemplate(currentTemplate.id, {
+          name: templateToSave.name,
+          squareFootage: templateToSave.squareFootage,
+          floorToFloorHeight: templateToSave.floorToFloorHeight,
+          primaryUse: templateToSave.primaryUse,
+          efficiencyFactor: templateToSave.efficiencyFactor,
+          corePercentage: templateToSave.corePercentage,
+          description: templateToSave.description
+        });
+        
         toast({
           title: "Template updated",
           description: "The floor template has been updated successfully.",
@@ -364,6 +382,7 @@ const FloorTemplateManager = ({
       // Return to view mode after a brief delay to show success state
       setTimeout(() => {
         setEditMode("view");
+        setCurrentTemplate({...defaultTemplateData}); // Reset form state
       }, 800);
     } catch (error) {
       console.error("Error saving template:", error);
@@ -627,7 +646,11 @@ const FloorTemplateManager = ({
           Cancel
         </Button>
         <Button 
-          onClick={handleSave}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleSave();
+          }}
           disabled={isProcessing || hasFormErrors}
           className={saveSuccessful ? "bg-green-600 hover:bg-green-700" : ""}
           type="button"
@@ -664,6 +687,7 @@ const FloorTemplateManager = ({
           variant="default" 
           size="sm" 
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             handleCreateNew();
           }}
@@ -682,6 +706,7 @@ const FloorTemplateManager = ({
             variant="outline" 
             className="mt-4"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               handleCreateNew();
             }}
@@ -701,6 +726,7 @@ const FloorTemplateManager = ({
                   selectedTemplateId === template.id ? 'border-primary' : ''
                 }`}
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   handleTemplateSelect(template.id, e);
                 }}
@@ -786,6 +812,7 @@ const FloorTemplateManager = ({
             variant="outline" 
             size="sm" 
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               handleForceRefresh();
             }}
@@ -951,7 +978,6 @@ const FloorTemplateManager = ({
           <AlertDialogFooter>
             <AlertDialogCancel 
               onClick={(e) => {
-                e.stopPropagation();
                 cancelDelete(e);
               }}
               disabled={isProcessing}
@@ -960,7 +986,6 @@ const FloorTemplateManager = ({
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
-                e.stopPropagation();
                 confirmDelete(e);
               }}
               disabled={isProcessing}

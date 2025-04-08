@@ -29,6 +29,7 @@ const AlertDialogOverlay = React.forwardRef<
     {...props}
     ref={ref}
     onClick={(e) => {
+      e.preventDefault();
       e.stopPropagation();
       if (props.onClick) props.onClick(e);
     }}
@@ -49,6 +50,7 @@ const AlertDialogContent = React.forwardRef<
         className
       )}
       onClick={(e) => {
+        e.preventDefault();
         e.stopPropagation();
         if (props.onClick) props.onClick(e);
       }}
@@ -69,6 +71,7 @@ const AlertDialogHeader = ({
     )}
     {...props}
     onClick={(e) => {
+      e.preventDefault();
       e.stopPropagation();
       if (props.onClick) props.onClick(e);
     }}
@@ -87,6 +90,7 @@ const AlertDialogFooter = ({
     )}
     {...props}
     onClick={(e) => {
+      e.preventDefault();
       e.stopPropagation();
       if (props.onClick) props.onClick(e);
     }}
@@ -103,6 +107,7 @@ const AlertDialogTitle = React.forwardRef<
     className={cn("text-lg font-semibold", className)}
     {...props}
     onClick={(e) => {
+      e.preventDefault();
       e.stopPropagation();
       if (props.onClick) props.onClick(e);
     }}
@@ -119,6 +124,7 @@ const AlertDialogDescription = React.forwardRef<
     className={cn("text-sm text-muted-foreground", className)}
     asChild={React.isValidElement(children)}
     onClick={(e) => {
+      e.preventDefault();
       e.stopPropagation();
       if (props.onClick) props.onClick(e);
     }}
@@ -135,6 +141,7 @@ const AlertDialogAction = React.forwardRef<
 >(({ className, onClick, ...props }, ref) => {
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     // Stop propagation to prevent closing parent dialogs
+    e.preventDefault();
     e.stopPropagation();
     
     // Call the original onClick if provided
@@ -160,6 +167,7 @@ const AlertDialogCancel = React.forwardRef<
 >(({ className, onClick, ...props }, ref) => {
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     // Stop propagation to prevent closing parent dialogs
+    e.preventDefault();
     e.stopPropagation();
     
     // Call the original onClick if provided

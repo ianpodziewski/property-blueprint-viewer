@@ -24,7 +24,11 @@ const DialogOverlay = React.forwardRef<
       className
     )}
     onClick={(e) => {
+      // Ensure event doesn't propagate to parent elements
+      e.preventDefault();
       e.stopPropagation();
+      
+      // Call the original onClick handler if provided
       if (props.onClick) props.onClick(e);
     }}
     {...props}
@@ -45,7 +49,10 @@ const DialogContent = React.forwardRef<
         className
       )}
       onClick={(e) => {
+        // Prevent click propagation to avoid closing parent dialogs
         e.stopPropagation();
+        
+        // Call the original onClick handler if provided
         if (props.onClick) props.onClick(e);
       }}
       {...props}
@@ -71,7 +78,10 @@ const DialogHeader = ({
     )}
     {...props}
     onClick={(e) => {
+      // Prevent click propagation
       e.stopPropagation();
+      
+      // Call the original onClick handler if provided
       if (props.onClick) props.onClick(e);
     }}
   />
@@ -89,7 +99,10 @@ const DialogFooter = ({
     )}
     {...props}
     onClick={(e) => {
+      // Prevent click propagation
       e.stopPropagation();
+      
+      // Call the original onClick handler if provided
       if (props.onClick) props.onClick(e);
     }}
   />
@@ -108,7 +121,10 @@ const DialogTitle = React.forwardRef<
     )}
     {...props}
     onClick={(e) => {
+      // Prevent click propagation
       e.stopPropagation();
+      
+      // Call the original onClick handler if provided
       if (props.onClick) props.onClick(e);
     }}
   />
@@ -124,7 +140,10 @@ const DialogDescription = React.forwardRef<
     className={cn("text-sm text-muted-foreground", className)}
     {...props}
     onClick={(e) => {
+      // Prevent click propagation
       e.stopPropagation();
+      
+      // Call the original onClick handler if provided
       if (props.onClick) props.onClick(e);
     }}
   >
