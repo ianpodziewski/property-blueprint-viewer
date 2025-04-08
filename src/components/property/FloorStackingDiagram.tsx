@@ -164,6 +164,8 @@ const FloorStackingDiagram: React.FC<FloorStackingDiagramProps> = ({
               const floorColorClass = getFloorColor(getFloorPrimaryUse(floor.floorNumber));
               const utilization = getFloorUtilization(floor.floorNumber);
               const utilizationWidth = `${Math.min(utilization, 100)}%`;
+              // Add guard to ensure squareFootage exists
+              const floorSqFt = floor.squareFootage !== undefined ? floor.squareFootage : 0;
               
               return (
                 <div 
@@ -200,7 +202,8 @@ const FloorStackingDiagram: React.FC<FloorStackingDiagramProps> = ({
                               {Math.round(utilization)}% Used
                             </span>
                             <span className="text-xs">
-                              {floor.squareFootage.toLocaleString()} sf
+                              {/* Add toLocaleString safely with the guard we added */}
+                              {floorSqFt.toLocaleString()} sf
                             </span>
                           </div>
                         </div>

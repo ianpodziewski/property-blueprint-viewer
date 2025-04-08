@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,26 +52,21 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
     checkEnoughSpaceForAllocation
   } = useUnitAllocations();
 
-  // Get all categories for grouping unit types
   const categories = useMemo(() => getAllCategories(), [getAllCategories]);
   
-  // Get the floor template
   const template = floorTemplates.find(t => t.id === floor.templateId);
   
-  // Calculate floor area
   const floorArea = parseInt(
     floor.customSquareFootage && floor.customSquareFootage !== "" 
     ? floor.customSquareFootage 
     : template?.squareFootage || "0"
   );
   
-  // Get allocations for this floor
   const floorAllocations = useMemo(() => 
     getAllocationsByFloor(floor.floorNumber),
     [getAllocationsByFloor, floor.floorNumber]
   );
   
-  // Calculate total allocated area
   const allocatedArea = useMemo(() => 
     calculateAllocatedAreaByFloor(floor.floorNumber),
     [calculateAllocatedAreaByFloor, floor.floorNumber]
@@ -81,7 +75,6 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
   const remainingArea = floorArea - allocatedArea;
   const utilization = floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0;
   
-  // Group unit types by category for the dropdown
   const groupedUnitTypes = useMemo(() => {
     const grouped: Record<string, typeof unitTypes> = {};
     
@@ -95,7 +88,6 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
   const handleTemplateChange = (templateId: string) => {
     updateFloorConfiguration(floor.floorNumber, "templateId", templateId);
     
-    // Update floor area with template's default if template changes
     const selectedTemplate = floorTemplates.find(t => t.id === templateId);
     if (selectedTemplate) {
       updateFloorConfiguration(floor.floorNumber, "customSquareFootage", "");
@@ -111,7 +103,6 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
     
     const unitSize = parseInt(unitType.typicalSize) || 0;
     
-    // Validate space before allocation
     const spaceCheck = checkEnoughSpaceForAllocation(
       floor.floorNumber,
       unitSize,
@@ -169,16 +160,14 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
     const oldCount = parseInt(allocation.count as string) || 0;
     const unitSize = parseInt(allocation.squareFootage as string) || 0;
     
-    // Only validate if increasing count
     if (newCount > oldCount) {
-      // Validate space for the additional units
       const additionalUnits = newCount - oldCount;
       const spaceCheck = checkEnoughSpaceForAllocation(
         floor.floorNumber,
         unitSize,
         additionalUnits,
         floorArea,
-        allocationId // Exclude this allocation from the calculation
+        allocationId
       );
       
       if (!spaceCheck.hasEnoughSpace) {
@@ -205,13 +194,11 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
     return "bg-green-500";
   };
   
-  // Calculate rentable area
   const rentableArea = Math.round(floorArea * (1 - (parseInt(floor.corePercentage || "15") / 100)));
   
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Floor Basics */}
         <Card>
           <CardContent className="pt-6">
             <h3 className="text-sm font-medium mb-4">Floor Basics</h3>
@@ -318,7 +305,6 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
           </CardContent>
         </Card>
         
-        {/* Space Allocation */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-4">
@@ -335,12 +321,10 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
               </div>
             </div>
 
-            {/* Space utilization indicator */}
             <div className="mb-4">
               <Progress 
                 value={utilization} 
                 className="h-2" 
-                // Use className for the indicator instead of indicatorClassName
                 className={`h-2 ${getSpaceColor(100 - utilization)}`}
               />
               <div className="flex justify-between text-xs mt-1">
@@ -503,7 +487,6 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
         </Card>
       </div>
       
-      {/* Advanced Configuration Dialog */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -514,12 +497,11 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
             floorConfiguration={floor}
             floorTemplates={floorTemplates}
             updateFloorConfiguration={updateFloorConfiguration}
-            updateFloorSpaces={() => {}} // We're not using this in the simplified view
+            updateFloorSpaces={() => {}}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Space Override Confirmation */}
       <AlertDialog open={overrideConfirmOpen} onOpenChange={setOverrideConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
