@@ -16,6 +16,7 @@ import { useModelState } from "@/hooks/useModelState";
 import { Separator } from "@/components/ui/separator"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpaceDefinition, FloorPlateTemplate } from "@/types/propertyTypes";
+import { Toaster } from "@/components/ui/toaster";
 
 const PropertyBreakdown = () => {
   
@@ -347,6 +348,7 @@ const PropertyBreakdown = () => {
           spaceTypeColors={spaceTypeColors}
         />
       </div>
+      <Toaster />
     </div>
   );
 };
