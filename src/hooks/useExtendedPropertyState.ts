@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useProjectInfo } from "./property/useProjectInfo";
 import { useBuildingParameters } from "./property/useBuildingParameters";
 import { useFloorTemplates } from "./property/useFloorTemplates";
@@ -12,6 +12,9 @@ import { useVisualizationData } from "./property/useVisualizationData";
 import { SpaceDefinition, BuildingSystemsConfig, FloorConfiguration, FloorPlateTemplate } from "../types/propertyTypes";
 
 export const useExtendedPropertyState = () => {
+  // Reference to prevent initialization loops
+  const isMounted = useRef(false);
+  
   const projectInfo = useProjectInfo();
   const floorTemplates = useFloorTemplates();
   
@@ -38,8 +41,13 @@ export const useExtendedPropertyState = () => {
     floorTemplates.floorTemplates
   );
   
-  // Listen for template changes and update floor configurations
+  // Listen for template changes and update floor configurations - with protection
   useEffect(() => {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+    
     const handleTemplateChange = (event: Event) => {
       // Force a refresh of the configurations with the latest templates
       if (floorTemplates.floorTemplates.length > 0) {

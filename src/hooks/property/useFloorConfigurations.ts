@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
   FloorConfiguration, 
@@ -18,7 +17,8 @@ const dispatchFloorConfigSavedEvent = () => {
 };
 
 export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]) => {
-  // Initialize directly with data from localStorage using a function
+  const isFirstRender = useRef(true);
+  
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>(() => {
     const storedFloorConfigurations = loadFromLocalStorage<FloorConfiguration[]>(STORAGE_KEY, []);
     
@@ -35,20 +35,28 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
       return migratedConfigs;
     }
     
-    // Return empty array if no configurations found - this is important!
-    // Do NOT return a default floor here
     return [];
   });
 
-  // Mark initialization as complete to prevent early saves
   const [isInitialized, setIsInitialized] = useState(true);
+  
+  const prevFloorConfigurationsRef = useRef<FloorConfiguration[]>([]);
 
-  // Save to localStorage whenever floorConfigurations changes
   useEffect(() => {
-    if (isInitialized && floorConfigurations) {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      prevFloorConfigurationsRef.current = floorConfigurations;
+      return;
+    }
+    
+    if (isInitialized && 
+        JSON.stringify(floorConfigurations) !== JSON.stringify(prevFloorConfigurationsRef.current)) {
+      
       saveToLocalStorage(STORAGE_KEY, floorConfigurations);
       console.log("Saved floor configurations to localStorage:", floorConfigurations);
       dispatchFloorConfigSavedEvent();
+      
+      prevFloorConfigurationsRef.current = floorConfigurations;
     }
   }, [floorConfigurations, isInitialized]);
 

@@ -1,11 +1,13 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { FloorPlateTemplate } from "@/types/propertyTypes";
 
 const STORAGE_KEY = "realEstateModel_floorTemplates";
 
 export const useFloorTemplates = () => {
+  // Reference to prevent initialization loops
+  const isFirstRender = useRef(true);
+  
   // Initialize state directly with data from localStorage
   const [floorTemplates, setFloorTemplates] = useState<FloorPlateTemplate[]>(() => {
     try {
@@ -30,6 +32,12 @@ export const useFloorTemplates = () => {
   
   // Save floor templates to localStorage whenever they change
   useEffect(() => {
+    // Skip first render to prevent initialization loops
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    
     try {
       saveToLocalStorage(STORAGE_KEY, floorTemplates);
       console.log("Saved floor templates to localStorage:", floorTemplates);

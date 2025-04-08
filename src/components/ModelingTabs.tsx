@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import MainNavigation from "./MainNavigation";
@@ -17,20 +16,30 @@ const ModelingTabs = () => {
   const [activeTab, setActiveTab] = useState("property");
   const [floorConfigSaved, setFloorConfigSaved] = useState(0);
   
-  // Add an event listener for the custom save event with improved cleanup
+  const handleFloorConfigSave = useCallback(() => {
+    console.log('Floor configuration save event detected');
+    setFloorConfigSaved(prev => prev + 1);
+  }, []);
+  
   useEffect(() => {
-    const handleFloorConfigSave = () => {
-      console.log('Floor configuration save event detected');
-      // Increment counter to trigger re-renders in components that depend on this state
-      setFloorConfigSaved(prev => prev + 1);
+    let timeoutId: number | undefined;
+    
+    const debouncedHandler = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = window.setTimeout(handleFloorConfigSave, 300);
     };
     
-    window.addEventListener('floorConfigSaved', handleFloorConfigSave);
+    window.addEventListener('floorConfigSaved', debouncedHandler);
     
     return () => {
-      window.removeEventListener('floorConfigSaved', handleFloorConfigSave);
+      window.removeEventListener('floorConfigSaved', debouncedHandler);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
-  }, []);
+  }, [handleFloorConfigSave]);
 
   return (
     <div className="w-full space-y-4">

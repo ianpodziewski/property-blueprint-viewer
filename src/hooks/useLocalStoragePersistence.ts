@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 type StorageValue<T> = T | null;
 
@@ -34,10 +33,17 @@ export const useLocalStoragePersistence = <T>(
   });
   
   const [isInitialized, setIsInitialized] = useState(true);
+  const isFirstSave = useRef(true);
 
   // Save to localStorage whenever value changes
   useEffect(() => {
     if (!isInitialized) return;
+    
+    // Skip the very first save to prevent initialization loops
+    if (isFirstSave.current) {
+      isFirstSave.current = false;
+      return;
+    }
     
     try {
       if (typeof window === 'undefined' || !window.localStorage) {
