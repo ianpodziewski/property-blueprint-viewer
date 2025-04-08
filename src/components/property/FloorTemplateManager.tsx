@@ -208,7 +208,12 @@ const FloorTemplateManager = ({
     setDeleteConfirmOpen(true);
   }, []);
 
-  const confirmDelete = useCallback(() => {
+  const confirmDelete = useCallback((e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (!templateToDelete) {
       addDebugLog("Delete cancelled - no template ID");
       return;
@@ -231,6 +236,9 @@ const FloorTemplateManager = ({
       });
       
       addDebugLog(`Template ID: ${templateToDelete} deleted successfully`);
+      
+      setDeleteConfirmOpen(false);
+      setTemplateToDelete(null);
     } catch (error) {
       console.error("Error deleting template:", error);
       
@@ -248,16 +256,14 @@ const FloorTemplateManager = ({
       
       addDebugLog(`Error deleting template: ${error}`);
     } finally {
-      setDeleteConfirmOpen(false);
-      setTemplateToDelete(null);
       setIsProcessing(false);
     }
   }, [templateToDelete, selectedTemplateId, removeTemplate, toast]);
 
-  const cancelDelete = useCallback((event?: React.MouseEvent) => {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
+  const cancelDelete = useCallback((e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
     
     setDeleteConfirmOpen(false);
@@ -842,12 +848,12 @@ const FloorTemplateManager = ({
       <AlertDialog 
         open={deleteConfirmOpen} 
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !isProcessing) {
             cancelDelete();
           }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Template</AlertDialogTitle>
             <AlertDialogDescription>
@@ -867,7 +873,11 @@ const FloorTemplateManager = ({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel 
-              onClick={(e) => cancelDelete(e)} 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                cancelDelete();
+              }} 
               disabled={isProcessing}
               type="button"
             >
@@ -877,7 +887,7 @@ const FloorTemplateManager = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                confirmDelete();
+                confirmDelete(e);
               }} 
               className="bg-destructive hover:bg-destructive/90"
               disabled={isProcessing}
