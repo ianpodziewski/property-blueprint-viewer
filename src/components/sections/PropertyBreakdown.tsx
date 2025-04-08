@@ -145,7 +145,7 @@ const PropertyBreakdown = () => {
         actualFar={actualFar}
         floorTemplates={floorTemplates}
         addFloorTemplate={addFloorTemplate}
-        updateFloorTemplate={updateFloorTemplate}
+        updateFloorTemplate={(id, template) => updateFloorTemplate(id, template)}
         removeFloorTemplate={removeFloorTemplate}
       />
       
@@ -161,7 +161,7 @@ const PropertyBreakdown = () => {
         removeFloors={removeFloors}
         reorderFloor={reorderFloor}
         addFloorTemplate={addFloorTemplate}
-        updateFloorTemplate={updateFloorTemplate}
+        updateFloorTemplate={(id, template) => updateFloorTemplate(id, template)}
         removeFloorTemplate={removeFloorTemplate}
       />
       

@@ -42,7 +42,8 @@ export const useExtendedPropertyState = () => {
       squareFootage: "10000",
       floorToFloorHeight: "12",
       efficiencyFactor: "85",
-      corePercentage: "15"
+      corePercentage: "15",
+      primaryUse: "office"
     }
   ]);
 
@@ -142,7 +143,8 @@ export const useExtendedPropertyState = () => {
         squareFootage: "10000",
         floorToFloorHeight: "12",
         efficiencyFactor: "85",
-        corePercentage: "15"
+        corePercentage: "15",
+        primaryUse: "office"
       }
     ]);
     setFloorTemplates(storedFloorTemplates);
@@ -305,15 +307,16 @@ export const useExtendedPropertyState = () => {
         squareFootage: "10000",
         floorToFloorHeight: "12",
         efficiencyFactor: "85",
-        corePercentage: "15"
+        corePercentage: "15",
+        primaryUse: "office"
       }
     ]);
   };
 
-  const updateFloorTemplate = (id: string, field: keyof FloorPlateTemplate, value: string) => {
+  const updateFloorTemplate = (id: string, template: Partial<FloorPlateTemplate>) => {
     setFloorTemplates(
-      floorTemplates.map(template => 
-        template.id === id ? { ...template, [field]: value } : template
+      floorTemplates.map(existingTemplate => 
+        existingTemplate.id === id ? { ...existingTemplate, ...template } : existingTemplate
       )
     );
   };
@@ -817,7 +820,8 @@ export const useExtendedPropertyState = () => {
       squareFootage: "10000",
       floorToFloorHeight: "12",
       efficiencyFactor: "85",
-      corePercentage: "15"
+      corePercentage: "15",
+      primaryUse: "office"
     }]);
     setFloorConfigurations([{
       floorNumber: 1,

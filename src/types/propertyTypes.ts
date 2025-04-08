@@ -31,6 +31,8 @@ export interface FloorPlateTemplate {
   floorToFloorHeight: string;
   efficiencyFactor: string;
   corePercentage: string;
+  primaryUse?: string;
+  description?: string;
 }
 
 export interface SpaceDefinition {
