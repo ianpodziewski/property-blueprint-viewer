@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -237,6 +238,7 @@ const FloorTemplateManager = ({
       
       addDebugLog(`Template ID: ${templateToDelete} deleted successfully`);
       
+      // Close just the delete confirmation dialog, not the main modal
       setDeleteConfirmOpen(false);
       setTemplateToDelete(null);
     } catch (error) {
@@ -825,14 +827,14 @@ const FloorTemplateManager = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={handleModalClose}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>Manage Floor Templates</DialogTitle>
             <DialogDescription>
               Create and manage floor plate templates for your building design.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4" onClick={(e) => e.stopPropagation()}>
             {editMode === "view" ? (
               <div className="space-y-4">
                 {renderTemplateList()}
@@ -857,17 +859,19 @@ const FloorTemplateManager = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Template</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this template? This action cannot be undone.
-              
-              {templateToDelete && templates.some(t => t.id === templateToDelete) && (
-                <div className="mt-2 font-medium">
-                  "{templates.find(t => t.id === templateToDelete)?.name}"
+              <div>
+                Are you sure you want to delete this template? This action cannot be undone.
+                
+                {templateToDelete && templates.some(t => t.id === templateToDelete) && (
+                  <div className="mt-2 font-medium">
+                    "{templates.find(t => t.id === templateToDelete)?.name}"
+                  </div>
+                )}
+                
+                <div className="mt-3 text-amber-600 flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Floors currently using this template will not be affected.</span>
                 </div>
-              )}
-              
-              <div className="mt-3 text-amber-600 flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4" />
-                <span>Floors currently using this template will not be affected.</span>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
