@@ -27,11 +27,15 @@ TableHeader.displayName = "TableHeader"
 
 const TableBody = React.forwardRef<
   HTMLTableSectionElement,
-  React.HTMLAttributes<HTMLTableSectionElement>
->(({ className, ...props }, ref) => (
+  React.HTMLAttributes<HTMLTableSectionElement> & { isDragging?: boolean }
+>(({ className, isDragging, ...props }, ref) => (
   <tbody
     ref={ref}
-    className={cn("[&_tr:last-child]:border-0 [&_tr:nth-child(even)]:bg-gray-50", className)}
+    className={cn(
+      "[&_tr:last-child]:border-0 [&_tr:nth-child(even)]:bg-gray-50",
+      isDragging && "opacity-70",
+      className
+    )}
     {...props}
   />
 ))
@@ -54,13 +58,17 @@ TableFooter.displayName = "TableFooter"
 
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
-  React.HTMLAttributes<HTMLTableRowElement> & { selected?: boolean }
->(({ className, selected, ...props }, ref) => (
+  React.HTMLAttributes<HTMLTableRowElement> & { 
+    selected?: boolean;
+    isDragging?: boolean;
+  }
+>(({ className, selected, isDragging, ...props }, ref) => (
   <tr
     ref={ref}
     className={cn(
       "border-b transition-colors hover:bg-blue-50/70 data-[state=selected]:bg-muted",
       selected && "bg-blue-50/70 hover:bg-blue-100/50",
+      isDragging && "bg-blue-100/80 shadow-md",
       className
     )}
     data-selected={selected ? "true" : undefined}
