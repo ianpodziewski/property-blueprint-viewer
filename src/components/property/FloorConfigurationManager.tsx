@@ -137,6 +137,18 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     }
   }, [floorConfigurations, allSelected, selectedRows.length]);
   
+  const toggleFloorExpansion = useCallback((floorNumber: number) => {
+    markUIInteractionInProgress();
+    console.log(`Toggling expansion for floor ${floorNumber}`);
+    setExpandedFloors(prev => {
+      if (prev.includes(floorNumber)) {
+        return prev.filter(num => num !== floorNumber);
+      } else {
+        return [...prev, floorNumber];
+      }
+    });
+  }, []);
+  
   const handleEditFloor = useCallback((floorNumber: number) => {
     markUIInteractionInProgress();
     console.log(`Editing floor ${floorNumber}`);
@@ -197,7 +209,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
       description: `Added ${floorCount} new ${isUnderground ? "underground" : "above-ground"} floor(s).`,
     });
   }, [addFloors, floorCount, isUnderground, selectedTemplateId, position, specificPosition, numberingPattern, toast]);
-
+  
   const handleBulkEdit = useCallback(() => {
     if (selectedRows.length === 0) {
       toast({
@@ -376,6 +388,8 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                     updateFloorConfiguration={updateFloorConfiguration}
                     getTemplateName={getTemplateName}
                     totalRows={floorConfigurations.length}
+                    isExpanded={expandedFloors.includes(floor.floorNumber)}
+                    onToggleExpand={toggleFloorExpansion}
                   />
                 ))}
               </TableBody>
@@ -403,7 +417,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         )}
       </CardContent>
       
-      {/* Add Floors Dialog */}
       <Dialog open={addFloorDialogOpen} onOpenChange={setAddFloorDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -542,7 +555,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* Floor Template Manager Dialog */}
       <FloorTemplateManager
         isOpen={addTemplateDialogOpen}
         onClose={() => setAddTemplateDialogOpen(false)}
@@ -552,13 +564,11 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         removeTemplate={removeFloorTemplate}
       />
       
-      {/* Unit Type Manager Dialog */}
       <UnitTypeManager
         isOpen={unitTypeManagerOpen}
         onClose={() => setUnitTypeManagerOpen(false)}
       />
       
-      {/* Copy Configuration Dialog */}
       <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -620,7 +630,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* Bulk Edit Dialog */}
       <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -726,7 +735,6 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
-      {/* Delete Floor Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

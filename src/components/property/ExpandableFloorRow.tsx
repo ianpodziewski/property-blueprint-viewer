@@ -14,9 +14,11 @@ interface ExpandableFloorRowProps {
   floor: FloorConfiguration;
   floorTemplates: FloorPlateTemplate[];
   isSelected: boolean;
+  isExpanded: boolean;
   onSelect: (floorNumber: number) => void;
   onEdit: () => void;
   onDelete: (floorNumber: number) => void;
+  onToggleExpand: (floorNumber: number) => void;
   reorderFloor: (floorNumber: number, direction: "up" | "down") => void;
   updateFloorConfiguration: (floorNumber: number, field: keyof FloorConfiguration, value: any) => void;
   getTemplateName: (templateId: string | null) => string;
@@ -27,16 +29,16 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
   floor,
   floorTemplates,
   isSelected,
+  isExpanded,
   onSelect,
   onEdit,
   onDelete,
+  onToggleExpand,
   reorderFloor,
   updateFloorConfiguration,
   getTemplateName,
   totalRows
 }) => {
-  // Local state for expansion to prevent global state issues
-  const [isExpanded, setIsExpanded] = useState(false);
   const { getAllocationsByFloor } = useUnitAllocations();
   
   const template = floorTemplates.find(t => t.id === floor.templateId);
@@ -61,8 +63,8 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
     markUIInteractionInProgress();
     
     console.log(`Toggling expansion for floor ${floor.floorNumber}. Current state: ${isExpanded}, changing to: ${!isExpanded}`);
-    setIsExpanded(prev => !prev);
-  }, [floor.floorNumber, isExpanded]);
+    onToggleExpand(floor.floorNumber);
+  }, [floor.floorNumber, isExpanded, onToggleExpand]);
 
   const handleSelect = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
