@@ -29,8 +29,8 @@ interface FloorPlateTemplateData {
   name: string;
   project_id: string;
   updated_at: string;
-  width?: number | null;
-  length?: number | null;
+  width: number | null;
+  length: number | null;
 }
 
 // Define the shape of unit type data from Supabase
@@ -43,8 +43,8 @@ interface UnitTypeData {
   project_id: string;
   units: number;
   updated_at: string;
-  width?: number | null;
-  length?: number | null;
+  width: number | null;
+  length: number | null;
 }
 
 export function useSupabasePropertyData(projectId: string | null) {
