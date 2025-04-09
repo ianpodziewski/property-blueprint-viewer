@@ -1385,8 +1385,8 @@ const BuildingLayout = ({
           isOpen={duplicateModalOpen}
           onClose={() => setDuplicateModalOpen(false)}
           onDuplicate={handleDuplicateFloor}
-          sourceFloor={selectedFloorForDuplicate}
-          isSubmitting={isDuplicating}
+          currentFloorLabel={selectedFloorForDuplicate.label}
+          isLoading={isDuplicating}
         />
       )}
       
@@ -1394,12 +1394,9 @@ const BuildingLayout = ({
         <ApplyFloorToRangeModal
           isOpen={applyToRangeModalOpen}
           onClose={() => setApplyToRangeModalOpen(false)}
-          floorPosition={selectedFloorForRange.position}
-          floorCount={floors.length}
-          onApply={(start, end) => {
-            console.log(`Apply floor ${selectedFloorForRange.id} to range: ${start}-${end}`);
-            setApplyToRangeModalOpen(false);
-          }}
+          sourceFloor={selectedFloorForRange}
+          floors={floors}
+          onComplete={handleRefreshData}
         />
       )}
       
@@ -1407,11 +1404,9 @@ const BuildingLayout = ({
         <SaveAsTemplateModal
           isOpen={saveTemplateModalOpen}
           onClose={() => setSaveTemplateModalOpen(false)}
-          floor={selectedFloorForTemplate}
-          getFloorTemplate={getFloorTemplateById}
+          sourceFloor={selectedFloorForTemplate}
           projectId={projectId}
-          getUnitAllocation={getUnitAllocation}
-          products={products}
+          onComplete={handleRefreshData}
         />
       )}
       
@@ -1419,11 +1414,8 @@ const BuildingLayout = ({
         isOpen={bulkAddModalOpen}
         onClose={() => setBulkAddModalOpen(false)}
         templates={templates}
-        floorCount={floors.length}
-        onAddFloors={(count, startPosition, startLabel, templateId) => {
-          console.log(`Add ${count} floors starting at position ${startPosition} with template ${templateId}`);
-          setBulkAddModalOpen(false);
-        }}
+        projectId={projectId}
+        onComplete={handleRefreshData}
       />
       
       <BulkApplyTemplateModal
