@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import FloorPlateTemplates from "./property/FloorPlateTemplates";
+import UnitMix from "./property/UnitMix";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
@@ -132,8 +133,9 @@ const PropertyBreakdown = () => {
           <CardTitle>Project Configuration</CardTitle>
           <CardDescription>Define the building elements of your development</CardDescription>
         </CardHeader>
-        <CardContent className="pb-8">
+        <CardContent className="pb-8 space-y-6">
           <FloorPlateTemplates />
+          <UnitMix />
         </CardContent>
       </Card>
     </div>;

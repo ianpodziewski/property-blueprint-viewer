@@ -60,6 +60,16 @@ export interface FloorPlateTemplate {
   grossArea: number;
 }
 
+// Interface for unit type
+export interface UnitType {
+  id: string;
+  product: string;
+  unitType: string;
+  width?: number;
+  length?: number;
+  grossArea: number;
+}
+
 export const usePropertyState = () => {
   console.log("Initializing usePropertyState hook");
   
@@ -75,6 +85,9 @@ export const usePropertyState = () => {
   // Project Configuration - Floor Plate Templates
   // Important: Don't load templates directly in useState initialization to avoid duplication
   const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>([]);
+  
+  // Project Configuration - Unit Mix
+  const [unitMix, setUnitMix] = useState<UnitType[]>([]);
   
   // Calculate maximum buildable area
   const maxBuildableArea = farAllowance > 0 && lotSize > 0 ? (lotSize * farAllowance / 100) : 0;
@@ -120,14 +133,56 @@ export const usePropertyState = () => {
     setFloorPlateTemplates(templates);
   };
   
+  // Add a new unit type
+  const addUnitType = (unit: Omit<UnitType, 'id'>) => {
+    const newUnit: UnitType = {
+      ...unit,
+      id: crypto.randomUUID(),
+      width: unit.width !== undefined ? safeNumberConversion(unit.width) : undefined,
+      length: unit.length !== undefined ? safeNumberConversion(unit.length) : undefined,
+      grossArea: safeNumberConversion(unit.grossArea)
+    };
+    console.log("Adding new unit type:", newUnit);
+    setUnitMix(prev => [...prev, newUnit]);
+  };
+  
+  // Update an existing unit type
+  const updateUnitType = (id: string, updates: Partial<Omit<UnitType, 'id'>>) => {
+    console.log(`Updating unit type ${id} with:`, updates);
+    setUnitMix(
+      unitMix.map(unit => 
+        unit.id === id ? { 
+          ...unit, 
+          ...updates,
+          width: updates.width !== undefined ? safeNumberConversion(updates.width) : unit.width,
+          length: updates.length !== undefined ? safeNumberConversion(updates.length) : unit.length,
+          grossArea: updates.grossArea !== undefined ? safeNumberConversion(updates.grossArea) : unit.grossArea
+        } : unit
+      )
+    );
+  };
+  
+  // Delete a unit type
+  const deleteUnitType = (id: string) => {
+    console.log(`Deleting unit type ${id}`);
+    setUnitMix(unitMix.filter(unit => unit.id !== id));
+  };
+  
+  // Set all unit types at once (used during initial load)
+  const setAllUnitTypes = (units: UnitType[]) => {
+    console.log("Setting all unit types:", units);
+    setUnitMix(units);
+  };
+  
   // Log state changes for debugging
   useEffect(() => {
     console.log("Property state updated:", {
       projectName, projectLocation, projectType, 
       farAllowance, lotSize, maxBuildableArea,
-      floorPlateTemplates
+      floorPlateTemplates,
+      unitMix
     });
-  }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates]);
+  }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, unitMix]);
   
   return {
     // Project Information
@@ -140,11 +195,18 @@ export const usePropertyState = () => {
     lotSize, setLotSize,
     maxBuildableArea,
     
-    // Project Configuration
+    // Project Configuration - Floor Plate Templates
     floorPlateTemplates,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
     deleteFloorPlateTemplate,
-    setAllFloorPlateTemplates
+    setAllFloorPlateTemplates,
+    
+    // Project Configuration - Unit Mix
+    unitMix,
+    addUnitType,
+    updateUnitType,
+    deleteUnitType,
+    setAllUnitTypes
   };
 };

@@ -58,7 +58,6 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const sensitivity = useSensitivityState();
 
   const handleTabChange = (tab: string) => {
-    // Auto-save when changing tabs
     saveToLocalStorage(false);
     setActiveTab(tab);
   };
@@ -147,7 +146,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           }
         }
         
-        // Load floor plate templates with validation - FIXED to prevent duplication
+        // Load floor plate templates with validation
         if (Array.isArray(parsedModel.property.floorPlateTemplates)) {
           console.log("Loading floorPlateTemplates, count before:", property.floorPlateTemplates.length);
           
@@ -172,6 +171,34 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           // Set all templates at once instead of adding them one by one
           property.setAllFloorPlateTemplates(validTemplates);
           console.log("FloorPlateTemplates loaded, count after:", validTemplates.length);
+        }
+        
+        // Load unit mix data with validation
+        if (Array.isArray(parsedModel.property.unitMix)) {
+          console.log("Loading unitMix, count before:", property.unitMix.length);
+          
+          // Process and clean unit types from localStorage
+          const validUnitTypes = parsedModel.property.unitMix
+            .filter(unit => unit && unit.id && unit.product && unit.unitType)
+            .map(unit => {
+              // Process each unit to ensure proper structure
+              return {
+                id: unit.id,
+                product: unit.product,
+                unitType: unit.unitType,
+                width: typeof unit.width === 'number' ? unit.width : 
+                      (unit.width && typeof unit.width === 'object' ? undefined : unit.width),
+                length: typeof unit.length === 'number' ? unit.length : 
+                       (unit.length && typeof unit.length === 'object' ? undefined : unit.length),
+                grossArea: Number(unit.grossArea || 0)
+              };
+            });
+          
+          console.log("Processed unit types for loading:", validUnitTypes);
+          
+          // Set all unit types at once
+          property.setAllUnitTypes(validUnitTypes);
+          console.log("Unit mix loaded, count after:", validUnitTypes.length);
         }
       }
       
@@ -324,6 +351,14 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             width: template.width,
             length: template.length,
             grossArea: template.grossArea
+          })),
+          unitMix: property.unitMix.map(unit => ({
+            id: unit.id,
+            product: unit.product,
+            unitType: unit.unitType,
+            width: unit.width,
+            length: unit.length,
+            grossArea: unit.grossArea
           }))
         },
         // Expenses section
@@ -381,8 +416,9 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       };
       
-      // Log template count before saving
-      console.log("Template count before saving:", property.floorPlateTemplates.length, property.floorPlateTemplates);
+      // Log template and unit mix count before saving
+      console.log("Template count before saving:", property.floorPlateTemplates.length);
+      console.log("Unit mix count before saving:", property.unitMix.length);
       
       // Validate model structure before saving
       const validationResult = validateModelData(modelData);
@@ -484,7 +520,8 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       property.setProjectType("");
       property.setFarAllowance(0);
       property.setLotSize(0);
-      property.floorPlateTemplates = [];
+      property.setAllFloorPlateTemplates([]);
+      property.setAllUnitTypes([]);
       
       // Reset other sections as needed
       
@@ -518,6 +555,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     property.farAllowance,
     property.lotSize,
     property.floorPlateTemplates,
+    property.unitMix,
     expenses.expenseGrowthRate,
     expenses.operatingExpenseRatio,
     expenses.expenseCategories,
