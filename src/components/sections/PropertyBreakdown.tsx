@@ -1,30 +1,25 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useModel } from "@/context/ModelContext";
 import { useEffect, useState } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { InfoCircle } from "lucide-react";
+import { Info } from "lucide-react";
 
-// Helper function to format numbers with commas
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
 };
 
 const PropertyBreakdown = () => {
-  // Use the model context instead of local state
   const { 
     property, 
     setHasUnsavedChanges 
   } = useModel();
 
-  // State for formatted inputs
   const [formattedLotSize, setFormattedLotSize] = useState<string>(
     property.lotSize ? formatNumber(property.lotSize) : ""
   );
 
-  // Debug logging on component mount
   useEffect(() => {
     console.log("PropertyBreakdown mounted, connected to context state", {
       projectName: property.projectName,
@@ -36,7 +31,6 @@ const PropertyBreakdown = () => {
     });
   }, [property]);
 
-  // Update formatted lot size when property.lotSize changes
   useEffect(() => {
     setFormattedLotSize(property.lotSize ? formatNumber(property.lotSize) : "");
   }, [property.lotSize]);
@@ -108,7 +102,7 @@ const PropertyBreakdown = () => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>
-                    <InfoCircle className="h-4 w-4 text-gray-500" />
+                    <Info className="h-4 w-4 text-gray-500" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs text-xs">Floor Area Ratio - the ratio of a building's total floor area to the size of the lot</p>
@@ -122,7 +116,6 @@ const PropertyBreakdown = () => {
                 placeholder="e.g., 1600 for FAR of 16" 
                 value={property.farAllowance || ""}
                 onChange={(e) => {
-                  // Only allow numeric values
                   const value = e.target.value.replace(/[^0-9.]/g, '');
                   const numericValue = value === '' ? 0 : Number(value);
                   property.setFarAllowance(numericValue);
@@ -145,11 +138,9 @@ const PropertyBreakdown = () => {
               placeholder="Enter lot size" 
               value={formattedLotSize}
               onChange={(e) => {
-                // Remove commas and non-numeric characters
                 const rawValue = e.target.value.replace(/[^0-9]/g, '');
                 const numericValue = rawValue === '' ? 0 : Number(rawValue);
                 
-                // Update state
                 property.setLotSize(numericValue);
                 setFormattedLotSize(formatNumber(numericValue));
                 setHasUnsavedChanges(true);
