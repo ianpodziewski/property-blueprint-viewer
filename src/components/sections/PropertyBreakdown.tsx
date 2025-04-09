@@ -12,6 +12,7 @@ import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useModel } from "@/context/ModelContext";
+import { toast } from "sonner";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
