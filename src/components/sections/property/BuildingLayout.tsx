@@ -1,5 +1,4 @@
-
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,7 +105,6 @@ const BuildingLayout = ({
   
   const [bulkAddModalOpen, setBulkAddModalOpen] = useState(false);
 
-  // Sorting state
   const [sortField, setSortField] = useState<string>("position");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   
@@ -332,7 +330,6 @@ const BuildingLayout = ({
     const remainingSpace = totalFloorArea - allocatedSpace;
     const percentage = (allocatedSpace / totalFloorArea) * 100;
     
-    // Over-allocated: More than 100% of space used
     if (remainingSpace < 0) {
       return { 
         status: "over-allocated", 
@@ -342,7 +339,6 @@ const BuildingLayout = ({
       };
     }
     
-    // Properly allocated: 95-100% of space used
     if (percentage >= 95 && percentage <= 100) {
       return { 
         status: "full", 
@@ -352,7 +348,6 @@ const BuildingLayout = ({
       };
     }
     
-    // Underutilized: Less than 95% of space used
     return { 
       status: "underutilized", 
       color: "bg-yellow-500", 
@@ -363,10 +358,8 @@ const BuildingLayout = ({
 
   const handleSort = (field: string) => {
     if (sortField === field) {
-      // Toggle direction if same field
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
-      // Set new field and default to descending
       setSortField(field);
       setSortDirection("desc");
     }
@@ -375,7 +368,6 @@ const BuildingLayout = ({
   const sortedFloors = useMemo(() => {
     let sortableFloors = [...floors];
     
-    // Custom sorting logic based on field
     if (sortField === "position") {
       sortableFloors.sort((a, b) => {
         return sortDirection === "desc" 
@@ -478,7 +470,6 @@ const BuildingLayout = ({
     return undefined;
   };
   
-  // Render the sortable column header
   const renderSortableHeader = (label: string, field: string) => (
     <div 
       className="flex items-center cursor-pointer" 
@@ -497,12 +488,10 @@ const BuildingLayout = ({
     </div>
   );
   
-  // New function to expand all floor rows
   const handleExpandAll = () => {
     setExpandedFloors(floors.map(floor => floor.id));
   };
   
-  // New function to collapse all floor rows
   const handleCollapseAll = () => {
     setExpandedFloors([]);
   };
@@ -616,7 +605,6 @@ const BuildingLayout = ({
             </Card>
           ) : (
             <div className="space-y-3 mb-4">
-              {/* Excel-like grid structure */}
               <Card className="bg-white">
                 <CardContent className="p-0 overflow-x-auto">
                   <Table>
@@ -820,7 +808,6 @@ const BuildingLayout = ({
                               </TableCell>
                             </TableRow>
                             
-                            {/* Expandable unit allocation section */}
                             {isExpanded && (
                               <TableRow 
                                 className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"} border-blue-200 hover:bg-blue-50/60`}
@@ -917,7 +904,6 @@ const BuildingLayout = ({
                                                   );
                                                 })}
                                                 
-                                                {/* Subtotal for product category */}
                                                 <TableRow className="bg-blue-50/30 font-medium border-t border-blue-100">
                                                   <TableCell colSpan={3} className="text-right">
                                                     Subtotal:
