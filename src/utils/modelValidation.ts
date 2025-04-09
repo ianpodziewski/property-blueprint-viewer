@@ -1,4 +1,3 @@
-
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
@@ -32,6 +31,23 @@ export const validateModelData = (modelData: any): ValidationResult => {
     for (const field of propertyFields) {
       if (modelData.property[field] === undefined) {
         result.errors.push(`Missing required property field: ${field}`);
+        result.valid = false;
+      }
+    }
+    
+    // Validate numeric building parameters
+    if (modelData.property.farAllowance !== undefined) {
+      const far = Number(modelData.property.farAllowance);
+      if (isNaN(far) || far < 0) {
+        result.errors.push('FAR Allowance must be a positive number');
+        result.valid = false;
+      }
+    }
+    
+    if (modelData.property.lotSize !== undefined) {
+      const lotSize = Number(modelData.property.lotSize);
+      if (isNaN(lotSize) || lotSize < 0) {
+        result.errors.push('Lot Size must be a positive number');
         result.valid = false;
       }
     }

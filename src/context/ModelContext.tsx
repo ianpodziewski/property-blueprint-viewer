@@ -10,10 +10,8 @@ import { useSensitivityState } from '@/hooks/useSensitivityState';
 import { toast } from "sonner";
 import { debounce } from 'lodash';
 
-// Storage key constant
 const STORAGE_KEY = 'realEstateModel';
 
-// Type definitions
 type ModelContextType = {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -33,10 +31,8 @@ type ModelContextType = {
   isAutoSaving: boolean;
 };
 
-// Create the context with a default value of null
 const ModelContext = createContext<ModelContextType | null>(null);
 
-// Create the provider component
 export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTab] = useState<string>("property");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
@@ -109,6 +105,13 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (parsedModel.property.projectName) property.setProjectName(parsedModel.property.projectName);
         if (parsedModel.property.projectLocation) property.setProjectLocation(parsedModel.property.projectLocation);
         if (parsedModel.property.projectType) property.setProjectType(parsedModel.property.projectType);
+        
+        if (parsedModel.property.farAllowance !== undefined) {
+          property.setFarAllowance(Number(parsedModel.property.farAllowance));
+        }
+        if (parsedModel.property.lotSize !== undefined) {
+          property.setLotSize(Number(parsedModel.property.lotSize));
+        }
       }
       
       if (parsedModel.financing) {
@@ -194,7 +197,9 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         property: {
           projectName: property.projectName,
           projectLocation: property.projectLocation,
-          projectType: property.projectType
+          projectType: property.projectType,
+          farAllowance: property.farAllowance,
+          lotSize: property.lotSize
         },
         expenses: {
           expenseGrowthRate: expenses.expenseGrowthRate,
@@ -234,7 +239,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(modelData));
-        console.log(`Data successfully saved to localStorage with key: ${STORAGE_KEY}`);
+        console.log(`Data successfully saved to localStorage with key: ${STORAGE_KEY}`, modelData);
       } catch (storageError) {
         console.error("Error saving to localStorage:", storageError);
         if (storageError instanceof DOMException && storageError.name === 'QuotaExceededError') {
@@ -327,6 +332,8 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     property.projectName, 
     property.projectLocation,
     property.projectType,
+    property.farAllowance,
+    property.lotSize,
     expenses.expenseGrowthRate,
     expenses.operatingExpenseRatio,
     expenses.expenseCategories,

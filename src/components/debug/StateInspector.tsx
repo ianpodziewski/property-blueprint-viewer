@@ -24,14 +24,25 @@ const StateInspector = () => {
     );
   }
   
+  // Create formatted property state for display
+  const formattedPropertyState = {
+    ...model.property,
+    maxBuildableArea: model.property.maxBuildableArea ? 
+      model.property.maxBuildableArea.toLocaleString() + " sf" : "0 sf"
+  };
+  
   const renderStateSection = (sectionName: string) => {
     if (section !== "all" && section !== sectionName) return null;
+    
+    // Use formatted property state for the property section
+    const displayData = sectionName === "property" ? 
+      formattedPropertyState : model[sectionName];
     
     return (
       <div className="mb-4">
         <h3 className="font-semibold text-lg mb-2">{sectionName}</h3>
         <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto max-h-40">
-          {JSON.stringify(model[sectionName], null, 2)}
+          {JSON.stringify(displayData, null, 2)}
         </pre>
       </div>
     );
