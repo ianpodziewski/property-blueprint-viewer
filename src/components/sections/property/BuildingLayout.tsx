@@ -1,6 +1,5 @@
 
 import { useState, useMemo } from "react";
-import { useModel } from "@/context/ModelContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,74 +19,101 @@ import {
   TableHeader, 
   TableRow
 } from "@/components/ui/table";
-import { Trash, ArrowUp, ArrowDown, PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash, ArrowUp, ArrowDown, PlusCircle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-
-// Interface for unit allocation
-interface UnitAllocation {
-  floorId: string;
-  unitTypeId: string;
-  quantity: number;
-}
+import { Floor, FloorPlateTemplate, Product } from "@/hooks/usePropertyState";
 
 const formatNumber = (num: number | undefined): string => {
   return num === undefined || isNaN(num) ? "0" : num.toLocaleString('en-US');
 };
 
-const BuildingLayout = () => {
-  const { property, setHasUnsavedChanges } = useModel();
+// Props interface for the component
+interface BuildingLayoutProps {
+  floors: Floor[];
+  templates: FloorPlateTemplate[];
+  products: Product[];
+  onAddFloor: () => Promise<Floor | null>;
+  onUpdateFloor: (id: string, updates: Partial<Omit<Floor, 'id'>>) => Promise<boolean>;
+  onDeleteFloor: (id: string) => Promise<boolean>;
+  onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<boolean>;
+  getUnitAllocation: (floorId: string, unitTypeId: string) => number;
+  getFloorTemplateById: (templateId: string) => FloorPlateTemplate | undefined;
+}
+
+const BuildingLayout = ({
+  floors,
+  templates,
+  products,
+  onAddFloor,
+  onUpdateFloor,
+  onDeleteFloor,
+  onUpdateUnitAllocation,
+  getUnitAllocation,
+  getFloorTemplateById
+}: BuildingLayoutProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedFloors, setExpandedFloors] = useState<string[]>([]);
-  const [unitAllocations, setUnitAllocations] = useState<UnitAllocation[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingAllocationUpdates, setPendingAllocationUpdates] = useState<Record<string, boolean>>({});
   
-  const handleAddFloor = () => {
-    property.addFloor();
-    setHasUnsavedChanges(true);
+  const handleAddFloor = async () => {
+    setIsSubmitting(true);
+    await onAddFloor();
+    setIsSubmitting(false);
   };
   
-  const handleDeleteFloor = (id: string) => {
-    property.deleteFloor(id);
-    setHasUnsavedChanges(true);
-    // Remove from expanded floors if it was expanded
-    setExpandedFloors(prev => prev.filter(floorId => floorId !== id));
-    // Remove unit allocations for this floor
-    setUnitAllocations(prev => prev.filter(allocation => allocation.floorId !== id));
+  const handleDeleteFloor = async (id: string) => {
+    setIsSubmitting(true);
+    const success = await onDeleteFloor(id);
+    setIsSubmitting(false);
+    
+    if (success) {
+      // Remove from expanded floors if it was expanded
+      setExpandedFloors(prev => prev.filter(floorId => floorId !== id));
+    }
   };
   
-  const handleMoveFloor = (id: string, direction: 'up' | 'down') => {
-    const floorIndex = property.floors.findIndex(f => f.id === id);
+  const handleMoveFloor = async (id: string, direction: 'up' | 'down') => {
+    const floorIndex = floors.findIndex(f => f.id === id);
     if (floorIndex === -1) return;
     
-    const newFloors = [...property.floors];
-    const currentPosition = newFloors[floorIndex].position;
+    const currentPosition = floors[floorIndex].position;
     
-    if (direction === 'up' && floorIndex < property.floors.length - 1) {
+    if (direction === 'up' && floorIndex < floors.length - 1) {
       // Swap positions with the floor above
       const nextFloorIndex = floorIndex + 1;
-      const nextPosition = newFloors[nextFloorIndex].position;
+      const nextPosition = floors[nextFloorIndex].position;
       
-      property.updateFloor(id, { position: nextPosition });
-      property.updateFloor(newFloors[nextFloorIndex].id, { position: currentPosition });
+      setIsSubmitting(true);
+      await Promise.all([
+        onUpdateFloor(id, { position: nextPosition }),
+        onUpdateFloor(floors[nextFloorIndex].id, { position: currentPosition })
+      ]);
+      setIsSubmitting(false);
     } else if (direction === 'down' && floorIndex > 0) {
       // Swap positions with the floor below
       const prevFloorIndex = floorIndex - 1;
-      const prevPosition = newFloors[prevFloorIndex].position;
+      const prevPosition = floors[prevFloorIndex].position;
       
-      property.updateFloor(id, { position: prevPosition });
-      property.updateFloor(newFloors[prevFloorIndex].id, { position: currentPosition });
+      setIsSubmitting(true);
+      await Promise.all([
+        onUpdateFloor(id, { position: prevPosition }),
+        onUpdateFloor(floors[prevFloorIndex].id, { position: currentPosition })
+      ]);
+      setIsSubmitting(false);
     }
-    
-    setHasUnsavedChanges(true);
   };
   
-  const handleTemplateChange = (floorId: string, templateId: string) => {
-    property.updateFloor(floorId, { templateId });
-    setHasUnsavedChanges(true);
+  const handleTemplateChange = async (floorId: string, templateId: string) => {
+    setIsSubmitting(true);
+    await onUpdateFloor(floorId, { templateId });
+    setIsSubmitting(false);
   };
   
-  const handleLabelChange = (floorId: string, label: string) => {
-    property.updateFloor(floorId, { label });
-    setHasUnsavedChanges(true);
+  const handleLabelChange = async (floorId: string, label: string) => {
+    setIsSubmitting(true);
+    await onUpdateFloor(floorId, { label });
+    setIsSubmitting(false);
   };
   
   const toggleFloorExpansion = (floorId: string) => {
@@ -99,86 +125,67 @@ const BuildingLayout = () => {
     });
   };
   
-  const handleUnitAllocationChange = (floorId: string, unitTypeId: string, quantity: number) => {
-    setUnitAllocations(prev => {
-      const existingIndex = prev.findIndex(
-        allocation => allocation.floorId === floorId && allocation.unitTypeId === unitTypeId
-      );
-      
-      if (existingIndex >= 0) {
-        const updated = [...prev];
-        updated[existingIndex] = { ...updated[existingIndex], quantity };
-        return updated;
-      } else {
-        return [...prev, { floorId, unitTypeId, quantity }];
-      }
-    });
+  const handleUnitAllocationChange = async (floorId: string, unitTypeId: string, quantity: number) => {
+    const allocationKey = `${floorId}-${unitTypeId}`;
+    setPendingAllocationUpdates(prev => ({
+      ...prev,
+      [allocationKey]: true
+    }));
     
-    setHasUnsavedChanges(true);
-  };
-  
-  // Get unit allocation for a specific floor and unit type
-  const getUnitAllocation = (floorId: string, unitTypeId: string): number => {
-    const allocation = unitAllocations.find(
-      a => a.floorId === floorId && a.unitTypeId === unitTypeId
-    );
-    return allocation?.quantity || 0;
+    await onUpdateUnitAllocation(floorId, unitTypeId, quantity);
+    
+    setPendingAllocationUpdates(prev => ({
+      ...prev,
+      [allocationKey]: false
+    }));
   };
   
   // Calculate remaining space for a floor
   const calculateRemainingSpace = (floorId: string): number => {
-    const floor = property.floors.find(f => f.id === floorId);
+    const floor = floors.find(f => f.id === floorId);
     if (!floor) return 0;
     
-    const template = property.getFloorTemplateById(floor.templateId);
+    const template = getFloorTemplateById(floor.templateId);
     const totalFloorArea = template?.grossArea || 0;
     
-    const allocatedSpace = unitAllocations
-      .filter(allocation => allocation.floorId === floorId)
-      .reduce((total, allocation) => {
-        const unitType = findUnitTypeById(allocation.unitTypeId);
-        return total + (unitType?.grossArea || 0) * allocation.quantity;
-      }, 0);
+    // Calculate allocated space for this floor
+    let allocatedSpace = 0;
+    
+    products.forEach(product => {
+      product.unitTypes.forEach(unitType => {
+        const allocation = getUnitAllocation(floorId, unitType.id);
+        allocatedSpace += (unitType.grossArea || 0) * allocation;
+      });
+    });
     
     return totalFloorArea - allocatedSpace;
   };
   
-  // Find a unit type by ID across all products
-  const findUnitTypeById = (unitTypeId: string) => {
-    for (const product of property.products) {
-      const unitType = product.unitTypes.find(ut => ut.id === unitTypeId);
-      if (unitType) return unitType;
-    }
-    return undefined;
-  };
-  
-  // Group products and unit types for display
-  const groupedProducts = useMemo(() => {
-    return property.products.map(product => ({
-      ...product,
-      unitTypes: [...product.unitTypes].sort((a, b) => 
-        a.unitType.localeCompare(b.unitType)
-      )
-    }));
-  }, [property.products]);
-  
   // Sort floors by position
-  const sortedFloors = [...property.floors].sort((a, b) => b.position - a.position);
+  const sortedFloors = useMemo(() => {
+    return [...floors].sort((a, b) => b.position - a.position);
+  }, [floors]);
   
   // Calculate total units by type
   const totalUnitsByType = useMemo(() => {
     const totals = new Map<string, number>();
     
-    unitAllocations.forEach(allocation => {
-      const unitType = findUnitTypeById(allocation.unitTypeId);
-      if (unitType) {
-        const key = unitType.id;
-        totals.set(key, (totals.get(key) || 0) + allocation.quantity);
-      }
+    products.forEach(product => {
+      product.unitTypes.forEach(unitType => {
+        let total = 0;
+        
+        floors.forEach(floor => {
+          total += getUnitAllocation(floor.id, unitType.id);
+        });
+        
+        if (total > 0) {
+          totals.set(unitType.id, total);
+        }
+      });
     });
     
     return totals;
-  }, [unitAllocations, property.products]);
+  }, [floors, products, getUnitAllocation]);
   
   // Calculate total building area and total units
   const buildingTotals = useMemo(() => {
@@ -187,19 +194,42 @@ const BuildingLayout = () => {
     
     // Sum floor areas
     sortedFloors.forEach(floor => {
-      const template = property.getFloorTemplateById(floor.templateId);
+      const template = getFloorTemplateById(floor.templateId);
       area += template?.grossArea || 0;
     });
     
     // Sum unit counts
-    unitAllocations.forEach(allocation => {
-      units += allocation.quantity;
+    products.forEach(product => {
+      product.unitTypes.forEach(unitType => {
+        floors.forEach(floor => {
+          units += getUnitAllocation(floor.id, unitType.id);
+        });
+      });
     });
     
     return { totalArea: area, totalUnits: units };
-  }, [sortedFloors, property.floorPlateTemplates, unitAllocations]);
+  }, [sortedFloors, products, floors, getFloorTemplateById, getUnitAllocation]);
   
   const { totalArea, totalUnits } = buildingTotals;
+  
+  // Group products and unit types for display
+  const groupedProducts = useMemo(() => {
+    return products.map(product => ({
+      ...product,
+      unitTypes: [...product.unitTypes].sort((a, b) => 
+        a.unitType.localeCompare(b.unitType)
+      )
+    }));
+  }, [products]);
+  
+  // Find a unit type by ID across all products
+  const findUnitTypeById = (unitTypeId: string) => {
+    for (const product of products) {
+      const unitType = product.unitTypes.find(ut => ut.id === unitTypeId);
+      if (unitType) return unitType;
+    }
+    return undefined;
+  };
   
   return (
     <>
@@ -226,8 +256,21 @@ const BuildingLayout = () => {
             <Card className="bg-gray-50 border border-dashed border-gray-200">
               <CardContent className="py-6 flex flex-col items-center justify-center text-center">
                 <p className="text-gray-500 mb-4">No floors added yet</p>
-                <Button variant="outline" size="sm" onClick={handleAddFloor}>
-                  <PlusCircle className="h-4 w-4 mr-1" /> Add your first floor
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAddFloor} 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Adding...
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle className="h-4 w-4 mr-1" /> Add your first floor
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -251,6 +294,7 @@ const BuildingLayout = () => {
                                 onChange={(e) => handleLabelChange(floor.id, e.target.value)}
                                 placeholder="Enter floor label"
                                 className="mt-1"
+                                disabled={isSubmitting}
                               />
                             </div>
                             
@@ -259,12 +303,13 @@ const BuildingLayout = () => {
                               <Select 
                                 value={floor.templateId} 
                                 onValueChange={(value) => handleTemplateChange(floor.id, value)}
+                                disabled={isSubmitting}
                               >
                                 <SelectTrigger id={`floor-template-${floor.id}`} className="mt-1">
                                   <SelectValue placeholder="Select a template" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {property.floorPlateTemplates.map((template) => (
+                                  {templates.map((template) => (
                                     <SelectItem key={template.id} value={template.id}>
                                       {template.name}
                                     </SelectItem>
@@ -276,7 +321,7 @@ const BuildingLayout = () => {
                             <div>
                               <Label className="text-sm">Floor Area</Label>
                               <div className="h-10 px-4 flex items-center border rounded-md mt-1 bg-gray-50">
-                                {formatNumber(property.getFloorTemplateById(floor.templateId)?.grossArea)} sf
+                                {formatNumber(getFloorTemplateById(floor.templateId)?.grossArea)} sf
                               </div>
                             </div>
                           </div>
@@ -287,7 +332,7 @@ const BuildingLayout = () => {
                               size="sm"
                               className="h-8 w-8 p-0"
                               onClick={() => handleMoveFloor(floor.id, 'up')}
-                              disabled={floor.position === Math.max(...property.floors.map(f => f.position))}
+                              disabled={isSubmitting || floor.position === Math.max(...floors.map(f => f.position))}
                             >
                               <ArrowUp className="h-4 w-4" />
                             </Button>
@@ -296,7 +341,7 @@ const BuildingLayout = () => {
                               size="sm"
                               className="h-8 w-8 p-0"
                               onClick={() => handleMoveFloor(floor.id, 'down')}
-                              disabled={floor.position === Math.min(...property.floors.map(f => f.position))}
+                              disabled={isSubmitting || floor.position === Math.min(...floors.map(f => f.position))}
                             >
                               <ArrowDown className="h-4 w-4" />
                             </Button>
@@ -305,6 +350,7 @@ const BuildingLayout = () => {
                               size="sm"
                               className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                               onClick={() => handleDeleteFloor(floor.id)}
+                              disabled={isSubmitting}
                             >
                               <Trash className="h-4 w-4" />
                             </Button>
@@ -313,6 +359,7 @@ const BuildingLayout = () => {
                               size="sm" 
                               className="h-8 w-8 p-0"
                               onClick={() => toggleFloorExpansion(floor.id)}
+                              disabled={isSubmitting}
                             >
                               {expandedFloors.includes(floor.id) ? (
                                 <ChevronUp className="h-4 w-4" />
@@ -353,24 +400,32 @@ const BuildingLayout = () => {
                                         {product.unitTypes.map((unitType) => {
                                           const quantity = getUnitAllocation(floor.id, unitType.id);
                                           const totalArea = unitType.grossArea * quantity;
+                                          const allocationKey = `${floor.id}-${unitType.id}`;
+                                          const isPending = pendingAllocationUpdates[allocationKey];
                                           
                                           return (
                                             <TableRow key={unitType.id}>
                                               <TableCell>{unitType.unitType}</TableCell>
                                               <TableCell>{formatNumber(unitType.grossArea)}</TableCell>
                                               <TableCell>
-                                                <Input
-                                                  type="number"
-                                                  min="0"
-                                                  value={quantity || 0}
-                                                  onChange={(e) => {
-                                                    const value = parseInt(e.target.value) || 0;
-                                                    if (value >= 0) {
-                                                      handleUnitAllocationChange(floor.id, unitType.id, value);
-                                                    }
-                                                  }}
-                                                  className="w-20 h-8"
-                                                />
+                                                <div className="flex items-center">
+                                                  <Input
+                                                    type="number"
+                                                    min="0"
+                                                    value={quantity || 0}
+                                                    onChange={(e) => {
+                                                      const value = parseInt(e.target.value) || 0;
+                                                      if (value >= 0) {
+                                                        handleUnitAllocationChange(floor.id, unitType.id, value);
+                                                      }
+                                                    }}
+                                                    className="w-20 h-8 mr-2"
+                                                    disabled={isPending}
+                                                  />
+                                                  {isPending && (
+                                                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                                                  )}
+                                                </div>
                                               </TableCell>
                                               <TableCell className="text-right">
                                                 {formatNumber(totalArea)}
@@ -399,8 +454,17 @@ const BuildingLayout = () => {
             size="sm" 
             onClick={handleAddFloor}
             className="mt-2"
+            disabled={isSubmitting}
           >
-            <PlusCircle className="h-4 w-4 mr-1" /> Add Floor
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Adding...
+              </>
+            ) : (
+              <>
+                <PlusCircle className="h-4 w-4 mr-1" /> Add Floor
+              </>
+            )}
           </Button>
           
           {sortedFloors.length > 0 && (

@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { useModel } from "@/context/ModelContext";
 import { 
   Dialog, 
   DialogContent, 
@@ -31,13 +30,26 @@ const formatNumber = (num: number | undefined): string => {
   return num === undefined || isNaN(num) ? "" : num.toLocaleString('en-US');
 };
 
-const FloorPlateTemplates = () => {
-  const { property, setHasUnsavedChanges } = useModel();
+// Define props interface for the component
+interface FloorPlateTemplatesProps {
+  templates: FloorPlateTemplate[];
+  onAddTemplate: (template: Omit<FloorPlateTemplate, 'id'>) => Promise<FloorPlateTemplate | null>;
+  onUpdateTemplate: (id: string, updates: Partial<Omit<FloorPlateTemplate, 'id'>>) => Promise<boolean>;
+  onDeleteTemplate: (id: string) => Promise<boolean>;
+}
+
+const FloorPlateTemplates = ({ 
+  templates, 
+  onAddTemplate, 
+  onUpdateTemplate, 
+  onDeleteTemplate 
+}: FloorPlateTemplatesProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<FloorPlateTemplate | null>(null);
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form state
   const [templateName, setTemplateName] = useState("");
@@ -47,11 +59,11 @@ const FloorPlateTemplates = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
   // Debug logging to track template state
-  console.log("FloorPlateTemplates rendering with templates:", property.floorPlateTemplates);
+  console.log("FloorPlateTemplates rendering with templates:", templates);
   
   // Check if template name already exists
   const isNameDuplicate = (name: string, excludeId?: string): boolean => {
-    return property.floorPlateTemplates.some(
+    return templates.some(
       template => template.name.toLowerCase() === name.toLowerCase() && template.id !== excludeId
     );
   };
@@ -80,12 +92,16 @@ const FloorPlateTemplates = () => {
   };
   
   // Handle deleting a template
-  const handleDeleteTemplate = () => {
+  const handleDeleteTemplate = async () => {
     if (deleteTemplateId) {
-      property.deleteFloorPlateTemplate(deleteTemplateId);
-      setHasUnsavedChanges(true);
-      setIsDeleteDialogOpen(false);
-      setDeleteTemplateId(null);
+      setIsSubmitting(true);
+      const success = await onDeleteTemplate(deleteTemplateId);
+      setIsSubmitting(false);
+      
+      if (success) {
+        setIsDeleteDialogOpen(false);
+        setDeleteTemplateId(null);
+      }
     }
   };
   
@@ -164,8 +180,10 @@ const FloorPlateTemplates = () => {
   };
   
   // Handle saving a template
-  const handleSaveTemplate = () => {
+  const handleSaveTemplate = async () => {
     if (validateForm()) {
+      setIsSubmitting(true);
+      
       const templateData = {
         name: templateName.trim(),
         width: templateWidth ? parseFloat(templateWidth) : undefined,
@@ -173,15 +191,21 @@ const FloorPlateTemplates = () => {
         grossArea: parseFloat(templateGrossArea)
       };
       
+      let success = false;
+      
       if (editingTemplate) {
-        property.updateFloorPlateTemplate(editingTemplate.id, templateData);
+        success = await onUpdateTemplate(editingTemplate.id, templateData);
       } else {
-        property.addFloorPlateTemplate(templateData);
+        const result = await onAddTemplate(templateData);
+        success = !!result;
       }
       
-      setHasUnsavedChanges(true);
-      setIsDialogOpen(false);
-      resetForm();
+      setIsSubmitting(false);
+      
+      if (success) {
+        setIsDialogOpen(false);
+        resetForm();
+      }
     }
   };
   
@@ -215,7 +239,7 @@ const FloorPlateTemplates = () => {
             Create templates for recurring floor configurations
           </div>
           
-          {property.floorPlateTemplates.length === 0 ? (
+          {templates.length === 0 ? (
             <Card className="bg-gray-50 border border-dashed border-gray-200">
               <CardContent className="py-6 flex flex-col items-center justify-center text-center">
                 <p className="text-gray-500 mb-4">No floor plate templates yet</p>
@@ -226,7 +250,7 @@ const FloorPlateTemplates = () => {
             </Card>
           ) : (
             <div className="space-y-2">
-              {property.floorPlateTemplates.map((template) => (
+              {templates.map((template) => (
                 <Card key={template.id} className="bg-white">
                   <CardContent className="py-3 px-4 flex items-center justify-between">
                     <div>
@@ -343,11 +367,20 @@ const FloorPlateTemplates = () => {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSubmitting}>
               <X className="h-4 w-4 mr-2" /> Cancel
             </Button>
-            <Button onClick={handleSaveTemplate}>
-              <Check className="h-4 w-4 mr-2" /> {editingTemplate ? "Update" : "Save"}
+            <Button onClick={handleSaveTemplate} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <span className="animate-spin mr-2">◌</span> 
+                  {editingTemplate ? "Updating..." : "Saving..."}
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" /> {editingTemplate ? "Update" : "Save"}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -364,9 +397,19 @@ const FloorPlateTemplates = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTemplate} className="bg-red-500 hover:bg-red-600">
-              Delete
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteTemplate} 
+              className="bg-red-500 hover:bg-red-600"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="animate-spin mr-2">◌</span> Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -113,8 +113,11 @@ export type Database = {
       projects: {
         Row: {
           created_at: string
+          far_allowance: number | null
           id: string
           location: string
+          lot_size: number | null
+          max_buildable_area: number | null
           name: string
           project_type: string
           updated_at: string
@@ -122,8 +125,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          far_allowance?: number | null
           id?: string
           location: string
+          lot_size?: number | null
+          max_buildable_area?: number | null
           name: string
           project_type: string
           updated_at?: string
@@ -131,8 +137,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          far_allowance?: number | null
           id?: string
           location?: string
+          lot_size?: number | null
+          max_buildable_area?: number | null
           name?: string
           project_type?: string
           updated_at?: string
