@@ -7,15 +7,12 @@ import { useEffect, useState } from "react";
 import FloorPlateTemplates from "./property/FloorPlateTemplates";
 import UnitMix from "./property/UnitMix";
 import BuildingLayout from "./property/BuildingLayout";
-import BuildingSummaryPanel from "./property/BuildingSummaryPanel";
 import { useSupabasePropertyData } from "@/hooks/useSupabasePropertyData";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useModel } from "@/context/ModelContext";
 import { toast } from "sonner";
-import { exportToExcel, convertToCSV, downloadCSV, printPage, formatDateForFileName } from "@/utils/exportUtils";
-import { BuildingSummary } from "@/hooks/usePropertyState";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
@@ -23,9 +20,7 @@ const formatNumber = (num: number): string => {
 
 const PropertyBreakdown = () => {
   const { id: projectId } = useParams<{ id: string }>();
-  const { hasUnsavedChanges, setHasUnsavedChanges } = useModel();
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [buildingSummary, setBuildingSummary] = useState<BuildingSummary | null>(null);
+  const { setHasUnsavedChanges } = useModel();
   
   const {
     loading,
@@ -77,42 +72,6 @@ const PropertyBreakdown = () => {
       setFormattedLotSize(formatNumber(projectData.lot_size));
     }
   }, [projectData?.lot_size]);
-  
-  // Update building summary when relevant data changes
-  useEffect(() => {
-    if (floors.length > 0 && floorPlateTemplates.length > 0 && products.length > 0) {
-      // Create a unit allocations lookup object
-      const allocations: Record<string, Record<string, number>> = {};
-      
-      // Populate the allocations object for each floor and unit type
-      floors.forEach(floor => {
-        allocations[floor.id] = {};
-        products.forEach(product => {
-          product.unitTypes.forEach(unitType => {
-            const count = getUnitAllocation(floor.id, unitType.id);
-            if (count > 0) {
-              allocations[floor.id][unitType.id] = count;
-            }
-          });
-        });
-      });
-      
-      // Calculate the building summary using the property state hook's function
-      import('@/hooks/usePropertyState').then(module => {
-        const { calculateBuildingSummary } = module;
-        const summary = calculateBuildingSummary({
-          floorPlateTemplates,
-          products,
-          floors,
-          getFloorTemplateById
-        }, allocations);
-        
-        setBuildingSummary(summary);
-      });
-    } else {
-      setBuildingSummary(null);
-    }
-  }, [floors, floorPlateTemplates, products, getUnitAllocation, getFloorTemplateById]);
 
   const handleLotSizeChange = (value: string) => {
     const rawValue = value.replace(/[^0-9]/g, '');
@@ -138,137 +97,10 @@ const PropertyBreakdown = () => {
       await reloadProjectData();
       console.log("PropertyBreakdown: Manual data refresh completed");
       toast.success("Data refreshed successfully");
-      setLastSaved(new Date());
-      setHasUnsavedChanges(false);
     } catch (error) {
       console.error("PropertyBreakdown: Error during manual refresh:", error);
       toast.error("Failed to refresh data");
     }
-  };
-
-  const handleSaveNow = () => {
-    handleDataRefresh();
-  };
-
-  const handleExportCSV = () => {
-    if (!projectData || !buildingSummary) return;
-    
-    // Prepare floor data for export
-    const floorExportData = floors.map(floor => {
-      const template = getFloorTemplateById(floor.templateId);
-      
-      // Calculate unit counts for this floor
-      const unitCounts: Record<string, number> = {};
-      
-      // Populate unit counts for this floor
-      products.forEach(product => {
-        product.unitTypes.forEach(unitType => {
-          const count = getUnitAllocation(floor.id, unitType.id);
-          if (count > 0) {
-            unitCounts[unitType.unitType] = count;
-          }
-        });
-      });
-      
-      // Basic floor data
-      const floorData: Record<string, any> = {
-        Position: floor.position,
-        Label: floor.label,
-        Template: template?.name || "No Template",
-        "Gross Area (sf)": template?.grossArea || 0
-      };
-      
-      // Add unit counts
-      products.forEach(product => {
-        product.unitTypes.forEach(unitType => {
-          floorData[`${unitType.unitType} Units`] = unitCounts[unitType.unitType] || 0;
-        });
-      });
-      
-      return floorData;
-    });
-    
-    // Create headers
-    const headers: Record<string, string> = {
-      Position: "Position",
-      Label: "Floor Label",
-      Template: "Floor Template",
-      "Gross Area (sf)": "Gross Area (sf)"
-    };
-    
-    // Add unit type headers
-    products.forEach(product => {
-      product.unitTypes.forEach(unitType => {
-        headers[`${unitType.unitType} Units`] = `${unitType.unitType} Units`;
-      });
-    });
-    
-    // Convert to CSV
-    const csvContent = convertToCSV(floorExportData, headers);
-    
-    // Generate filename
-    const fileName = `${projectData.name.replace(/\s+/g, '_')}_Building_Layout_${formatDateForFileName()}.csv`;
-    
-    // Download CSV
-    downloadCSV(csvContent, fileName);
-    
-    toast.success("CSV file exported successfully");
-  };
-
-  const handleExportExcel = async () => {
-    if (!projectData || !buildingSummary) return;
-    
-    // Prepare floor data for export (same as CSV export)
-    const floorExportData = floors.map(floor => {
-      const template = getFloorTemplateById(floor.templateId);
-      
-      // Calculate unit counts for this floor
-      const unitCounts: Record<string, number> = {};
-      
-      // Populate unit counts for this floor
-      products.forEach(product => {
-        product.unitTypes.forEach(unitType => {
-          const count = getUnitAllocation(floor.id, unitType.id);
-          if (count > 0) {
-            unitCounts[unitType.unitType] = count;
-          }
-        });
-      });
-      
-      // Basic floor data
-      const floorData: Record<string, any> = {
-        Position: floor.position,
-        Label: floor.label,
-        Template: template?.name || "No Template",
-        "Gross Area (sf)": template?.grossArea || 0
-      };
-      
-      // Add unit counts
-      products.forEach(product => {
-        product.unitTypes.forEach(unitType => {
-          floorData[`${unitType.unitType} Units`] = unitCounts[unitType.unitType] || 0;
-        });
-      });
-      
-      return floorData;
-    });
-    
-    // Generate filename
-    const fileName = `${projectData.name.replace(/\s+/g, '_')}_Building_Layout_${formatDateForFileName()}.xlsx`;
-    
-    try {
-      // Export to Excel
-      await exportToExcel(floorExportData, "Building Layout", fileName);
-      toast.success("Excel file exported successfully");
-    } catch (error) {
-      console.error("Export to Excel failed:", error);
-      toast.error("Excel export failed. Falling back to CSV export.");
-      handleExportCSV();
-    }
-  };
-
-  const handlePrint = () => {
-    printPage();
   };
 
   if (loading) {
@@ -492,18 +324,6 @@ const PropertyBreakdown = () => {
             getFloorTemplateById={getFloorTemplateById}
             onRefreshData={handleDataRefresh}
           />
-          
-          {buildingSummary && (
-            <BuildingSummaryPanel
-              summary={buildingSummary}
-              lastSaved={lastSaved}
-              hasUnsavedChanges={hasUnsavedChanges}
-              onExportCSV={handleExportCSV}
-              onExportExcel={handleExportExcel}
-              onPrint={handlePrint}
-              onSaveNow={handleSaveNow}
-            />
-          )}
         </CardContent>
       </Card>
     </div>;

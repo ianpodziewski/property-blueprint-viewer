@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -7,11 +6,9 @@ import {
   FloorPlateTemplate, 
   UnitType, 
   Product, 
-  Floor,
-  BuildingSummary
+  Floor 
 } from '@/hooks/usePropertyState';
 import { useProject } from '@/context/ProjectContext';
-import { calculateBuildingSummary } from '@/utils/buildingSummaryUtils';
 
 export interface ProjectData {
   id: string;
@@ -48,18 +45,6 @@ interface UnitTypeData {
   length: number | null;
 }
 
-// Define a proper interface for unit allocation data from the database
-interface UnitAllocationData {
-  id: string;
-  floor_id: string;
-  unit_type_id: string;
-  quantity: number;
-  floors?: {
-    id: string;
-    project_id: string;
-  };
-}
-
 export function useSupabasePropertyData(projectId: string | null) {
   const { user } = useAuth();
   const { currentProjectId } = useProject();
@@ -69,7 +54,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
-  const [unitAllocations, setUnitAllocations] = useState<Record<string, Record<string, number>>>({});
+  const [unitAllocations, setUnitAllocations] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState<number>(0);
 
@@ -211,24 +196,7 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (unitAllocError) throw unitAllocError;
       
-      // Transform unit allocations data into a lookup object
-      const allocationMap: Record<string, Record<string, number>> = {};
-      
-      // Process the returned data as UnitAllocationData objects
-      (unitAllocData || []).forEach((allocation: UnitAllocationData) => {
-        const floorId = allocation.floor_id;
-        const unitTypeId = allocation.unit_type_id;
-        const quantity = allocation.quantity;
-        
-        if (!allocationMap[floorId]) {
-          allocationMap[floorId] = {};
-        }
-        
-        allocationMap[floorId][unitTypeId] = quantity;
-      });
-      
-      setUnitAllocations(allocationMap);
-      
+      setUnitAllocations(unitAllocData || []);
       console.log("Project data loaded successfully");
       console.log("========= LOADING PROJECT DATA END =========");
     } catch (error) {
@@ -658,67 +626,49 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
-      // Check if allocation already exists
-      const { data, error: checkError } = await supabase
-        .from('unit_allocations')
-        .select('id')
-        .eq('floor_id', floorId)
-        .eq('unit_type_id', unitTypeId)
-        .maybeSingle();
+      const existingAllocation = unitAllocations.find(
+        a => a.floor_id === floorId && a.unit_type_id === unitTypeId
+      );
       
-      if (checkError) throw checkError;
-      
-      if (data) {
-        // Allocation exists, update or delete
+      if (existingAllocation) {
         if (quantity === 0) {
           const { error } = await supabase
             .from('unit_allocations')
             .delete()
-            .eq('id', data.id);
+            .eq('id', existingAllocation.id);
             
           if (error) throw error;
+          
+          setUnitAllocations(prev => 
+            prev.filter(a => a.id !== existingAllocation.id)
+          );
         } else {
           const { error } = await supabase
             .from('unit_allocations')
             .update({ quantity })
-            .eq('id', data.id);
+            .eq('id', existingAllocation.id);
             
           if (error) throw error;
+          
+          setUnitAllocations(prev => 
+            prev.map(a => a.id === existingAllocation.id ? { ...a, quantity } : a)
+          );
         }
       } else if (quantity > 0) {
-        // Allocation doesn't exist, create it
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('unit_allocations')
           .insert({
             floor_id: floorId,
             unit_type_id: unitTypeId,
             quantity
-          });
+          })
+          .select()
+          .single();
           
         if (error) throw error;
+        
+        setUnitAllocations(prev => [...prev, data]);
       }
-      
-      // Update local state
-      setUnitAllocations(prev => {
-        // Create deep copy of the state
-        const updated = { ...prev };
-        
-        // Make sure floor entry exists
-        if (!updated[floorId]) {
-          updated[floorId] = {};
-        }
-        
-        if (quantity === 0) {
-          // Remove allocation if quantity is 0
-          const { [unitTypeId]: _, ...rest } = updated[floorId];
-          updated[floorId] = rest;
-        } else {
-          // Set updated quantity
-          updated[floorId][unitTypeId] = quantity;
-        }
-        
-        return updated;
-      });
       
       return true;
       
@@ -730,13 +680,10 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const getUnitAllocation = (floorId: string, unitTypeId: string): number => {
-    if (!unitAllocations[floorId]) return 0;
-    return unitAllocations[floorId][unitTypeId] || 0;
-  };
-
-  // Function to get floor template by ID
-  const getFloorTemplateById = (templateId: string): FloorPlateTemplate | undefined => {
-    return floorPlateTemplates.find(template => template.id === templateId);
+    const allocation = unitAllocations.find(
+      a => a.floor_id === floorId && a.unit_type_id === unitTypeId
+    );
+    return allocation ? allocation.quantity : 0;
   };
 
   return {
@@ -747,7 +694,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     floorPlateTemplates,
     products,
     floors,
-    unitAllocations,
     updateProjectInfo,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
@@ -763,15 +709,10 @@ export function useSupabasePropertyData(projectId: string | null) {
     deleteFloor,
     updateUnitAllocation,
     getUnitAllocation,
-    getFloorTemplateById,
     reloadProjectData,
-    calculateBuildingSummary: (allocations: Record<string, Record<string, number>> = unitAllocations): BuildingSummary => {
-      return calculateBuildingSummary({
-        floorPlateTemplates,
-        products,
-        floors,
-        getFloorTemplateById
-      }, allocations);
+    
+    getFloorTemplateById: (templateId: string) => {
+      return floorPlateTemplates.find(template => template.id === templateId);
     }
   };
 }
