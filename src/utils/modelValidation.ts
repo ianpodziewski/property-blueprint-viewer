@@ -1,3 +1,4 @@
+
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
@@ -49,6 +50,38 @@ export const validateModelData = (modelData: any): ValidationResult => {
       if (isNaN(lotSize) || lotSize < 0) {
         result.errors.push('Lot Size must be a positive number');
         result.valid = false;
+      }
+    }
+    
+    // Validate floor plate templates
+    if (modelData.property.floorPlateTemplates) {
+      if (!Array.isArray(modelData.property.floorPlateTemplates)) {
+        result.errors.push('Floor plate templates must be an array');
+        result.valid = false;
+      } else {
+        // Check each template has required fields
+        modelData.property.floorPlateTemplates.forEach((template: any, index: number) => {
+          if (!template.id) {
+            result.errors.push(`Template at index ${index} is missing id`);
+            result.valid = false;
+          }
+          
+          if (!template.name) {
+            result.errors.push(`Template at index ${index} is missing name`);
+            result.valid = false;
+          }
+          
+          if (template.grossArea === undefined) {
+            result.errors.push(`Template at index ${index} is missing gross area`);
+            result.valid = false;
+          }
+          
+          const grossArea = Number(template.grossArea);
+          if (isNaN(grossArea) || grossArea < 0) {
+            result.errors.push(`Template at index ${index} has invalid gross area`);
+            result.valid = false;
+          }
+        });
       }
     }
   }

@@ -112,6 +112,21 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (parsedModel.property.lotSize !== undefined) {
           property.setLotSize(Number(parsedModel.property.lotSize));
         }
+        
+        if (Array.isArray(parsedModel.property.floorPlateTemplates)) {
+          const templates = [...parsedModel.property.floorPlateTemplates];
+          property.floorPlateTemplates = [];
+          templates.forEach(template => {
+            if (template.id && template.name && template.grossArea !== undefined) {
+              property.addFloorPlateTemplate({
+                name: template.name,
+                width: template.width,
+                length: template.length,
+                grossArea: Number(template.grossArea)
+              });
+            }
+          });
+        }
       }
       
       if (parsedModel.financing) {
@@ -199,7 +214,8 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           projectLocation: property.projectLocation,
           projectType: property.projectType,
           farAllowance: property.farAllowance,
-          lotSize: property.lotSize
+          lotSize: property.lotSize,
+          floorPlateTemplates: property.floorPlateTemplates
         },
         expenses: {
           expenseGrowthRate: expenses.expenseGrowthRate,
@@ -334,6 +350,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     property.projectType,
     property.farAllowance,
     property.lotSize,
+    property.floorPlateTemplates,
     expenses.expenseGrowthRate,
     expenses.operatingExpenseRatio,
     expenses.expenseCategories,

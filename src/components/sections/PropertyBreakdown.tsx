@@ -6,6 +6,7 @@ import { useModel } from "@/context/ModelContext";
 import { useEffect, useState } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
+import FloorPlateTemplates from "./property/FloorPlateTemplates";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
@@ -73,7 +74,7 @@ const PropertyBreakdown = () => {
         </CardContent>
       </Card>
       
-      <Card className="mb-10">
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>Building Parameters</CardTitle>
           <CardDescription>Define the physical constraints of your development</CardDescription>
@@ -123,6 +124,16 @@ const PropertyBreakdown = () => {
             <Label htmlFor="max-buildable-area">Maximum Buildable Area (sf)</Label>
             <Input id="max-buildable-area" value={formatNumber(property.maxBuildableArea)} readOnly className="bg-gray-50 text-gray-600" />
           </div>
+        </CardContent>
+      </Card>
+      
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Project Configuration</CardTitle>
+          <CardDescription>Define the building elements of your development</CardDescription>
+        </CardHeader>
+        <CardContent className="pb-8">
+          <FloorPlateTemplates />
         </CardContent>
       </Card>
     </div>;

@@ -5,6 +5,25 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Eye, EyeOff } from "lucide-react";
 
+// Function to format property state for display
+const formatPropertyState = (property: any) => {
+  const formatted = { ...property };
+  
+  if (formatted.maxBuildableArea !== undefined) {
+    formatted.maxBuildableArea = formatted.maxBuildableArea.toLocaleString() + " sf";
+  }
+  
+  // Format floor plate templates if they exist
+  if (Array.isArray(formatted.floorPlateTemplates)) {
+    formatted.floorPlateTemplates = formatted.floorPlateTemplates.map((template: any) => ({
+      ...template,
+      grossArea: template.grossArea ? template.grossArea.toLocaleString() + " sf" : "0 sf"
+    }));
+  }
+  
+  return formatted;
+};
+
 // Component to display the current model state for debugging
 const StateInspector = () => {
   const model = useModel();
@@ -25,11 +44,7 @@ const StateInspector = () => {
   }
   
   // Create formatted property state for display
-  const formattedPropertyState = {
-    ...model.property,
-    maxBuildableArea: model.property.maxBuildableArea ? 
-      model.property.maxBuildableArea.toLocaleString() + " sf" : "0 sf"
-  };
+  const formattedPropertyState = formatPropertyState(model.property);
   
   const renderStateSection = (sectionName: string) => {
     if (section !== "all" && section !== sectionName) return null;
