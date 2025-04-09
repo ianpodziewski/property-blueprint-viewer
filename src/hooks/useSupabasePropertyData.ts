@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -6,9 +7,11 @@ import {
   FloorPlateTemplate, 
   UnitType, 
   Product, 
-  Floor 
+  Floor,
+  BuildingSummary
 } from '@/hooks/usePropertyState';
 import { useProject } from '@/context/ProjectContext';
+import { calculateBuildingSummary } from '@/utils/buildingSummaryUtils';
 
 export interface ProjectData {
   id: string;
@@ -54,7 +57,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
-  const [unitAllocations, setUnitAllocations] = useState<any[]>([]);
+  const [unitAllocations, setUnitAllocations] = useState<Record<string, Record<string, number>>>({});
   const [error, setError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState<number>(0);
 
@@ -196,7 +199,22 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (unitAllocError) throw unitAllocError;
       
-      setUnitAllocations(unitAllocData || []);
+      // Transform unit allocations data into a lookup object
+      const allocationMap: Record<string, Record<string, number>> = {};
+      (unitAllocData || []).forEach((allocation: any) => {
+        const floorId = allocation.floor_id;
+        const unitTypeId = allocation.unit_type_id;
+        const quantity = allocation.quantity;
+        
+        if (!allocationMap[floorId]) {
+          allocationMap[floorId] = {};
+        }
+        
+        allocationMap[floorId][unitTypeId] = quantity;
+      });
+      
+      setUnitAllocations(allocationMap);
+      
       console.log("Project data loaded successfully");
       console.log("========= LOADING PROJECT DATA END =========");
     } catch (error) {
@@ -680,10 +698,13 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const getUnitAllocation = (floorId: string, unitTypeId: string): number => {
-    const allocation = unitAllocations.find(
-      a => a.floor_id === floorId && a.unit_type_id === unitTypeId
-    );
-    return allocation ? allocation.quantity : 0;
+    if (!unitAllocations[floorId]) return 0;
+    return unitAllocations[floorId][unitTypeId] || 0;
+  };
+
+  // Function to get floor template by ID
+  const getFloorTemplateById = (templateId: string): FloorPlateTemplate | undefined => {
+    return floorPlateTemplates.find(template => template.id === templateId);
   };
 
   return {
@@ -694,6 +715,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     floorPlateTemplates,
     products,
     floors,
+    unitAllocations,
     updateProjectInfo,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
@@ -709,10 +731,15 @@ export function useSupabasePropertyData(projectId: string | null) {
     deleteFloor,
     updateUnitAllocation,
     getUnitAllocation,
+    getFloorTemplateById,
     reloadProjectData,
-    
-    getFloorTemplateById: (templateId: string) => {
-      return floorPlateTemplates.find(template => template.id === templateId);
+    calculateBuildingSummary: (allocations: Record<string, Record<string, number>> = unitAllocations): BuildingSummary => {
+      return calculateBuildingSummary({
+        floorPlateTemplates,
+        products,
+        floors,
+        getFloorTemplateById
+      }, allocations);
     }
   };
 }

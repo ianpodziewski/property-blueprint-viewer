@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,9 +51,7 @@ const PropertyBreakdown = () => {
     updateUnitAllocation,
     getUnitAllocation,
     getFloorTemplateById,
-    reloadProjectData,
-    calculateBuildingSummary,
-    unitAllocations
+    reloadProjectData
   } = useSupabasePropertyData(projectId || null);
   
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
@@ -84,12 +81,38 @@ const PropertyBreakdown = () => {
   // Update building summary when relevant data changes
   useEffect(() => {
     if (floors.length > 0 && floorPlateTemplates.length > 0 && products.length > 0) {
-      const summary = calculateBuildingSummary(unitAllocations);
-      setBuildingSummary(summary);
+      // Create a unit allocations lookup object
+      const allocations: Record<string, Record<string, number>> = {};
+      
+      // Populate the allocations object for each floor and unit type
+      floors.forEach(floor => {
+        allocations[floor.id] = {};
+        products.forEach(product => {
+          product.unitTypes.forEach(unitType => {
+            const count = getUnitAllocation(floor.id, unitType.id);
+            if (count > 0) {
+              allocations[floor.id][unitType.id] = count;
+            }
+          });
+        });
+      });
+      
+      // Calculate the building summary using the property state hook's function
+      import('@/hooks/usePropertyState').then(module => {
+        const { calculateBuildingSummary } = module;
+        const summary = calculateBuildingSummary({
+          floorPlateTemplates,
+          products,
+          floors,
+          getFloorTemplateById
+        }, allocations);
+        
+        setBuildingSummary(summary);
+      });
     } else {
       setBuildingSummary(null);
     }
-  }, [floors, floorPlateTemplates, products, unitAllocations, calculateBuildingSummary]);
+  }, [floors, floorPlateTemplates, products, getUnitAllocation, getFloorTemplateById]);
 
   const handleLotSizeChange = (value: string) => {
     const rawValue = value.replace(/[^0-9]/g, '');
@@ -136,20 +159,16 @@ const PropertyBreakdown = () => {
       
       // Calculate unit counts for this floor
       const unitCounts: Record<string, number> = {};
-      if (unitAllocations[floor.id]) {
-        Object.entries(unitAllocations[floor.id]).forEach(([unitTypeId, count]) => {
-          // Find the unit type info
-          let unitTypeName = "Unknown";
-          for (const product of products) {
-            const unitType = product.unitTypes.find(u => u.id === unitTypeId);
-            if (unitType) {
-              unitTypeName = unitType.unitType;
-              break;
-            }
+      
+      // Populate unit counts for this floor
+      products.forEach(product => {
+        product.unitTypes.forEach(unitType => {
+          const count = getUnitAllocation(floor.id, unitType.id);
+          if (count > 0) {
+            unitCounts[unitType.unitType] = count;
           }
-          unitCounts[unitTypeName] = count;
         });
-      }
+      });
       
       // Basic floor data
       const floorData: Record<string, any> = {
@@ -205,20 +224,16 @@ const PropertyBreakdown = () => {
       
       // Calculate unit counts for this floor
       const unitCounts: Record<string, number> = {};
-      if (unitAllocations[floor.id]) {
-        Object.entries(unitAllocations[floor.id]).forEach(([unitTypeId, count]) => {
-          // Find the unit type info
-          let unitTypeName = "Unknown";
-          for (const product of products) {
-            const unitType = product.unitTypes.find(u => u.id === unitTypeId);
-            if (unitType) {
-              unitTypeName = unitType.unitType;
-              break;
-            }
+      
+      // Populate unit counts for this floor
+      products.forEach(product => {
+        product.unitTypes.forEach(unitType => {
+          const count = getUnitAllocation(floor.id, unitType.id);
+          if (count > 0) {
+            unitCounts[unitType.unitType] = count;
           }
-          unitCounts[unitTypeName] = count;
         });
-      }
+      });
       
       // Basic floor data
       const floorData: Record<string, any> = {

@@ -211,8 +211,8 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
                 summary.warnings.map((warning, index) => (
                   <Alert 
                     key={index} 
-                    variant={warning.severity === 'error' ? "destructive" : "warning"}
-                    className="py-2"
+                    variant={warning.severity === 'error' ? "destructive" : "default"}
+                    className={warning.severity === 'error' ? "py-2" : "py-2 bg-amber-50 border-amber-200 text-amber-800"}
                   >
                     {warning.severity === 'error' ? (
                       <AlertCircle className="h-4 w-4" />
