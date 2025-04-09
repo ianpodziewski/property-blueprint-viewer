@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { 
   Select,
   SelectContent,
@@ -45,6 +46,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { duplicateFloor } from "@/utils/floorManagement";
 import FloorDuplicateModal from "./FloorDuplicateModal";
 import ApplyFloorToRangeModal from "./ApplyFloorToRangeModal";
@@ -299,6 +306,61 @@ const BuildingLayout = ({
     return allocatedSpace;
   };
 
+  const calculateAllocationPercentage = (floorId: string): number => {
+    const floor = floors.find(f => f.id === floorId);
+    if (!floor) return 0;
+    
+    const template = getFloorTemplateById(floor.templateId);
+    const totalFloorArea = template?.grossArea || 0;
+    
+    if (totalFloorArea === 0) return 0;
+    
+    const allocatedSpace = calculateAllocatedSpace(floorId);
+    return (allocatedSpace / totalFloorArea) * 100;
+  };
+
+  const getStatusInfo = (floorId: string) => {
+    const floor = floors.find(f => f.id === floorId);
+    if (!floor) return { status: "empty", color: "bg-gray-300", text: "Empty" };
+    
+    const template = getFloorTemplateById(floor.templateId);
+    const totalFloorArea = template?.grossArea || 0;
+    
+    if (totalFloorArea === 0) return { status: "empty", color: "bg-gray-300", text: "Empty" };
+    
+    const allocatedSpace = calculateAllocatedSpace(floorId);
+    const remainingSpace = totalFloorArea - allocatedSpace;
+    const percentage = (allocatedSpace / totalFloorArea) * 100;
+    
+    // Over-allocated: More than 100% of space used
+    if (remainingSpace < 0) {
+      return { 
+        status: "over-allocated", 
+        color: "bg-red-500", 
+        text: "Over-allocated",
+        tip: `This floor is over-allocated by ${formatNumber(Math.abs(remainingSpace))} sf (${Math.abs(percentage - 100).toFixed(1)}% excess)`
+      };
+    }
+    
+    // Properly allocated: 95-100% of space used
+    if (percentage >= 95 && percentage <= 100) {
+      return { 
+        status: "full", 
+        color: "bg-green-500", 
+        text: "Properly allocated",
+        tip: `This floor is well-allocated with ${formatNumber(remainingSpace)} sf remaining (${(100 - percentage).toFixed(1)}% free)`
+      };
+    }
+    
+    // Underutilized: Less than 95% of space used
+    return { 
+      status: "underutilized", 
+      color: "bg-yellow-500", 
+      text: "Underutilized",
+      tip: `This floor has ${formatNumber(remainingSpace)} sf unused space (${(100 - percentage).toFixed(1)}% free)`
+    };
+  };
+
   const handleSort = (field: string) => {
     if (sortField === field) {
       // Toggle direction if same field
@@ -545,6 +607,8 @@ const BuildingLayout = ({
                         const allocatedSpace = calculateAllocatedSpace(floor.id);
                         const remainingSpace = calculateRemainingSpace(floor.id);
                         const isOverAllocated = remainingSpace < 0;
+                        const allocationPercentage = calculateAllocationPercentage(floor.id);
+                        const statusInfo = getStatusInfo(floor.id);
                         
                         return (
                           <TableRow 
@@ -588,27 +652,71 @@ const BuildingLayout = ({
                               {formatNumber(remainingSpace)}
                             </TableCell>
                             <TableCell>
-                              {isOverAllocated ? (
-                                <div className="flex items-center">
-                                  <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />
-                                  <span className="text-xs text-red-500">Over-allocated</span>
-                                </div>
-                              ) : allocatedSpace === 0 ? (
-                                <div className="flex items-center">
-                                  <div className="h-3 w-3 bg-gray-300 rounded-full mr-1"></div>
-                                  <span className="text-xs text-gray-500">Empty</span>
-                                </div>
-                              ) : allocatedSpace === totalFloorArea ? (
-                                <div className="flex items-center">
-                                  <CheckCircle2 className="h-4 w-4 text-green-500 mr-1" />
-                                  <span className="text-xs text-green-500">Full</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center">
-                                  <div className="h-3 w-3 bg-blue-400 rounded-full mr-1"></div>
-                                  <span className="text-xs text-blue-500">Partial</span>
-                                </div>
-                              )}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="w-full">
+                                      <div className="flex items-center mb-1">
+                                        {isOverAllocated ? (
+                                          <div className="flex items-center">
+                                            <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />
+                                            <span className="text-xs text-red-500">Over-allocated</span>
+                                          </div>
+                                        ) : allocatedSpace === 0 ? (
+                                          <div className="flex items-center">
+                                            <div className="h-3 w-3 bg-gray-300 rounded-full mr-1"></div>
+                                            <span className="text-xs text-gray-500">Empty</span>
+                                          </div>
+                                        ) : allocatedSpace === totalFloorArea ? (
+                                          <div className="flex items-center">
+                                            <CheckCircle2 className="h-4 w-4 text-green-500 mr-1" />
+                                            <span className="text-xs text-green-500">Full</span>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center">
+                                            <div className="h-3 w-3 bg-blue-400 rounded-full mr-1"></div>
+                                            <span className="text-xs text-blue-500">Partial</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <Progress 
+                                        value={Math.min(allocationPercentage, 100)} 
+                                        className={`h-2 ${
+                                          isOverAllocated ? "bg-red-100" : 
+                                          allocatedSpace === 0 ? "bg-gray-100" : 
+                                          "bg-blue-100"
+                                        }`}
+                                      />
+                                      <div className="flex justify-between mt-1">
+                                        <span className="text-xs text-gray-500">
+                                          {allocationPercentage.toFixed(0)}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom">
+                                    <div className="space-y-1 max-w-xs">
+                                      <p className="font-medium">{statusInfo.text}</p>
+                                      <p className="text-sm">{statusInfo.tip || "No units allocated to this floor yet"}</p>
+                                      {isOverAllocated && (
+                                        <p className="text-sm text-red-500">
+                                          Suggestion: Reduce the number of units or switch to a larger floor template
+                                        </p>
+                                      )}
+                                      {!isOverAllocated && allocatedSpace === 0 && (
+                                        <p className="text-sm text-gray-500">
+                                          Suggestion: Add some units to utilize this floor space
+                                        </p>
+                                      )}
+                                      {!isOverAllocated && allocatedSpace > 0 && allocatedSpace < totalFloorArea && (
+                                        <p className="text-sm text-blue-500">
+                                          Suggestion: Add more units to utilize the remaining space
+                                        </p>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-1">
@@ -842,7 +950,7 @@ const BuildingLayout = ({
         isLoading={isDuplicating}
       />
       
-      <ApplyFloorToRangeModal
+      <ApplyToRangeModal
         isOpen={applyToRangeModalOpen}
         onClose={() => setApplyToRangeModalOpen(false)}
         sourceFloor={selectedFloorForRange}
