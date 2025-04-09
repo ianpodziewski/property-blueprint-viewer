@@ -30,7 +30,7 @@ type ModelContextType = {
   isAutoSaving: boolean;
 };
 
-// Create the context
+// Create the context with a default value of null
 const ModelContext = createContext<ModelContextType | null>(null);
 
 // Storage key constant
@@ -60,15 +60,21 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setActiveTab(tab);
   };
 
+  // Diagnostic logging - log when the context is first created
+  console.log("ModelProvider initializing with default activeTab:", activeTab);
+
   // Load data from localStorage on initial load
   useEffect(() => {
+    console.log("ModelProvider: Running initial localStorage load effect");
     loadFromLocalStorage();
   }, []);
 
   // Auto-save timer
   useEffect(() => {
+    console.log("ModelProvider: Setting up auto-save effect");
     const autoSaveInterval = setInterval(() => {
       if (hasUnsavedChanges) {
+        console.log("Auto-save triggered due to unsaved changes");
         saveToLocalStorage(true);
       }
     }, 30000); // Auto-save every 30 seconds
@@ -79,10 +85,11 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // Load from localStorage
   const loadFromLocalStorage = () => {
     try {
+      console.log("Attempting to load model data from localStorage");
       const savedModel = localStorage.getItem(STORAGE_KEY);
       if (!savedModel) {
         console.log("No saved model found in localStorage");
-        return;
+        return false;
       }
       
       const parsedModel = JSON.parse(savedModel);
@@ -99,9 +106,10 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (parsedModel.property.projectLocation) property.setProjectLocation(parsedModel.property.projectLocation);
         if (parsedModel.property.projectType) property.setProjectType(parsedModel.property.projectType);
         if (parsedModel.property.totalLandArea) property.setTotalLandArea(parsedModel.property.totalLandArea);
-        if (parsedModel.property.spaceTypes) {
-          // Instead of using setSpaceTypes, we need to properly update each space type
-          // This is a workaround since setSpaceTypes isn't available directly
+        
+        if (parsedModel.property.spaceTypes && Array.isArray(parsedModel.property.spaceTypes)) {
+          // First, clear any existing space types by recreating only what's in the saved data
+          // We need to handle this differently since we don't have a direct setter
           parsedModel.property.spaceTypes.forEach((space: any, index: number) => {
             if (index === 0 && property.spaceTypes[0]) {
               // Update the first item if it exists
@@ -124,7 +132,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           });
         }
         
-        if (parsedModel.property.unitMixes) {
+        if (parsedModel.property.unitMixes && Array.isArray(parsedModel.property.unitMixes)) {
           // Similar approach for unit mixes
           parsedModel.property.unitMixes.forEach((unit: any, index: number) => {
             if (index === 0 && property.unitMixes[0]) {
@@ -149,20 +157,8 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
       
-      // Load development costs
-      if (parsedModel.developmentCosts) {
-        // Similar pattern to property loading
-        // We would implement all the relevant setters here
-      }
-      
-      // Load timeline data
-      if (parsedModel.timeline) {
-        // Implementation for timeline loading
-      }
-      
       // Load expenses data
       if (parsedModel.expenses) {
-        // Load expense categories using similar pattern to spaceTypes
         if (parsedModel.expenses.expenseGrowthRate) expenses.setExpenseGrowthRate(parsedModel.expenses.expenseGrowthRate);
         if (parsedModel.expenses.operatingExpenseRatio) expenses.setOperatingExpenseRatio(parsedModel.expenses.operatingExpenseRatio);
         if (parsedModel.expenses.fixedExpensePercentage) expenses.setFixedExpensePercentage(parsedModel.expenses.fixedExpensePercentage);
@@ -171,7 +167,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (parsedModel.expenses.reservesUnit) expenses.setReservesUnit(parsedModel.expenses.reservesUnit);
         if (parsedModel.expenses.expensesBeforeStabilization) expenses.setExpensesBeforeStabilization(parsedModel.expenses.expensesBeforeStabilization);
         
-        if (parsedModel.expenses.expenseCategories) {
+        if (parsedModel.expenses.expenseCategories && Array.isArray(parsedModel.expenses.expenseCategories)) {
           parsedModel.expenses.expenseCategories.forEach((expense: any, index: number) => {
             if (index === 0 && expenses.expenseCategories[0]) {
               Object.keys(expense).forEach(key => {
@@ -193,24 +189,8 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
       
-      // Load revenue data
-      if (parsedModel.revenue) {
-        // Implementation for revenue loading
-      }
-      
-      // Load financing data
-      if (parsedModel.financing) {
-        // Implementation for financing loading
-      }
-      
-      // Load disposition data
-      if (parsedModel.disposition) {
-        // Implementation for disposition loading
-      }
-      
       // Load sensitivity data
       if (parsedModel.sensitivity) {
-        // Implementation for sensitivity loading
         if (parsedModel.sensitivity.sensitivityVariable1) sensitivity.setSensitivityVariable1(parsedModel.sensitivity.sensitivityVariable1);
         if (parsedModel.sensitivity.variable1MinRange) sensitivity.setVariable1MinRange(parsedModel.sensitivity.variable1MinRange);
         if (parsedModel.sensitivity.variable1MaxRange) sensitivity.setVariable1MaxRange(parsedModel.sensitivity.variable1MaxRange);
@@ -251,12 +231,6 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           spaceTypes: property.spaceTypes,
           unitMixes: property.unitMixes
         },
-        developmentCosts: {
-          // Add development costs properties
-        },
-        timeline: {
-          // Add timeline properties
-        },
         expenses: {
           expenseGrowthRate: expenses.expenseGrowthRate,
           operatingExpenseRatio: expenses.operatingExpenseRatio,
@@ -267,15 +241,6 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           reservesUnit: expenses.reservesUnit,
           expensesBeforeStabilization: expenses.expensesBeforeStabilization
         },
-        revenue: {
-          // Add revenue properties
-        },
-        financing: {
-          // Add financing properties
-        },
-        disposition: {
-          // Add disposition properties
-        },
         sensitivity: {
           sensitivityVariable1: sensitivity.sensitivityVariable1,
           variable1MinRange: sensitivity.variable1MinRange,
@@ -283,8 +248,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           sensitivityVariable2: sensitivity.sensitivityVariable2,
           variable2MinRange: sensitivity.variable2MinRange,
           variable2MaxRange: sensitivity.variable2MaxRange,
-          outputMetric: sensitivity.outputMetric,
-          // Add more sensitivity properties
+          outputMetric: sensitivity.outputMetric
         }
       };
       
@@ -355,7 +319,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Explicit save function
   const saveModel = () => {
-    saveToLocalStorage(false);
+    return saveToLocalStorage(false);
   };
 
   // Set hasUnsavedChanges to true when any relevant state changes
@@ -404,11 +368,14 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   );
 };
 
-// Create and export the hook
+// Create and export the hook with robust error handling
 export const useModel = (): ModelContextType => {
   const context = useContext(ModelContext);
-  if (!context) {
-    throw new Error("useModel must be used within a ModelProvider");
+  if (context === null) {
+    throw new Error(
+      "useModel must be used within a ModelProvider. " + 
+      "Make sure the ModelProvider is correctly wrapping your component tree."
+    );
   }
   return context;
 };
