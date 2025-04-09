@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +33,7 @@ const PropertyBreakdown = () => {
     floorPlateTemplates,
     products,
     floors,
+    unitAllocations,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
     deleteFloorPlateTemplate,
@@ -49,8 +49,7 @@ const PropertyBreakdown = () => {
     updateUnitAllocation,
     getUnitAllocation,
     getFloorTemplateById,
-    reloadProjectData,
-    unitAllocations
+    reloadProjectData
   } = useSupabasePropertyData(projectId || null);
   
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
@@ -344,7 +343,7 @@ const PropertyBreakdown = () => {
             onUpdateUnitAllocation={updateUnitAllocation}
             getUnitAllocation={getUnitAllocation}
             getFloorTemplateById={getFloorTemplateById}
-            onRefreshData={handleDataRefresh}
+            onRefreshData={reloadProjectData}
           />
           
           <BuildingSummaryPanel

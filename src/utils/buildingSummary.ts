@@ -1,4 +1,3 @@
-
 import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
 import { BuildingSummary } from '@/components/sections/property/BuildingSummaryPanel';
 
