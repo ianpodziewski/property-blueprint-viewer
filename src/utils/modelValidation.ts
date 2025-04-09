@@ -1,4 +1,3 @@
-
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
@@ -59,16 +58,30 @@ export const validateModelData = (modelData: any): ValidationResult => {
         result.errors.push('Floor plate templates must be an array');
         result.valid = false;
       } else {
+        // Check for duplicate template names
+        const templateNames = new Set();
+        const templateIds = new Set();
+        
         // Check each template has required fields
         modelData.property.floorPlateTemplates.forEach((template: any, index: number) => {
           if (!template.id) {
             result.errors.push(`Template at index ${index} is missing id`);
             result.valid = false;
+          } else if (templateIds.has(template.id)) {
+            result.errors.push(`Duplicate template id found: ${template.id}`);
+            result.valid = false;
+          } else {
+            templateIds.add(template.id);
           }
           
           if (!template.name) {
             result.errors.push(`Template at index ${index} is missing name`);
             result.valid = false;
+          } else if (templateNames.has(template.name.toLowerCase())) {
+            result.errors.push(`Duplicate template name found: ${template.name}`);
+            result.valid = false;
+          } else {
+            templateNames.add(template.name.toLowerCase());
           }
           
           if (template.grossArea === undefined) {
@@ -132,6 +145,11 @@ export const findInvalidValues = (obj: any, path: string = ''): string[] => {
 export const safeNumberConversion = (value: any): number => {
   if (value === undefined || value === null || value === '') return 0;
   
+  // Handle case when value is an object with _type and value properties
+  if (typeof value === 'object' && value !== null && value._type === 'undefined') {
+    return 0;
+  }
+  
   const num = Number(value);
   return isNaN(num) ? 0 : num;
 };
@@ -140,11 +158,24 @@ export const safeNumberConversion = (value: any): number => {
 export const parseFloorPlateTemplates = (templates: any[]): any[] => {
   if (!Array.isArray(templates)) return [];
   
-  return templates.map(template => ({
+  const processedTemplates = templates.map(template => ({
     id: template.id || crypto.randomUUID(),
     name: template.name || '',
     width: safeNumberConversion(template.width),
     length: safeNumberConversion(template.length),
     grossArea: safeNumberConversion(template.grossArea)
   }));
+  
+  // Remove duplicates based on ID
+  const uniqueTemplates = [];
+  const templateIds = new Set();
+  
+  for (const template of processedTemplates) {
+    if (!templateIds.has(template.id)) {
+      templateIds.add(template.id);
+      uniqueTemplates.push(template);
+    }
+  }
+  
+  return uniqueTemplates;
 };

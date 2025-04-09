@@ -46,6 +46,9 @@ const FloorPlateTemplates = () => {
   const [templateGrossArea, setTemplateGrossArea] = useState("");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
+  // Debug logging to track template state
+  console.log("FloorPlateTemplates rendering with templates:", property.floorPlateTemplates);
+  
   // Check if template name already exists
   const isNameDuplicate = (name: string, excludeId?: string): boolean => {
     return property.floorPlateTemplates.some(

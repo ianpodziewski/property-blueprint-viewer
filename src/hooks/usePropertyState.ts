@@ -73,9 +73,8 @@ export const usePropertyState = () => {
   const [lotSize, setLotSize] = useState<number>(getSavedNumericValue('lotSize', 0));
   
   // Project Configuration - Floor Plate Templates
-  const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>(
-    getSavedArrayValue('floorPlateTemplates', [])
-  );
+  // Important: Don't load templates directly in useState initialization to avoid duplication
+  const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>([]);
   
   // Calculate maximum buildable area
   const maxBuildableArea = farAllowance > 0 && lotSize > 0 ? (lotSize * farAllowance / 100) : 0;
@@ -115,6 +114,12 @@ export const usePropertyState = () => {
     setFloorPlateTemplates(floorPlateTemplates.filter(template => template.id !== id));
   };
   
+  // Set all floor plate templates at once (used during initial load)
+  const setAllFloorPlateTemplates = (templates: FloorPlateTemplate[]) => {
+    console.log("Setting all floor plate templates:", templates);
+    setFloorPlateTemplates(templates);
+  };
+  
   // Log state changes for debugging
   useEffect(() => {
     console.log("Property state updated:", {
@@ -139,6 +144,7 @@ export const usePropertyState = () => {
     floorPlateTemplates,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
-    deleteFloorPlateTemplate
+    deleteFloorPlateTemplate,
+    setAllFloorPlateTemplates
   };
 };

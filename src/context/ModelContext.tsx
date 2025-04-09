@@ -46,6 +46,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState<boolean>(false);
   
   const property = usePropertyState();
   const developmentCosts = useDevelopmentCosts();
@@ -67,10 +68,11 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => {
     console.log("ModelProvider: Running initial localStorage load effect");
     loadFromLocalStorage();
+    setInitialLoadComplete(true);
   }, []);
 
   const debouncedSave = debounce(() => {
-    if (hasUnsavedChanges) {
+    if (hasUnsavedChanges && initialLoadComplete) {
       console.log("Debounced save triggered due to unsaved changes");
       saveToLocalStorage(true);
     }
@@ -82,7 +84,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     debouncedSave();
     
     const autoSaveInterval = setInterval(() => {
-      if (hasUnsavedChanges) {
+      if (hasUnsavedChanges && initialLoadComplete) {
         console.log("Auto-save triggered due to unsaved changes");
         saveToLocalStorage(true);
       }
@@ -92,7 +94,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       clearInterval(autoSaveInterval);
       debouncedSave.cancel();
     };
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, initialLoadComplete]);
 
   const loadFromLocalStorage = () => {
     try {
@@ -145,31 +147,31 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           }
         }
         
-        // Load floor plate templates with validation
+        // Load floor plate templates with validation - FIXED to prevent duplication
         if (Array.isArray(parsedModel.property.floorPlateTemplates)) {
-          console.log("Loading floorPlateTemplates:", parsedModel.property.floorPlateTemplates);
+          console.log("Loading floorPlateTemplates, count before:", property.floorPlateTemplates.length);
           
-          // Clear existing templates
-          property.floorPlateTemplates = [];
+          // Process and clean templates from localStorage
+          const validTemplates = parsedModel.property.floorPlateTemplates
+            .filter(template => template && template.id && template.name)
+            .map(template => {
+              // Process each template to ensure proper structure
+              return {
+                id: template.id,
+                name: template.name,
+                width: typeof template.width === 'number' ? template.width : 
+                      (template.width && typeof template.width === 'object' ? undefined : template.width),
+                length: typeof template.length === 'number' ? template.length : 
+                       (template.length && typeof template.length === 'object' ? undefined : template.length),
+                grossArea: Number(template.grossArea || 0)
+              };
+            });
           
-          // Add each template with proper validation
-          parsedModel.property.floorPlateTemplates.forEach(template => {
-            if (template.id && template.name) {
-              try {
-                property.addFloorPlateTemplate({
-                  name: template.name,
-                  width: template.width !== undefined ? Number(template.width) : undefined,
-                  length: template.length !== undefined ? Number(template.length) : undefined,
-                  grossArea: Number(template.grossArea || 0)
-                });
-                console.log("Successfully loaded template:", template.name);
-              } catch (err) {
-                console.error("Error loading template:", template, err);
-              }
-            } else {
-              console.warn("Skipping invalid template:", template);
-            }
-          });
+          console.log("Processed templates for loading:", validTemplates);
+          
+          // Set all templates at once instead of adding them one by one
+          property.setAllFloorPlateTemplates(validTemplates);
+          console.log("FloorPlateTemplates loaded, count after:", validTemplates.length);
         }
       }
       
@@ -293,6 +295,11 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   const saveToLocalStorage = (isAuto: boolean = false) => {
+    if (!initialLoadComplete && isAuto) {
+      console.log("Skipping auto-save as initial load is not complete");
+      return false;
+    }
+    
     try {
       setIsAutoSaving(isAuto);
       const now = new Date();
@@ -373,6 +380,9 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           outputMetric: sensitivity.outputMetric
         }
       };
+      
+      // Log template count before saving
+      console.log("Template count before saving:", property.floorPlateTemplates.length, property.floorPlateTemplates);
       
       // Validate model structure before saving
       const validationResult = validateModelData(modelData);
@@ -496,8 +506,11 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Track changes to important state properties
   useEffect(() => {
-    setHasUnsavedChanges(true);
-    console.log("Marked as having unsaved changes");
+    // Only mark as having unsaved changes if initial load is complete
+    if (initialLoadComplete) {
+      setHasUnsavedChanges(true);
+      console.log("Marked as having unsaved changes");
+    }
   }, [
     property.projectName, 
     property.projectLocation,
@@ -513,7 +526,8 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     financing.equityAmount,
     sensitivity.sensitivityVariable1,
     sensitivity.variable1MinRange,
-    sensitivity.outputMetric
+    sensitivity.outputMetric,
+    initialLoadComplete
   ]);
 
   const contextValue: ModelContextType = {
