@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { usePropertyState } from '@/hooks/usePropertyState';
 import { useDevelopmentCosts } from '@/hooks/useDevelopmentCosts';
@@ -62,10 +61,8 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   console.log("ModelProvider initializing with default activeTab:", activeTab);
 
-  // Initial load effect - now it just sets loading to false after all state hooks are initialized
   useEffect(() => {
     console.log("ModelProvider: Running initial effect");
-    // Give time for all state hooks to initialize
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1000);
@@ -73,8 +70,6 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return () => clearTimeout(timer);
   }, [projectId]);
 
-  // Simplified save function that just updates the lastSaved timestamp
-  // Real saving happens in the useSupabasePropertyData hook
   const saveModel = () => {
     setIsAutoSaving(true);
     setTimeout(() => {
@@ -86,7 +81,6 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return true;
   };
 
-  // Reset function - now just a placeholder as actual reset would happen in individual components
   const resetModel = () => {
     try {
       toast.success("Model data reset successfully");
@@ -101,9 +95,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  // Track changes to important state properties to set hasUnsavedChanges flag
   useEffect(() => {
-    // Only mark as having unsaved changes if initial load is complete
     if (!isLoading) {
       setHasUnsavedChanges(true);
       console.log("Marked as having unsaved changes");
