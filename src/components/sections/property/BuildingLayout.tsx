@@ -950,7 +950,7 @@ const BuildingLayout = ({
         isLoading={isDuplicating}
       />
       
-      <ApplyToRangeModal
+      <ApplyFloorToRangeModal
         isOpen={applyToRangeModalOpen}
         onClose={() => setApplyToRangeModalOpen(false)}
         sourceFloor={selectedFloorForRange}
