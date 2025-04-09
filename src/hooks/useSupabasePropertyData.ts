@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -52,7 +51,19 @@ export function useSupabasePropertyData(projectId: string | null) {
         if (projectError) throw projectError;
         if (!projectData) throw new Error('Project not found');
         
-        setProjectData(projectData);
+        // Ensure all required properties exist with default values if not present
+        const completeProjectData: ProjectData = {
+          id: projectData.id,
+          name: projectData.name,
+          location: projectData.location,
+          project_type: projectData.project_type,
+          user_id: projectData.user_id,
+          far_allowance: projectData.far_allowance || 0,
+          lot_size: projectData.lot_size || 0,
+          max_buildable_area: projectData.max_buildable_area || 0,
+        };
+        
+        setProjectData(completeProjectData);
         
         // Load floor plate templates
         const { data: templateData, error: templateError } = await supabase
