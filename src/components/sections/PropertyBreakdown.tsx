@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -5,15 +6,19 @@ import { useModel } from "@/context/ModelContext";
 import { useEffect, useState } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
+
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
 };
+
 const PropertyBreakdown = () => {
   const {
     property,
     setHasUnsavedChanges
   } = useModel();
+  
   const [formattedLotSize, setFormattedLotSize] = useState<string>(property.lotSize ? formatNumber(property.lotSize) : "");
+  
   useEffect(() => {
     console.log("PropertyBreakdown mounted, connected to context state", {
       projectName: property.projectName,
@@ -24,9 +29,11 @@ const PropertyBreakdown = () => {
       maxBuildableArea: property.maxBuildableArea
     });
   }, [property]);
+
   useEffect(() => {
     setFormattedLotSize(property.lotSize ? formatNumber(property.lotSize) : "");
   }, [property.lotSize]);
+
   return <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold text-blue-700 mb-4">Property Breakdown</h2>
@@ -120,4 +127,5 @@ const PropertyBreakdown = () => {
       </Card>
     </div>;
 };
+
 export default PropertyBreakdown;
