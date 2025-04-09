@@ -13,6 +13,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 
 interface ProjectCardProps {
   project: Project;
@@ -22,6 +23,7 @@ interface ProjectCardProps {
 const ProjectCard = ({ project, onDelete }: ProjectCardProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
@@ -54,12 +56,22 @@ const ProjectCard = ({ project, onDelete }: ProjectCardProps) => {
   };
 
   const handleDuplicate = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to duplicate a project.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const newProject = {
         name: `${project.name} (Copy)`,
         location: project.location,
         project_type: project.project_type,
+        user_id: user.id
       };
       
       const { data, error } = await supabase
@@ -90,8 +102,7 @@ const ProjectCard = ({ project, onDelete }: ProjectCardProps) => {
   };
 
   const handleOpen = () => {
-    // For now, just navigate to index page - in the future this would go to a specific project
-    navigate("/");
+    navigate(`/model/${project.id}`);
   };
 
   return (

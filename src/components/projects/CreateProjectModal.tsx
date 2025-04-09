@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ const CreateProjectModal = ({ isOpen, onClose, onProjectCreated }: CreateProject
   const [location, setLocation] = useState("");
   const [projectType, setProjectType] = useState(PROJECT_TYPES[0]);
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +30,15 @@ const CreateProjectModal = ({ isOpen, onClose, onProjectCreated }: CreateProject
       toast({
         title: "Missing fields",
         description: "Please fill out all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to create a project.",
         variant: "destructive"
       });
       return;
@@ -41,6 +52,7 @@ const CreateProjectModal = ({ isOpen, onClose, onProjectCreated }: CreateProject
           name,
           location,
           project_type: projectType,
+          user_id: user.id
         });
       
       if (error) throw error;
