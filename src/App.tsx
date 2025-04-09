@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { ModelProvider } from "@/context/ModelContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { ProjectProvider } from "@/context/ProjectContext";
 import AppRoutes from "./AppRoutes";
 import StateInspector from "./components/debug/StateInspector";
 
@@ -23,12 +24,14 @@ const App = () => {
       <TooltipProvider>
         <BrowserRouter>
           <AuthProvider>
-            <ModelProvider>
-              <Toaster />
-              <Sonner />
-              <AppRoutes />
-              {isDebugMode && <StateInspector />}
-            </ModelProvider>
+            <ProjectProvider>
+              <ModelProvider>
+                <Toaster />
+                <Sonner />
+                <AppRoutes />
+                {isDebugMode && <StateInspector />}
+              </ModelProvider>
+            </ProjectProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

@@ -3,13 +3,16 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useProject } from "@/context/ProjectContext";
 import { Project } from "@/types/project";
 import ProjectCard from "@/components/projects/ProjectCard";
 import CreateProjectModal from "@/components/projects/CreateProjectModal";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Projects = () => {
   const { user } = useAuth();
+  const { setCurrentProjectId } = useProject();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -17,24 +20,36 @@ const Projects = () => {
   const fetchProjects = async () => {
     setIsLoading(true);
     try {
+      console.log("Fetching projects for user:", user?.id);
+      
       const { data, error } = await supabase
         .from("projects")
         .select("*")
         .order("created_at", { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching projects:", error);
+        throw error;
+      }
       
+      console.log("Projects fetched:", data?.length || 0);
       setProjects(data || []);
     } catch (error) {
       console.error("Error fetching projects:", error);
+      toast("Error fetching projects. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    // Clear current project ID when visiting projects page
+    setCurrentProjectId(null);
+    
+    if (user) {
+      fetchProjects();
+    }
+  }, [user, setCurrentProjectId]);
 
   const handleDeleteProject = (id: string) => {
     setProjects((prev) => prev.filter((project) => project.id !== id));

@@ -9,14 +9,26 @@ import AuthLayout from "./pages/auth/AuthLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useModel } from "@/context/ModelContext";
 import { useAuth } from "@/context/AuthContext";
+import { useProject } from "@/context/ProjectContext";
+import { useEffect } from "react";
 
 const AppRoutes = () => {
-  // This is a good place to verify the context is working
+  // This is a good place to verify the contexts are working
   const { activeTab } = useModel();
   const { user, isLoading } = useAuth();
+  const { currentProjectId } = useProject();
   
   console.log("AppRoutes rendering with active tab:", activeTab);
   console.log("Authentication status:", { user: user?.email, isLoading });
+  console.log("Current project ID:", currentProjectId);
+  
+  // Log current route information
+  useEffect(() => {
+    console.log("Current route information:", {
+      pathname: window.location.pathname,
+      projectId: currentProjectId,
+    });
+  }, [currentProjectId]);
   
   return (
     <Routes>
@@ -30,7 +42,7 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       
-      {/* Model editor page (former index) */}
+      {/* Model editor page with project ID param */}
       <Route path="/model/:projectId" element={
         <ProtectedRoute>
           <Index />

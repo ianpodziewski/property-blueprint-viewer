@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -9,6 +8,7 @@ import {
   Product, 
   Floor 
 } from '@/hooks/usePropertyState';
+import { useProject } from '@/context/ProjectContext';
 
 export interface ProjectData {
   id: string;
@@ -49,6 +49,7 @@ interface UnitTypeData {
 
 export function useSupabasePropertyData(projectId: string | null) {
   const { user } = useAuth();
+  const { currentProjectId } = useProject();
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [projectData, setProjectData] = useState<ProjectData | null>(null);
@@ -59,11 +60,19 @@ export function useSupabasePropertyData(projectId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState<number>(0);
 
+  const effectiveProjectId = projectId || currentProjectId;
+
   const loadProjectData = useCallback(async () => {
-    if (!projectId || !user) {
+    if (!effectiveProjectId || !user) {
       setLoading(false);
-      if (!projectId) setError("No project ID provided");
-      if (!user) setError("User not authenticated");
+      if (!effectiveProjectId) {
+        console.error("No project ID provided - neither via parameter nor via context");
+        setError("No project ID provided");
+      }
+      if (!user) {
+        console.error("User not authenticated");
+        setError("User not authenticated");
+      }
       return;
     }
     
@@ -71,18 +80,27 @@ export function useSupabasePropertyData(projectId: string | null) {
     setError(null);
     
     try {
-      console.log(`Loading project data for project ${projectId}, attempt #${loadAttempts + 1}`);
+      console.log(`Loading project data for project ${effectiveProjectId}, attempt #${loadAttempts + 1}`);
       
       // Load project details
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .select('*')
-        .eq('id', projectId)
+        .eq('id', effectiveProjectId)
         .eq('user_id', user.id)
         .single();
         
-      if (projectError) throw projectError;
-      if (!projectData) throw new Error('Project not found');
+      if (projectError) {
+        console.error("Error fetching project:", projectError);
+        throw projectError;
+      }
+      
+      if (!projectData) {
+        console.error("Project not found or access denied");
+        throw new Error('Project not found or access denied');
+      }
+      
+      console.log("Project data loaded:", projectData);
       
       // Ensure all required properties exist with default values if not present
       const completeProjectData: ProjectData = {
@@ -102,7 +120,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       const { data: templateData, error: templateError } = await supabase
         .from('floor_plate_templates')
         .select('*')
-        .eq('project_id', projectId);
+        .eq('project_id', effectiveProjectId);
         
       if (templateError) throw templateError;
       
@@ -121,7 +139,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       const { data: unitTypesData, error: unitTypesError } = await supabase
         .from('unit_types')
         .select('*')
-        .eq('project_id', projectId);
+        .eq('project_id', effectiveProjectId);
         
       if (unitTypesError) throw unitTypesError;
       
@@ -155,7 +173,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       const { data: floorData, error: floorError } = await supabase
         .from('floors')
         .select('*')
-        .eq('project_id', projectId)
+        .eq('project_id', effectiveProjectId)
         .order('position', { ascending: false });
         
       if (floorError) throw floorError;
@@ -177,7 +195,7 @@ export function useSupabasePropertyData(projectId: string | null) {
           id, quantity, floor_id, unit_type_id,
           floors!inner(id, project_id)
         `)
-        .eq('floors.project_id', projectId);
+        .eq('floors.project_id', effectiveProjectId);
         
       if (unitAllocError) throw unitAllocError;
       
@@ -190,25 +208,28 @@ export function useSupabasePropertyData(projectId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [projectId, user, loadAttempts]);
+  }, [effectiveProjectId, user, loadAttempts]);
 
   const reloadProjectData = () => {
     setLoadAttempts(prev => prev + 1);
   };
 
   useEffect(() => {
-    loadProjectData();
-  }, [loadProjectData]);
+    console.log("useSupabasePropertyData - Effect running with projectId:", effectiveProjectId);
+    if (effectiveProjectId) {
+      loadProjectData();
+    }
+  }, [loadProjectData, effectiveProjectId]);
 
   const updateProjectInfo = async (updates: Partial<ProjectData>) => {
-    if (!projectId || !user || !projectData) return;
+    if (!effectiveProjectId || !user || !projectData) return;
     
     setSaving(true);
     try {
       const { error } = await supabase
         .from('projects')
         .update(updates)
-        .eq('id', projectId)
+        .eq('id', effectiveProjectId)
         .eq('user_id', user.id);
         
       if (error) throw error;
@@ -225,12 +246,12 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const addFloorPlateTemplate = async (template: Omit<FloorPlateTemplate, 'id'>) => {
-    if (!projectId || !user) return null;
+    if (!effectiveProjectId || !user) return null;
     
     try {
       // Convert from internal format to database format
       const dbTemplate = {
-        project_id: projectId,
+        project_id: effectiveProjectId,
         name: template.name,
         area: template.grossArea,
         width: template.width,
@@ -266,7 +287,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const updateFloorPlateTemplate = async (id: string, updates: Partial<Omit<FloorPlateTemplate, 'id'>>) => {
-    if (!projectId || !user) return false;
+    if (!effectiveProjectId || !user) return false;
     
     try {
       // Convert from internal format to database format
@@ -299,7 +320,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const deleteFloorPlateTemplate = async (id: string) => {
-    if (!projectId || !user) return false;
+    if (!effectiveProjectId || !user) return false;
     
     try {
       const { error } = await supabase
@@ -392,14 +413,14 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const addUnitType = async (productId: string, unit: Omit<UnitType, 'id'>) => {
-    if (!projectId || !user) return null;
+    if (!effectiveProjectId || !user) return null;
     
     const product = products.find(p => p.id === productId);
     if (!product) return null;
     
     try {
       const dbUnitType = {
-        project_id: projectId,
+        project_id: effectiveProjectId,
         category: product.name,
         name: unit.unitType.trim(),
         area: unit.grossArea,
@@ -443,7 +464,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const updateUnitType = async (productId: string, unitId: string, updates: Partial<Omit<UnitType, 'id'>>) => {
-    if (!projectId || !user) return false;
+    if (!effectiveProjectId || !user) return false;
     
     try {
       const dbUpdates: any = {};
@@ -483,7 +504,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const deleteUnitType = async (productId: string, unitId: string) => {
-    if (!projectId || !user) return false;
+    if (!effectiveProjectId || !user) return false;
     
     try {
       const { error } = await supabase
@@ -514,7 +535,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const addFloor = async () => {
-    if (!projectId || !user) return null;
+    if (!effectiveProjectId || !user) return null;
     
     try {
       const newPosition = floors.length > 0
@@ -526,7 +547,7 @@ export function useSupabasePropertyData(projectId: string | null) {
         : null;
       
       const dbFloor = {
-        project_id: projectId,
+        project_id: effectiveProjectId,
         label: `Floor ${newPosition}`,
         position: newPosition,
         template_id: defaultTemplateId
@@ -558,7 +579,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const updateFloor = async (id: string, updates: Partial<Omit<Floor, 'id'>>) => {
-    if (!projectId || !user) return false;
+    if (!effectiveProjectId || !user) return false;
     
     try {
       const dbUpdates: any = {};
@@ -587,7 +608,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const deleteFloor = async (id: string) => {
-    if (!projectId || !user) return false;
+    if (!effectiveProjectId || !user) return false;
     
     try {
       const { error } = await supabase
@@ -609,7 +630,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const updateUnitAllocation = async (floorId: string, unitTypeId: string, quantity: number) => {
-    if (!projectId || !user) return false;
+    if (!effectiveProjectId || !user) return false;
     
     try {
       const existingAllocation = unitAllocations.find(

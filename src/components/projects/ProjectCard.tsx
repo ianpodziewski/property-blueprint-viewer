@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { useProject } from "@/context/ProjectContext";
 
 interface ProjectCardProps {
   project: Project;
@@ -24,6 +25,7 @@ const ProjectCard = ({ project, onDelete }: ProjectCardProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { setCurrentProjectId } = useProject();
 
   const handleDelete = async () => {
     if (confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
@@ -102,6 +104,8 @@ const ProjectCard = ({ project, onDelete }: ProjectCardProps) => {
   };
 
   const handleOpen = () => {
+    console.log("Opening project with ID:", project.id);
+    setCurrentProjectId(project.id);
     navigate(`/model/${project.id}`);
   };
 
