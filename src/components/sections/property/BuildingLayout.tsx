@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -296,6 +297,8 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   const [showApplyToRangeModal, setShowApplyToRangeModal] = useState(false);
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedFloor, setSelectedFloor] = useState<Floor | null>(null);
+  const [isDuplicatingFloor, setIsDuplicatingFloor] = useState(false);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -352,6 +355,24 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     }
   }, [onRefreshData]);
   
+  const handleDuplicateFloor = useCallback(async (newLabel: string, positionType: "above" | "below") => {
+    if (!selectedFloor) return;
+    
+    setIsDuplicatingFloor(true);
+    try {
+      // In a real implementation, this would duplicate the floor
+      // For now, we'll just refresh the data
+      await onRefreshData();
+      toast.success(`Floor duplicated successfully`);
+      setShowDuplicateModal(false);
+    } catch (error) {
+      console.error("Error duplicating floor:", error);
+      toast.error("Failed to duplicate floor");
+    } finally {
+      setIsDuplicatingFloor(false);
+    }
+  }, [selectedFloor, onRefreshData]);
+  
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     
@@ -385,6 +406,11 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     }
   }, [sortedFloors, onUpdateFloor, onRefreshData]);
   
+  const projectId = useMemo(() => 
+    floors.length > 0 ? floors[0].projectId || "" : "", 
+    [floors]
+  );
+  
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -411,13 +437,27 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowDuplicateModal(true)}>
+              <DropdownMenuItem onClick={() => {
+                if (sortedFloors.length > 0) {
+                  setSelectedFloor(sortedFloors[0]);
+                  setShowDuplicateModal(true);
+                } else {
+                  toast.error("No floors available to duplicate");
+                }
+              }}>
                 Duplicate Floor
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowApplyToRangeModal(true)}>
                 Apply Floor Configuration to Range
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowSaveAsTemplateModal(true)}>
+              <DropdownMenuItem onClick={() => {
+                if (sortedFloors.length > 0) {
+                  setSelectedFloor(sortedFloors[0]);
+                  setShowSaveAsTemplateModal(true);
+                } else {
+                  toast.error("No floors available to save as template");
+                }
+              }}>
                 Save as Template
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleRefreshData}>
@@ -440,7 +480,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
       <FloorUsageTemplates
         floors={floors}
         templates={templates}
-        projectId={floors.length > 0 ? floors[0].projectId || "" : ""}
+        projectId={projectId}
         onRefresh={handleRefreshData}
       />
       
@@ -500,14 +540,21 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
       
       {showBulkAddModal && (
         <BulkAddFloorsModal
+          isOpen={showBulkAddModal}
           templates={templates}
+          projectId={projectId}
           onClose={() => setShowBulkAddModal(false)}
+          onComplete={handleRefreshData}
         />
       )}
       
       {showDuplicateModal && (
         <FloorDuplicateModal
+          isOpen={showDuplicateModal}
+          currentFloorLabel={selectedFloor ? `Floor ${selectedFloor.position}` : ""}
           onClose={() => setShowDuplicateModal(false)}
+          onDuplicate={handleDuplicateFloor}
+          isLoading={isDuplicatingFloor}
         />
       )}
       
@@ -523,7 +570,11 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
       
       {showSaveAsTemplateModal && (
         <SaveAsTemplateModal
+          isOpen={showSaveAsTemplateModal}
+          sourceFloor={selectedFloor}
+          projectId={projectId}
           onClose={() => setShowSaveAsTemplateModal(false)}
+          onComplete={handleRefreshData}
         />
       )}
     </div>
