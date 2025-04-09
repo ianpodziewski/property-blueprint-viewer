@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import ExpandableFloorRow from "./ExpandableFloorRow";
 import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
+import { markUIInteractionInProgress } from "../SaveNotification";
 
 interface FloorConfigurationManagerProps {
   floorConfigurations: FloorConfiguration[];
@@ -116,6 +116,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   });
   
   const handleRowSelection = useCallback((floorNumber: number) => {
+    markUIInteractionInProgress();
     setSelectedRows(prev => {
       if (prev.includes(floorNumber)) {
         return prev.filter(num => num !== floorNumber);
@@ -126,6 +127,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   }, []);
   
   const handleSelectAll = useCallback(() => {
+    markUIInteractionInProgress();
     if (allSelected || selectedRows.length === floorConfigurations.length) {
       setSelectedRows([]);
       setAllSelected(false);
@@ -135,14 +137,10 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
     }
   }, [floorConfigurations, allSelected, selectedRows.length]);
   
-  const toggleFloorExpansion = useCallback((floorNumber: number) => {
-    setExpandedFloors(prev => {
-      if (prev.includes(floorNumber)) {
-        return prev.filter(num => num !== floorNumber);
-      } else {
-        return [...prev, floorNumber];
-      }
-    });
+  const handleEditFloor = useCallback((floorNumber: number) => {
+    markUIInteractionInProgress();
+    console.log(`Editing floor ${floorNumber}`);
+    // Any edit logic would go here
   }, []);
   
   useEffect(() => {
@@ -254,6 +252,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   }, [selectedFloorForCopy, selectedRows, copyFloorConfiguration, copyAllocations, toast]);
   
   const handleDeleteClick = useCallback((floorNumber: number) => {
+    markUIInteractionInProgress();
     setFloorToDelete(floorNumber);
     setDeleteDialogOpen(true);
   }, []);
@@ -371,14 +370,12 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                     floorTemplates={floorTemplates}
                     isSelected={selectedRows.includes(floor.floorNumber)}
                     onSelect={handleRowSelection}
-                    onEdit={() => toggleFloorExpansion(floor.floorNumber)}
+                    onEdit={() => handleEditFloor(floor.floorNumber)}
                     onDelete={handleDeleteClick}
                     reorderFloor={reorderFloor}
                     updateFloorConfiguration={updateFloorConfiguration}
                     getTemplateName={getTemplateName}
                     totalRows={floorConfigurations.length}
-                    isExpanded={expandedFloors.includes(floor.floorNumber)}
-                    onToggleExpand={toggleFloorExpansion}
                   />
                 ))}
               </TableBody>

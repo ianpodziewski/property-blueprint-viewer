@@ -8,6 +8,7 @@ import { ChevronUp, ChevronDown, ArrowUpDown, Pencil, Trash } from "lucide-react
 import FloorDetailView from "./FloorDetailView";
 import { FloorConfiguration, FloorPlateTemplate } from "@/types/propertyTypes";
 import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
+import { markUIInteractionInProgress } from "../SaveNotification";
 
 interface ExpandableFloorRowProps {
   floor: FloorConfiguration;
@@ -55,6 +56,9 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
       e.preventDefault();
       e.stopPropagation();
     }
+    
+    // Mark that a UI interaction is in progress to suppress notifications
+    markUIInteractionInProgress();
     
     console.log(`Toggling expansion for floor ${floor.floorNumber}. Current state: ${isExpanded}, changing to: ${!isExpanded}`);
     setIsExpanded(prev => !prev);
