@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -91,18 +90,14 @@ const PropertyBreakdown = () => {
   const phasesData = generatePhasesData();
   
   // Create adapter functions to convert between the two function signatures
-  // For BuildingParameters component (expects id, field, value)
   const adaptedUpdateFloorTemplateForBuildingParams = useCallback((id: string, field: keyof FloorPlateTemplate, value: string) => {
     updateFloorTemplate(id, { [field]: value });
   }, [updateFloorTemplate]);
   
-  // For FloorConfigurationManager component (expects id, template)
   const adaptedUpdateFloorTemplateForConfigManager = useCallback((id: string, template: Partial<FloorPlateTemplate>) => {
     updateFloorTemplate(id, template);
   }, [updateFloorTemplate]);
   
-  // Fix: Direct pass through of template data rather than creating default values
-  // This ensures user input values are used when creating a new template
   const adaptedAddFloorTemplate = useCallback((defaultTemplate?: Omit<FloorPlateTemplate, "id">) => {
     // If a template is provided, pass it through, otherwise create a default
     const template = defaultTemplate || {
