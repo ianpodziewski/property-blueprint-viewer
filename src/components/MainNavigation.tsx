@@ -9,8 +9,7 @@ import {
 } from "@/components/ui/navigation-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Building2, BarChart3, CalendarDays, DollarSign, FileText, BookOpen, Percent, LineChart, Workflow } from "lucide-react";
-import { useModelNavigation } from "../state/modelContext"; 
+import { BookOpen, BarChart3, Building2, CalendarDays, DollarSign, FileText, LineChart, Percent, Workflow } from "lucide-react";
 
 const sections = [
   {
@@ -69,9 +68,12 @@ const sections = [
   }
 ];
 
-const MainNavigation = () => {
-  const { activeTab, navigateWithConfirmation, dirtyFields } = useModelNavigation();
+export type ActiveTabProps = {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+};
 
+const MainNavigation = ({ activeTab, setActiveTab }: ActiveTabProps) => {
   return (
     <NavigationMenu className="max-w-full w-full justify-center overflow-x-auto py-2">
       <NavigationMenuList className="flex w-full justify-between px-4">
@@ -86,12 +88,9 @@ const MainNavigation = () => {
                       "flex items-center justify-center min-w-[110px] h-10 px-3 py-2 text-sm font-medium whitespace-nowrap",
                       activeTab === section.value 
                         ? "bg-blue-100 text-blue-700" 
-                        : "hover:bg-blue-50",
-                      dirtyFields[section.value as keyof typeof dirtyFields]
-                        ? "border-l-4 border-amber-400"
-                        : ""
+                        : "hover:bg-blue-50"
                     )}
-                    onClick={() => navigateWithConfirmation(section.value)}
+                    onClick={() => setActiveTab(section.value)}
                   >
                     {section.icon}
                     {section.title}
@@ -99,9 +98,6 @@ const MainNavigation = () => {
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="bg-blue-50 border-blue-200">
                   <p>{section.description}</p>
-                  {dirtyFields[section.value as keyof typeof dirtyFields] && (
-                    <p className="text-amber-600 font-medium">Unsaved changes</p>
-                  )}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
