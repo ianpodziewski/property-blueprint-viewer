@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import MainNavigation from "./MainNavigation";
 import PropertyBreakdown from "./sections/PropertyBreakdown";
@@ -11,14 +11,29 @@ import CapExAssumptions from "./sections/CapExAssumptions";
 import Financing from "./sections/Financing";
 import Disposition from "./sections/Disposition";
 import SensitivityAnalysis from "./sections/SensitivityAnalysis";
+import { useModelNavigation } from "../state/modelContext";
+import { SaveButton } from "./SaveButton";
 
 const ModelingTabs = () => {
-  const [activeTab, setActiveTab] = useState("property");
+  const { activeTab, setActiveTab } = useModelNavigation();
 
+  // Listen for hash changes to enable deep linking
+  useEffect(() => {
+    if (window.location.hash) {
+      const hash = window.location.hash.replace('#', '');
+      if (hash !== activeTab) {
+        setActiveTab(hash);
+      }
+    }
+  }, [window.location.hash]);
+  
   return (
     <div className="w-full space-y-4">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
-        <MainNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+        <div className="flex items-center justify-between px-4 py-2">
+          <MainNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+          <SaveButton />
+        </div>
       </div>
       
       <Tabs value={activeTab} className="w-full" onValueChange={(value) => setActiveTab(value)}>
