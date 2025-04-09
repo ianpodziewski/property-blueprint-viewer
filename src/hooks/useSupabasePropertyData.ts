@@ -571,8 +571,8 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  const updateFloor = async (id: string, updates: Partial<Omit<Floor, 'id'>>) => {
-    if (!effectiveProjectId || !user) return false;
+  const updateFloor = async (id: string, updates: Partial<Floor>): Promise<void> => {
+    if (!effectiveProjectId || !user) return;
     
     try {
       const dbUpdates: any = {};
@@ -591,17 +591,15 @@ export function useSupabasePropertyData(projectId: string | null) {
         prev.map(floor => floor.id === id ? { ...floor, ...updates } : floor)
       );
       
-      return true;
-      
     } catch (error) {
       console.error("Error updating floor:", error);
       toast.error("Failed to update floor");
-      return false;
+      throw error;
     }
   };
 
-  const deleteFloor = async (id: string) => {
-    if (!effectiveProjectId || !user) return false;
+  const deleteFloor = async (id: string): Promise<void> => {
+    if (!effectiveProjectId || !user) return;
     
     try {
       const { error } = await supabase
@@ -613,17 +611,15 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       setFloors(prev => prev.filter(floor => floor.id !== id));
       
-      return true;
-      
     } catch (error) {
       console.error("Error deleting floor:", error);
       toast.error("Failed to delete floor");
-      return false;
+      throw error;
     }
   };
 
-  const updateUnitAllocation = async (floorId: string, unitTypeId: string, quantity: number) => {
-    if (!effectiveProjectId || !user) return false;
+  const updateUnitAllocation = async (floorId: string, unitTypeId: string, quantity: number): Promise<void> => {
+    if (!effectiveProjectId || !user) return;
     
     try {
       const existingAllocation = unitAllocations.find(
@@ -670,20 +666,18 @@ export function useSupabasePropertyData(projectId: string | null) {
         setUnitAllocations(prev => [...prev, data]);
       }
       
-      return true;
-      
     } catch (error) {
       console.error("Error updating unit allocation:", error);
       toast.error("Failed to update unit allocation");
-      return false;
+      throw error;
     }
   };
 
-  const getUnitAllocation = (floorId: string, unitTypeId: string): number => {
+  const getUnitAllocation = async (floorId: string, unitTypeId: string): Promise<number> => {
     const allocation = unitAllocations.find(
       a => a.floor_id === floorId && a.unit_type_id === unitTypeId
     );
-    return allocation ? allocation.quantity : 0;
+    return Promise.resolve(allocation ? allocation.quantity : 0);
   };
 
   return {

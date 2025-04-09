@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -96,7 +95,6 @@ const SortableFloorRow = ({
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
   
-  // Load allocations when expanded
   useEffect(() => {
     const loadAllocations = async () => {
       if (isExpanded && products.length > 0) {
@@ -158,7 +156,6 @@ const SortableFloorRow = ({
   const floorTemplate = getFloorTemplateById(floor.templateId);
   const floorArea = floorTemplate?.grossArea || 0;
   
-  // Calculate total allocated area
   const allocatedArea = useMemo(() => {
     let total = 0;
     for (const product of products) {
@@ -170,7 +167,6 @@ const SortableFloorRow = ({
     return total;
   }, [products, allocations]);
   
-  // Calculate utilization percentage
   const utilization = floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0;
   const isOverallocated = utilization > 100;
   
@@ -301,7 +297,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // For drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -365,26 +360,22 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
       const overIndex = sortedFloors.findIndex(f => f.id === over.id);
       
       if (activeIndex !== -1 && overIndex !== -1) {
-        // Get the position values of the floors involved
         const activeFloor = sortedFloors[activeIndex];
         const overFloor = sortedFloors[overIndex];
         
         try {
-          // Update the position of the dragged floor to match the target
           await onUpdateFloor(activeFloor.id, { position: overFloor.position });
           
-          // Loop through floors between activeIndex and overIndex and update their positions
           const direction = activeIndex < overIndex ? 1 : -1;
           for (let i = activeIndex + direction; i !== overIndex + direction; i += direction) {
             const floorToUpdate = sortedFloors[i];
             const newPosition = i === overIndex 
-              ? activeFloor.position  // The floor being replaced gets the dragged floor's position
-              : sortedFloors[i - direction].position; // Others shift by one
+              ? activeFloor.position
+              : sortedFloors[i - direction].position;
               
             await onUpdateFloor(floorToUpdate.id, { position: newPosition });
           }
           
-          // Refresh the data to update the UI
           await onRefreshData();
         } catch (error) {
           console.error("Error updating floor positions:", error);
@@ -449,6 +440,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
       <FloorUsageTemplates
         floors={floors}
         templates={templates}
+        projectId={floors.length > 0 ? floors[0].projectId || "" : ""}
         onRefresh={handleRefreshData}
       />
       
@@ -510,32 +502,28 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
         <BulkAddFloorsModal
           templates={templates}
           onClose={() => setShowBulkAddModal(false)}
-          onRefresh={handleRefreshData}
         />
       )}
       
       {showDuplicateModal && (
         <FloorDuplicateModal
-          floors={floors}
           onClose={() => setShowDuplicateModal(false)}
-          onRefresh={handleRefreshData}
         />
       )}
       
       {showApplyToRangeModal && (
         <ApplyFloorToRangeModal
+          sourceFloor={null}
           floors={floors}
+          isOpen={showApplyToRangeModal}
           onClose={() => setShowApplyToRangeModal(false)}
-          onRefresh={handleRefreshData}
+          onComplete={handleRefreshData}
         />
       )}
       
       {showSaveAsTemplateModal && (
         <SaveAsTemplateModal
-          floors={floors}
-          templates={templates}
           onClose={() => setShowSaveAsTemplateModal(false)}
-          onRefresh={handleRefreshData}
         />
       )}
     </div>
