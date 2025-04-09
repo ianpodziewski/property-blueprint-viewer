@@ -65,8 +65,54 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           if (parsedModel.property.projectLocation) property.setProjectLocation(parsedModel.property.projectLocation);
           if (parsedModel.property.projectType) property.setProjectType(parsedModel.property.projectType);
           if (parsedModel.property.totalLandArea) property.setTotalLandArea(parsedModel.property.totalLandArea);
-          if (parsedModel.property.spaceTypes) property.setSpaceTypes(parsedModel.property.spaceTypes);
-          if (parsedModel.property.unitMixes) property.setUnitMixes(parsedModel.property.unitMixes);
+          if (parsedModel.property.spaceTypes) {
+            // Instead of using setSpaceTypes, we need to properly update each space type
+            // This is a workaround since setSpaceTypes isn't available directly
+            parsedModel.property.spaceTypes.forEach((space: any, index: number) => {
+              if (index === 0 && property.spaceTypes[0]) {
+                // Update the first item if it exists
+                Object.keys(space).forEach(key => {
+                  if (key !== 'id') {
+                    property.updateSpaceType(property.spaceTypes[0].id, key as any, space[key]);
+                  }
+                });
+              } else {
+                // Add new items as needed
+                property.addSpaceType();
+                if (property.spaceTypes[index]) {
+                  Object.keys(space).forEach(key => {
+                    if (key !== 'id') {
+                      property.updateSpaceType(property.spaceTypes[index].id, key as any, space[key]);
+                    }
+                  });
+                }
+              }
+            });
+          }
+          
+          if (parsedModel.property.unitMixes) {
+            // Similar approach for unit mixes
+            parsedModel.property.unitMixes.forEach((unit: any, index: number) => {
+              if (index === 0 && property.unitMixes[0]) {
+                // Update the first item if it exists
+                Object.keys(unit).forEach(key => {
+                  if (key !== 'id') {
+                    property.updateUnitMix(property.unitMixes[0].id, key as any, unit[key]);
+                  }
+                });
+              } else {
+                // Add new items as needed
+                property.addUnitMix();
+                if (property.unitMixes[index]) {
+                  Object.keys(unit).forEach(key => {
+                    if (key !== 'id') {
+                      property.updateUnitMix(property.unitMixes[index].id, key as any, unit[key]);
+                    }
+                  });
+                }
+              }
+            });
+          }
         }
         
         // Similar loading for other state sections would go here
