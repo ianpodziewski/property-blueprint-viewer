@@ -173,32 +173,88 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           console.log("FloorPlateTemplates loaded, count after:", validTemplates.length);
         }
         
-        // Load unit mix data with validation
-        if (Array.isArray(parsedModel.property.unitMix)) {
-          console.log("Loading unitMix, count before:", property.unitMix.length);
+        // Load products with unit types
+        if (Array.isArray(parsedModel.property.products)) {
+          console.log("Loading products, count before:", property.products ? property.products.length : 0);
           
-          // Process and clean unit types from localStorage
-          const validUnitTypes = parsedModel.property.unitMix
-            .filter(unit => unit && unit.id && unit.product && unit.unitType)
-            .map(unit => {
-              // Process each unit to ensure proper structure
+          // Process and clean products from localStorage
+          const validProducts = parsedModel.property.products
+            .filter((product: any) => product && product.id && product.name)
+            .map((product: any) => {
+              // Process each product to ensure proper structure
+              const validUnitTypes = Array.isArray(product.unitTypes) 
+                ? product.unitTypes
+                    .filter((unit: any) => unit && unit.id && unit.unitType)
+                    .map((unit: any) => ({
+                      id: unit.id,
+                      unitType: unit.unitType,
+                      numberOfUnits: Number(unit.numberOfUnits || 1),
+                      width: typeof unit.width === 'number' ? unit.width : 
+                            (unit.width && typeof unit.width === 'object' ? undefined : Number(unit.width)),
+                      length: typeof unit.length === 'number' ? unit.length : 
+                            (unit.length && typeof unit.length === 'object' ? undefined : Number(unit.length)),
+                      grossArea: Number(unit.grossArea || 0)
+                    }))
+                : [];
+              
               return {
-                id: unit.id,
-                product: unit.product,
-                unitType: unit.unitType,
-                width: typeof unit.width === 'number' ? unit.width : 
-                      (unit.width && typeof unit.width === 'object' ? undefined : unit.width),
-                length: typeof unit.length === 'number' ? unit.length : 
-                       (unit.length && typeof unit.length === 'object' ? undefined : unit.length),
-                grossArea: Number(unit.grossArea || 0)
+                id: product.id,
+                name: product.name,
+                unitTypes: validUnitTypes
               };
             });
           
-          console.log("Processed unit types for loading:", validUnitTypes);
+          console.log("Processed products for loading:", validProducts);
           
-          // Set all unit types at once
-          property.setAllUnitTypes(validUnitTypes);
-          console.log("Unit mix loaded, count after:", validUnitTypes.length);
+          // Set all products at once
+          if (typeof property.setAllProducts === 'function') {
+            property.setAllProducts(validProducts);
+            console.log("Products loaded, count after:", validProducts.length);
+          } else {
+            console.warn("setAllProducts function not available");
+          }
+        }
+        
+        // Handle legacy unit mix format conversion to products format
+        // This ensures backward compatibility with older model data that used unitMix
+        else if (Array.isArray(parsedModel.property.unitMix) && parsedModel.property.unitMix.length > 0) {
+          console.log("Found legacy unitMix data, converting to products format");
+          
+          // Group unit types by product
+          const unitsByProduct: Record<string, any[]> = {};
+          
+          parsedModel.property.unitMix.forEach((unit: any) => {
+            if (unit && unit.id && unit.product && unit.unitType) {
+              if (!unitsByProduct[unit.product]) {
+                unitsByProduct[unit.product] = [];
+              }
+              
+              unitsByProduct[unit.product].push({
+                id: unit.id,
+                unitType: unit.unitType,
+                numberOfUnits: 1, // Default to 1 for legacy data
+                width: unit.width,
+                length: unit.length,
+                grossArea: Number(unit.grossArea || 0)
+              });
+            }
+          });
+          
+          // Create products from grouped unit types
+          const products = Object.entries(unitsByProduct).map(([productName, units]) => ({
+            id: crypto.randomUUID(),
+            name: productName,
+            unitTypes: units
+          }));
+          
+          console.log("Created products from legacy unitMix:", products);
+          
+          if (typeof property.setAllProducts === 'function') {
+            property.setAllProducts(products);
+            console.log("Products loaded from legacy data, count:", products.length);
+          } else {
+            console.warn("setAllProducts function not available");
+          }
         }
       }
       
@@ -352,13 +408,17 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             length: template.length,
             grossArea: template.grossArea
           })),
-          unitMix: property.unitMix.map(unit => ({
-            id: unit.id,
-            product: unit.product,
-            unitType: unit.unitType,
-            width: unit.width,
-            length: unit.length,
-            grossArea: unit.grossArea
+          products: property.products.map(product => ({
+            id: product.id,
+            name: product.name,
+            unitTypes: product.unitTypes.map(unit => ({
+              id: unit.id,
+              unitType: unit.unitType,
+              numberOfUnits: unit.numberOfUnits,
+              width: unit.width,
+              length: unit.length,
+              grossArea: unit.grossArea
+            }))
           }))
         },
         // Expenses section
@@ -416,9 +476,9 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       };
       
-      // Log template and unit mix count before saving
+      // Log template and products count before saving
       console.log("Template count before saving:", property.floorPlateTemplates.length);
-      console.log("Unit mix count before saving:", property.unitMix.length);
+      console.log("Products count before saving:", property.products.length);
       
       // Validate model structure before saving
       const validationResult = validateModelData(modelData);
@@ -521,7 +581,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       property.setFarAllowance(0);
       property.setLotSize(0);
       property.setAllFloorPlateTemplates([]);
-      property.setAllUnitTypes([]);
+      property.setAllProducts([]);
       
       // Reset other sections as needed
       
@@ -555,7 +615,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     property.farAllowance,
     property.lotSize,
     property.floorPlateTemplates,
-    property.unitMix,
+    property.products,
     expenses.expenseGrowthRate,
     expenses.operatingExpenseRatio,
     expenses.expenseCategories,

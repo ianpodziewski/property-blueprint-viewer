@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { safeNumberConversion } from "@/utils/modelValidation";
 
@@ -63,11 +62,18 @@ export interface FloorPlateTemplate {
 // Interface for unit type
 export interface UnitType {
   id: string;
-  product: string;
   unitType: string;
+  numberOfUnits: number;
   width?: number;
   length?: number;
   grossArea: number;
+}
+
+// Interface for product (container for unit types)
+export interface Product {
+  id: string;
+  name: string;
+  unitTypes: UnitType[];
 }
 
 export const usePropertyState = () => {
@@ -83,11 +89,10 @@ export const usePropertyState = () => {
   const [lotSize, setLotSize] = useState<number>(getSavedNumericValue('lotSize', 0));
   
   // Project Configuration - Floor Plate Templates
-  // Important: Don't load templates directly in useState initialization to avoid duplication
   const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>([]);
   
-  // Project Configuration - Unit Mix
-  const [unitMix, setUnitMix] = useState<UnitType[]>([]);
+  // Project Configuration - Unit Mix (Products)
+  const [products, setProducts] = useState<Product[]>([]);
   
   // Calculate maximum buildable area
   const maxBuildableArea = farAllowance > 0 && lotSize > 0 ? (lotSize * farAllowance / 100) : 0;
@@ -133,45 +138,102 @@ export const usePropertyState = () => {
     setFloorPlateTemplates(templates);
   };
   
-  // Add a new unit type
-  const addUnitType = (unit: Omit<UnitType, 'id'>) => {
+  // Add a new product
+  const addProduct = (name: string) => {
+    const newProduct: Product = {
+      id: crypto.randomUUID(),
+      name: name.trim(),
+      unitTypes: []
+    };
+    console.log("Adding new product:", newProduct);
+    setProducts(prev => [...prev, newProduct]);
+  };
+  
+  // Update an existing product
+  const updateProduct = (id: string, name: string) => {
+    console.log(`Updating product ${id} with name:`, name);
+    setProducts(
+      products.map(product => 
+        product.id === id ? { 
+          ...product, 
+          name: name.trim()
+        } : product
+      )
+    );
+  };
+  
+  // Delete a product
+  const deleteProduct = (id: string) => {
+    console.log(`Deleting product ${id}`);
+    setProducts(products.filter(product => product.id !== id));
+  };
+  
+  // Add a new unit type to a product
+  const addUnitType = (productId: string, unit: Omit<UnitType, 'id'>) => {
     const newUnit: UnitType = {
       ...unit,
       id: crypto.randomUUID(),
+      unitType: unit.unitType.trim(),
+      numberOfUnits: safeNumberConversion(unit.numberOfUnits),
       width: unit.width !== undefined ? safeNumberConversion(unit.width) : undefined,
       length: unit.length !== undefined ? safeNumberConversion(unit.length) : undefined,
       grossArea: safeNumberConversion(unit.grossArea)
     };
-    console.log("Adding new unit type:", newUnit);
-    setUnitMix(prev => [...prev, newUnit]);
+    
+    console.log(`Adding new unit type to product ${productId}:`, newUnit);
+    
+    setProducts(
+      products.map(product => 
+        product.id === productId ? {
+          ...product,
+          unitTypes: [...product.unitTypes, newUnit]
+        } : product
+      )
+    );
   };
   
   // Update an existing unit type
-  const updateUnitType = (id: string, updates: Partial<Omit<UnitType, 'id'>>) => {
-    console.log(`Updating unit type ${id} with:`, updates);
-    setUnitMix(
-      unitMix.map(unit => 
-        unit.id === id ? { 
-          ...unit, 
-          ...updates,
-          width: updates.width !== undefined ? safeNumberConversion(updates.width) : unit.width,
-          length: updates.length !== undefined ? safeNumberConversion(updates.length) : unit.length,
-          grossArea: updates.grossArea !== undefined ? safeNumberConversion(updates.grossArea) : unit.grossArea
-        } : unit
+  const updateUnitType = (productId: string, unitId: string, updates: Partial<Omit<UnitType, 'id'>>) => {
+    console.log(`Updating unit type ${unitId} in product ${productId} with:`, updates);
+    
+    setProducts(
+      products.map(product => 
+        product.id === productId ? {
+          ...product,
+          unitTypes: product.unitTypes.map(unit => 
+            unit.id === unitId ? { 
+              ...unit, 
+              ...updates,
+              unitType: updates.unitType !== undefined ? updates.unitType.trim() : unit.unitType,
+              numberOfUnits: updates.numberOfUnits !== undefined ? safeNumberConversion(updates.numberOfUnits) : unit.numberOfUnits,
+              width: updates.width !== undefined ? safeNumberConversion(updates.width) : unit.width,
+              length: updates.length !== undefined ? safeNumberConversion(updates.length) : unit.length,
+              grossArea: updates.grossArea !== undefined ? safeNumberConversion(updates.grossArea) : unit.grossArea
+            } : unit
+          )
+        } : product
       )
     );
   };
   
   // Delete a unit type
-  const deleteUnitType = (id: string) => {
-    console.log(`Deleting unit type ${id}`);
-    setUnitMix(unitMix.filter(unit => unit.id !== id));
+  const deleteUnitType = (productId: string, unitId: string) => {
+    console.log(`Deleting unit type ${unitId} from product ${productId}`);
+    
+    setProducts(
+      products.map(product => 
+        product.id === productId ? {
+          ...product,
+          unitTypes: product.unitTypes.filter(unit => unit.id !== unitId)
+        } : product
+      )
+    );
   };
   
-  // Set all unit types at once (used during initial load)
-  const setAllUnitTypes = (units: UnitType[]) => {
-    console.log("Setting all unit types:", units);
-    setUnitMix(units);
+  // Set all products at once (used during initial load)
+  const setAllProducts = (newProducts: Product[]) => {
+    console.log("Setting all products:", newProducts);
+    setProducts(newProducts);
   };
   
   // Log state changes for debugging
@@ -180,9 +242,9 @@ export const usePropertyState = () => {
       projectName, projectLocation, projectType, 
       farAllowance, lotSize, maxBuildableArea,
       floorPlateTemplates,
-      unitMix
+      products
     });
-  }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, unitMix]);
+  }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, products]);
   
   return {
     // Project Information
@@ -202,11 +264,14 @@ export const usePropertyState = () => {
     deleteFloorPlateTemplate,
     setAllFloorPlateTemplates,
     
-    // Project Configuration - Unit Mix
-    unitMix,
+    // Project Configuration - Unit Mix (Products)
+    products,
+    addProduct,
+    updateProduct,
+    deleteProduct,
     addUnitType,
     updateUnitType,
     deleteUnitType,
-    setAllUnitTypes
+    setAllProducts
   };
 };
