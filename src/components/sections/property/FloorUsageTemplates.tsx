@@ -48,7 +48,8 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
-interface FloorUsageTemplate {
+// Define the FloorUsageTemplate interface to match the API response structure
+export interface FloorUsageTemplate {
   id: string;
   name: string;
   templateId: string;
@@ -82,7 +83,15 @@ const FloorUsageTemplates = ({
     setIsLoading(true);
     try {
       const templates = await fetchFloorUsageTemplates(projectId);
-      setUsageTemplates(templates);
+      // Transform the API response to match our FloorUsageTemplate interface
+      const transformedTemplates: FloorUsageTemplate[] = templates.map(template => ({
+        id: template.id,
+        name: template.name,
+        templateId: template.template_id || "",
+        projectId: template.project_id,
+        createdAt: template.created_at
+      }));
+      setUsageTemplates(transformedTemplates);
     } catch (error) {
       console.error("Error loading floor usage templates:", error);
       toast.error("Failed to load floor templates");

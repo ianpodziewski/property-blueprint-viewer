@@ -92,7 +92,9 @@ const BuildingLayout = ({
   
   const [bulkAddModalOpen, setBulkAddModalOpen] = useState(false);
   
-  const projectId = floors.length > 0 ? floors[0].projectId : "";
+  const projectId = floors.length > 0 && floors[0].projectId ? 
+    floors[0].projectId : 
+    "";
   
   const handleAddFloor = async () => {
     setIsSubmitting(true);
@@ -665,7 +667,7 @@ const BuildingLayout = ({
         isOpen={duplicateModalOpen}
         onClose={() => setDuplicateModalOpen(false)}
         onDuplicate={handleDuplicateFloor}
-        currentFloorLabel={selectedFloorForDuplicate.label}
+        currentFloorLabel={selectedFloorForDuplicate?.label || ""}
         isLoading={isDuplicating}
       />
       

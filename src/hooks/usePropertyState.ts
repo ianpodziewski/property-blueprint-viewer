@@ -82,6 +82,7 @@ export interface Floor {
   label: string;
   position: number;
   templateId: string;
+  projectId?: string; // Added projectId property
 }
 
 export const usePropertyState = () => {
@@ -257,7 +258,8 @@ export const usePropertyState = () => {
       id: crypto.randomUUID(),
       label: `Floor ${newPosition}`,
       position: newPosition,
-      templateId: floorPlateTemplates.length > 0 ? floorPlateTemplates[0].id : ""
+      templateId: floorPlateTemplates.length > 0 ? floorPlateTemplates[0].id : "",
+      projectId: crypto.randomUUID() // Added projectId property
     };
     
     console.log("Adding new floor:", newFloor);
