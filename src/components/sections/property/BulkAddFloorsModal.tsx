@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FloorPlateTemplate } from "@/hooks/usePropertyState";
 import { createBulkFloors } from "@/utils/floorManagement";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface BulkAddFloorsModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ const BulkAddFloorsModal = ({
   const [endFloor, setEndFloor] = useState<number>(5);
   const [labelPrefix, setLabelPrefix] = useState<string>("Floor");
   const [isCreating, setIsCreating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Generate preview of floors to be created
   const previewFloors = () => {
@@ -49,6 +51,13 @@ const BulkAddFloorsModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+    
+    // Validate projectId
+    if (!projectId || projectId.trim() === '') {
+      setErrorMessage("Project ID is missing. Please reload the page and try again.");
+      return;
+    }
     
     if (!templateId) {
       toast.error("Please select a floor template");
@@ -67,6 +76,7 @@ const BulkAddFloorsModal = ({
     
     setIsCreating(true);
     try {
+      console.log(`Creating floors for project ${projectId} with template ${templateId}`);
       await createBulkFloors(
         projectId,
         templateId,
@@ -80,6 +90,7 @@ const BulkAddFloorsModal = ({
       onClose();
     } catch (error) {
       console.error("Error creating bulk floors:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Failed to create floors");
       toast.error("Failed to create floors");
     } finally {
       setIsCreating(false);
@@ -96,6 +107,14 @@ const BulkAddFloorsModal = ({
               Create multiple floors with the same template in one operation.
             </DialogDescription>
           </DialogHeader>
+          
+          {errorMessage && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+          
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="template" className="col-span-4">
@@ -159,7 +178,16 @@ const BulkAddFloorsModal = ({
                 className="mt-1"
                 disabled={isCreating}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Example: "{labelPrefix} 1", "{labelPrefix} 2", etc.
+              </p>
             </div>
+            
+            {projectId && (
+              <div className="text-xs text-gray-500">
+                Floors will be created for project ID: {projectId.substring(0, 8)}...
+              </div>
+            )}
             
             {previewFloors().length > 0 && (
               <div className="border rounded-md p-3 mt-2 bg-gray-50">
@@ -178,7 +206,10 @@ const BulkAddFloorsModal = ({
             <Button variant="outline" onClick={onClose} type="button" disabled={isCreating}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isCreating || templates.length === 0}>
+            <Button 
+              type="submit" 
+              disabled={isCreating || templates.length === 0 || !projectId}
+            >
               {isCreating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

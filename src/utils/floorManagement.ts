@@ -35,7 +35,7 @@ export const duplicateFloor = async (
         id: newFloorId,
         label: newLabel,
         position: newPosition,
-        templateId: sourceFloor.template_id,
+        template_id: sourceFloor.template_id,
         project_id: sourceFloor.project_id
       });
 
@@ -97,14 +97,21 @@ export const createBulkFloors = async (
   labelPrefix: string
 ): Promise<string[]> => {
   try {
+    // Validate projectId is provided and not empty
+    if (!projectId || projectId.trim() === '') {
+      throw new Error("Project ID is required for creating floors");
+    }
+    
     const floorIds: string[] = [];
     const floorsToCreate = [];
+    
+    console.log(`Creating bulk floors for project: ${projectId}`);
     
     // Get the current max position to start positioning new floors
     const { data: existingFloors, error: floorsError } = await supabase
       .from("floors")
       .select("position")
-      .eq("project_id", projectId)
+      .eq("project_id", projectId) // Ensure projectId is passed correctly
       .order("position", { ascending: false })
       .limit(1);
       
@@ -113,7 +120,9 @@ export const createBulkFloors = async (
       throw new Error("Failed to get existing floors");
     }
     
-    let startPosition = existingFloors.length > 0 ? existingFloors[0].position + 1 : 1;
+    let startPosition = existingFloors && existingFloors.length > 0 ? existingFloors[0].position + 1 : 1;
+    
+    console.log(`Starting position for new floors: ${startPosition}`);
     
     // Create floors from start to end
     for (let i = startFloor; i <= endFloor; i++) {
@@ -128,6 +137,8 @@ export const createBulkFloors = async (
         template_id: templateId
       });
     }
+    
+    console.log(`Creating ${floorsToCreate.length} floors for project ${projectId}`);
     
     // Insert all floors
     const { error: insertError } = await supabase
@@ -305,7 +316,7 @@ export const createFloorUsageTemplate = async (
  */
 export const fetchFloorUsageTemplates = async (projectId: string) => {
   try {
-    if (!projectId) {
+    if (!projectId || projectId.trim() === '') {
       console.warn("No project ID provided for fetching floor usage templates");
       return [];
     }
@@ -371,7 +382,7 @@ export const applyTemplateToFloors = async (
   floorIds: string[]
 ): Promise<void> => {
   try {
-    if (!templateId) {
+    if (!templateId || templateId.trim() === '') {
       throw new Error("No template ID provided");
     }
     
