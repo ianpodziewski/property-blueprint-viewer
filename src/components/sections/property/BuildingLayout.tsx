@@ -19,9 +19,29 @@ import {
   TableHeader, 
   TableRow
 } from "@/components/ui/table";
-import { Trash, ArrowUp, ArrowDown, PlusCircle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { 
+  Trash, 
+  ArrowUp, 
+  ArrowDown, 
+  PlusCircle, 
+  ChevronDown, 
+  ChevronUp, 
+  Loader2, 
+  Copy, 
+  MoreVertical,
+  LayoutList 
+} from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Floor, FloorPlateTemplate, Product } from "@/hooks/usePropertyState";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { duplicateFloor } from "@/utils/floorManagement";
+import FloorDuplicateModal from "./FloorDuplicateModal";
+import { toast } from "sonner";
 
 const formatNumber = (num: number | undefined): string => {
   return num === undefined || isNaN(num) ? "0" : num.toLocaleString('en-US');
@@ -55,6 +75,11 @@ const BuildingLayout = ({
   const [expandedFloors, setExpandedFloors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingAllocationUpdates, setPendingAllocationUpdates] = useState<Record<string, boolean>>({});
+  
+  // State for floor duplication
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [selectedFloorForDuplicate, setSelectedFloorForDuplicate] = useState<Floor | null>(null);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   
   const handleAddFloor = async () => {
     setIsSubmitting(true);
@@ -138,6 +163,64 @@ const BuildingLayout = ({
       ...prev,
       [allocationKey]: false
     }));
+  };
+
+  // Handle opening the duplicate modal
+  const handleOpenDuplicateModal = (floor: Floor) => {
+    setSelectedFloorForDuplicate(floor);
+    setDuplicateModalOpen(true);
+  };
+
+  // Handle the duplicate operation
+  const handleDuplicateFloor = async (newLabel: string, positionType: "above" | "below") => {
+    if (!selectedFloorForDuplicate) return;
+
+    setIsDuplicating(true);
+    try {
+      // Find floor positions for placement
+      const sortedFloors = [...floors].sort((a, b) => b.position - a.position);
+      const floorIndex = sortedFloors.findIndex(f => f.id === selectedFloorForDuplicate.id);
+      
+      let newPosition: number;
+      if (positionType === "above") {
+        // Position it above the current floor (which means a higher position value)
+        newPosition = sortedFloors[floorIndex].position + 1;
+        
+        // If there's already a floor above, position it between them
+        if (floorIndex > 0) {
+          newPosition = (sortedFloors[floorIndex].position + sortedFloors[floorIndex - 1].position) / 2;
+        }
+      } else {
+        // Position it below the current floor (which means a lower position value)
+        newPosition = sortedFloors[floorIndex].position - 1;
+        
+        // If there's already a floor below, position it between them
+        if (floorIndex < sortedFloors.length - 1) {
+          newPosition = (sortedFloors[floorIndex].position + sortedFloors[floorIndex + 1].position) / 2;
+        }
+      }
+      
+      // Call the duplicate function
+      const newFloorId = await duplicateFloor(
+        selectedFloorForDuplicate.id,
+        newLabel,
+        newPosition
+      );
+      
+      if (newFloorId) {
+        toast.success(`Floor "${newLabel}" created successfully`);
+        // Automatically expand the new floor
+        setExpandedFloors(prev => [...prev, newFloorId]);
+      } else {
+        toast.error("Failed to duplicate floor");
+      }
+    } catch (error) {
+      console.error("Error duplicating floor:", error);
+      toast.error("An error occurred while duplicating the floor");
+    } finally {
+      setIsDuplicating(false);
+      setDuplicateModalOpen(false);
+    }
   };
   
   // Calculate remaining space for a floor
@@ -327,6 +410,28 @@ const BuildingLayout = ({
                           </div>
                           
                           <div className="flex items-center gap-1 ml-2 mt-6">
+                            {/* New dropdown menu for floor actions */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  disabled={isSubmitting}
+                                >
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenDuplicateModal(floor)}>
+                                  <Copy className="h-4 w-4 mr-2" /> Duplicate Floor
+                                </DropdownMenuItem>
+                                <DropdownMenuItem disabled>
+                                  <LayoutList className="h-4 w-4 mr-2" /> Apply to Range...
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+
                             <Button
                               variant="ghost"
                               size="sm"
@@ -508,6 +613,17 @@ const BuildingLayout = ({
           )}
         </CollapsibleContent>
       </Collapsible>
+
+      {/* Floor Duplication Modal */}
+      {selectedFloorForDuplicate && (
+        <FloorDuplicateModal
+          isOpen={duplicateModalOpen}
+          onClose={() => setDuplicateModalOpen(false)}
+          onDuplicate={handleDuplicateFloor}
+          currentFloorLabel={selectedFloorForDuplicate.label}
+          isLoading={isDuplicating}
+        />
+      )}
     </>
   );
 };
