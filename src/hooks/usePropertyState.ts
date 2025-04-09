@@ -76,6 +76,14 @@ export interface Product {
   unitTypes: UnitType[];
 }
 
+// Interface for floor
+export interface Floor {
+  id: string;
+  label: string;
+  position: number;
+  templateId: string;
+}
+
 export const usePropertyState = () => {
   console.log("Initializing usePropertyState hook");
   
@@ -93,6 +101,9 @@ export const usePropertyState = () => {
   
   // Project Configuration - Unit Mix (Products)
   const [products, setProducts] = useState<Product[]>([]);
+  
+  // Project Configuration - Building Layout
+  const [floors, setFloors] = useState<Floor[]>([]);
   
   // Calculate maximum buildable area
   const maxBuildableArea = farAllowance > 0 && lotSize > 0 ? (lotSize * farAllowance / 100) : 0;
@@ -236,15 +247,61 @@ export const usePropertyState = () => {
     setProducts(newProducts);
   };
   
+  // Add a new floor
+  const addFloor = () => {
+    const newPosition = floors.length > 0 
+      ? Math.max(...floors.map(floor => floor.position)) + 1 
+      : 1;
+    
+    const newFloor: Floor = {
+      id: crypto.randomUUID(),
+      label: `Floor ${newPosition}`,
+      position: newPosition,
+      templateId: floorPlateTemplates.length > 0 ? floorPlateTemplates[0].id : ""
+    };
+    
+    console.log("Adding new floor:", newFloor);
+    setFloors(prev => [...prev, newFloor]);
+    return newFloor;
+  };
+  
+  // Update an existing floor
+  const updateFloor = (id: string, updates: Partial<Omit<Floor, 'id'>>) => {
+    console.log(`Updating floor ${id} with:`, updates);
+    setFloors(
+      floors.map(floor => 
+        floor.id === id ? { ...floor, ...updates } : floor
+      )
+    );
+  };
+  
+  // Delete a floor
+  const deleteFloor = (id: string) => {
+    console.log(`Deleting floor ${id}`);
+    setFloors(floors.filter(floor => floor.id !== id));
+  };
+  
+  // Set all floors at once (used during initial load)
+  const setAllFloors = (newFloors: Floor[]) => {
+    console.log("Setting all floors:", newFloors);
+    setFloors(newFloors);
+  };
+  
+  // Get floor template by ID
+  const getFloorTemplateById = (templateId: string): FloorPlateTemplate | undefined => {
+    return floorPlateTemplates.find(template => template.id === templateId);
+  };
+  
   // Log state changes for debugging
   useEffect(() => {
     console.log("Property state updated:", {
       projectName, projectLocation, projectType, 
       farAllowance, lotSize, maxBuildableArea,
       floorPlateTemplates,
-      products
+      products,
+      floors
     });
-  }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, products]);
+  }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, products, floors]);
   
   return {
     // Project Information
@@ -272,6 +329,14 @@ export const usePropertyState = () => {
     addUnitType,
     updateUnitType,
     deleteUnitType,
-    setAllProducts
+    setAllProducts,
+    
+    // Project Configuration - Building Layout
+    floors,
+    addFloor,
+    updateFloor,
+    deleteFloor,
+    setAllFloors,
+    getFloorTemplateById
   };
 };
