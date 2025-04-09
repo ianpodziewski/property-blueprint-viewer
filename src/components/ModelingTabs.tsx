@@ -14,43 +14,53 @@ import Disposition from "./sections/Disposition";
 import SensitivityAnalysis from "./sections/SensitivityAnalysis";
 import { useToast } from "@/hooks/use-toast";
 
-// Track recent events to prevent duplicates
-const recentEvents = new Map<string, number>();
-const EVENT_DEBOUNCE_TIME = 5000; // 5 seconds
+// Create a stronger event tracker with longer expiry
+const eventTracker = {
+  recentEvents: new Map<string, number>(),
+  EVENT_DEBOUNCE_TIME: 5000, // Increased to 5 seconds
+  processingEvent: false,
+  
+  // Check if event should be skipped (it's a duplicate)
+  shouldSkipEvent(eventType: string): boolean {
+    if (this.processingEvent) return true;
+    
+    const now = Date.now();
+    const lastEvent = this.recentEvents.get(eventType);
+    return !!lastEvent && now - lastEvent < this.EVENT_DEBOUNCE_TIME;
+  },
+  
+  // Record an event
+  trackEvent(eventType: string): void {
+    this.recentEvents.set(eventType, Date.now());
+    
+    // Clean up old events
+    const now = Date.now();
+    for (const [key, timestamp] of this.recentEvents.entries()) {
+      if (now - timestamp > this.EVENT_DEBOUNCE_TIME) {
+        this.recentEvents.delete(key);
+      }
+    }
+  }
+};
 
 const ModelingTabs = () => {
   const [activeTab, setActiveTab] = useState("property");
   const [floorConfigSaved, setFloorConfigSaved] = useState(0);
   const { toast } = useToast();
   const renderCountRef = useRef(0);
-  const processingEventRef = useRef(false);
   
-  // Improved event handling with deduplication
+  // Improved event handling with stronger deduplication
   const handleEvent = useCallback((eventType: string, toastMessage: string, toastDescription?: string) => {
-    // Skip if already processing an event
-    if (processingEventRef.current) {
+    // Skip if this event was recently processed
+    if (eventTracker.shouldSkipEvent(eventType)) {
       return;
     }
     
-    // Skip duplicate events
-    const now = Date.now();
-    const lastEvent = recentEvents.get(eventType);
-    if (lastEvent && now - lastEvent < EVENT_DEBOUNCE_TIME) {
-      return;
-    }
+    // Mark event as being processed
+    eventTracker.processingEvent = true;
     
-    // Track this event
-    recentEvents.set(eventType, now);
-    
-    // Clean up old events
-    for (const [key, timestamp] of recentEvents.entries()) {
-      if (now - timestamp > EVENT_DEBOUNCE_TIME) {
-        recentEvents.delete(key);
-      }
-    }
-    
-    // Set processing flag
-    processingEventRef.current = true;
+    // Track this event to prevent duplicates
+    eventTracker.trackEvent(eventType);
     
     // Show toast
     toast({
@@ -64,38 +74,43 @@ const ModelingTabs = () => {
       setFloorConfigSaved(prev => prev + 1);
     }
     
-    // Reset processing flag after a short delay
+    // Reset processing flag after a delay
     setTimeout(() => {
-      processingEventRef.current = false;
-    }, 500);
+      eventTracker.processingEvent = false;
+    }, 1000);
   }, [toast]);
   
-  // Listen for floor config saved event
+  // Listen for floor config saved event with improved debounce
   useEffect(() => {
-    let timeoutId: number | undefined;
+    const debounceTimeoutRef = useRef<number | null>(null);
     
-    const debouncedHandler = () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+    const handleFloorConfigSaved = () => {
+      // Clear previous timeout if exists
+      if (debounceTimeoutRef.current) {
+        window.clearTimeout(debounceTimeoutRef.current);
       }
       
-      timeoutId = window.setTimeout(() => {
+      // Set new debounced handler
+      debounceTimeoutRef.current = window.setTimeout(() => {
         handleEvent('floorConfigSaved', "Floor configuration saved", "Changes have been saved successfully");
-      }, 500);
+        debounceTimeoutRef.current = null;
+      }, 800); // Longer debounce for better stability
     };
     
-    window.addEventListener('floorConfigSaved', debouncedHandler);
+    window.addEventListener('floorConfigSaved', handleFloorConfigSaved);
     
     return () => {
-      window.removeEventListener('floorConfigSaved', debouncedHandler);
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      window.removeEventListener('floorConfigSaved', handleFloorConfigSaved);
+      if (debounceTimeoutRef.current) {
+        window.clearTimeout(debounceTimeoutRef.current);
       }
     };
   }, [handleEvent]);
 
-  // Listen for unit types changed event
+  // Listen for unit types changed event with improved handling
   useEffect(() => {
+    const debounceTimeoutRef = useRef<number | null>(null);
+    
     const handleUnitTypesChanged = (event: Event) => {
       // Skip if we have a custom detail with skipNotification flag
       const customEvent = event as CustomEvent<{skipNotification?: boolean}>;
@@ -103,13 +118,25 @@ const ModelingTabs = () => {
         return;
       }
       
-      handleEvent('unitTypesChanged', "Unit types updated", "Changes have been saved successfully");
+      // Clear previous timeout if exists
+      if (debounceTimeoutRef.current) {
+        window.clearTimeout(debounceTimeoutRef.current);
+      }
+      
+      // Set new debounced handler
+      debounceTimeoutRef.current = window.setTimeout(() => {
+        handleEvent('unitTypesChanged', "Unit types updated", "Changes have been saved successfully");
+        debounceTimeoutRef.current = null;
+      }, 800); // Longer debounce for better stability
     };
     
     window.addEventListener('unitTypesChanged', handleUnitTypesChanged);
     
     return () => {
       window.removeEventListener('unitTypesChanged', handleUnitTypesChanged);
+      if (debounceTimeoutRef.current) {
+        window.clearTimeout(debounceTimeoutRef.current);
+      }
     };
   }, [handleEvent]);
   

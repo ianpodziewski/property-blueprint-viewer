@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Check, AlertCircle, Upload, Download, RefreshCw } from 'lucide-react';
 import { Toast, ToastProvider, ToastTitle, ToastViewport } from '@/components/ui/toast';
@@ -8,9 +9,32 @@ interface SaveNotificationProps {
   onClose: () => void;
 }
 
-// Keep track of recent notifications to prevent duplicates
-const recentNotifications = new Map<string, number>();
-const NOTIFICATION_EXPIRY = 5000; // 5 seconds
+// Global notification tracking with stronger deduplication
+const notificationTracker = {
+  recentNotifications: new Map<string, number>(),
+  isProcessing: false,
+  NOTIFICATION_EXPIRY: 5000, // 5 seconds
+  
+  // Check if notification is a duplicate
+  isDuplicate(type: string): boolean {
+    const now = Date.now();
+    const lastShown = this.recentNotifications.get(type);
+    return lastShown !== undefined && now - lastShown < this.NOTIFICATION_EXPIRY;
+  },
+  
+  // Record a notification
+  trackNotification(type: string): void {
+    this.recentNotifications.set(type, Date.now());
+    
+    // Clean up old notifications
+    const now = Date.now();
+    for (const [key, timestamp] of this.recentNotifications.entries()) {
+      if (now - timestamp > this.NOTIFICATION_EXPIRY) {
+        this.recentNotifications.delete(key);
+      }
+    }
+  }
+};
 
 const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) => {
   const [visible, setVisible] = useState(false);
@@ -20,31 +44,28 @@ const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) 
   // Use centralized toast system for notifications
   const { toast } = useToast();
   
-  // Only show important notifications as toasts with deduplication
+  // Only show important notifications as toasts with enhanced deduplication
   useEffect(() => {
-    if (!status) return;
+    // Skip if no status or already processing a notification
+    if (!status || notificationTracker.isProcessing) return;
     
     // Create a unique key for this notification type
-    const notificationKey = `notification-${status}-${Date.now()}`;
+    const notificationKey = `notification-${status}`;
     notificationIdRef.current = notificationKey;
     
-    // Check if we've shown this type of notification recently
-    const now = Date.now();
-    const lastShown = recentNotifications.get(status);
-    const isDuplicate = lastShown && (now - lastShown < NOTIFICATION_EXPIRY);
-    
-    // Update the last shown time for this notification type
-    recentNotifications.set(status, now);
-    
-    // Clean up old notifications from the tracking map
-    for (const [key, timestamp] of recentNotifications.entries()) {
-      if (now - timestamp > NOTIFICATION_EXPIRY) {
-        recentNotifications.delete(key);
-      }
+    // Skip if this is a duplicate notification
+    if (notificationTracker.isDuplicate(status)) {
+      return;
     }
     
-    // Only show toast for important events and avoid duplicates
-    if ((status === 'error' || status === 'reset' || status === 'exported' || status === 'imported') && !isDuplicate) {
+    // Set processing flag to prevent overlapping notifications
+    notificationTracker.isProcessing = true;
+    
+    // Track this notification
+    notificationTracker.trackNotification(status);
+    
+    // Only show toast for important events
+    if (status === 'error' || status === 'reset' || status === 'exported' || status === 'imported') {
       const title = {
         error: 'Error',
         reset: 'Reset Complete',
@@ -66,6 +87,11 @@ const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) 
         duration: 3000,
       });
     }
+    
+    // Release processing lock after a delay
+    setTimeout(() => {
+      notificationTracker.isProcessing = false;
+    }, 1000);
   }, [status, toast]);
   
   // Handle visibility of notification with debouncing
