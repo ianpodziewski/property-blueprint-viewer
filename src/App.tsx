@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { ModelProvider } from "@/context/ModelContext";
+import { AuthProvider } from "@/context/AuthContext";
 import AppRoutes from "./AppRoutes";
 import StateInspector from "./components/debug/StateInspector";
 
@@ -21,12 +22,14 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BrowserRouter>
-          <ModelProvider>
-            <Toaster />
-            <Sonner />
-            <AppRoutes />
-            {isDebugMode && <StateInspector />}
-          </ModelProvider>
+          <AuthProvider>
+            <ModelProvider>
+              <Toaster />
+              <Sonner />
+              <AppRoutes />
+              {isDebugMode && <StateInspector />}
+            </ModelProvider>
+          </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
