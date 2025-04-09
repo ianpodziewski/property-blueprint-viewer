@@ -229,15 +229,19 @@ const BuildingLayout: React.FC = () => {
                 
                 {/* Controls */}
                 <div className="flex items-center gap-1">
-                  <CollapsibleTrigger 
-                    onClick={() => toggleFloorExpansion(floor.id)}
-                    className="hover:bg-gray-100 h-8 w-8 rounded-md flex items-center justify-center"
-                  >
-                    {expandedFloors[floor.id] ? 
-                      <ChevronUp className="h-4 w-4" /> : 
-                      <ChevronDown className="h-4 w-4" />
-                    }
-                  </CollapsibleTrigger>
+                  {/* This is where the error is happening - wrapping with Collapsible */}
+                  <Collapsible open={expandedFloors[floor.id]}>
+                    <CollapsibleTrigger 
+                      onClick={() => toggleFloorExpansion(floor.id)}
+                      className="hover:bg-gray-100 h-8 w-8 rounded-md flex items-center justify-center"
+                    >
+                      {expandedFloors[floor.id] ? 
+                        <ChevronUp className="h-4 w-4" /> : 
+                        <ChevronDown className="h-4 w-4" />
+                      }
+                    </CollapsibleTrigger>
+                    {/* CollapsibleContent is already properly placed within Collapsible below */}
+                  </Collapsible>
                   
                   <Button
                     variant="ghost"
