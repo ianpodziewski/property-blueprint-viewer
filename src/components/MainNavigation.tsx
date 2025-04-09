@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/navigation-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useModel } from "@/context/ModelContext";
 import { BookOpen, BarChart3, Building2, CalendarDays, DollarSign, FileText, LineChart, Percent, Workflow } from "lucide-react";
 
 const sections = [
@@ -68,12 +69,9 @@ const sections = [
   }
 ];
 
-export type ActiveTabProps = {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-};
+const MainNavigation = () => {
+  const { activeTab, setActiveTab } = useModel();
 
-const MainNavigation = ({ activeTab, setActiveTab }: ActiveTabProps) => {
   return (
     <NavigationMenu className="max-w-full w-full justify-center overflow-x-auto py-2">
       <NavigationMenuList className="flex w-full justify-between px-4">

@@ -1,7 +1,8 @@
 
-import { useState } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { useModel } from "@/context/ModelContext";
 import MainNavigation from "./MainNavigation";
+import NavigationControls from "./NavigationControls";
 import PropertyBreakdown from "./sections/PropertyBreakdown";
 import DevelopmentCosts from "./sections/DevelopmentCosts";
 import DevelopmentTimeline from "./sections/DevelopmentTimeline";
@@ -13,15 +14,20 @@ import Disposition from "./sections/Disposition";
 import SensitivityAnalysis from "./sections/SensitivityAnalysis";
 
 const ModelingTabs = () => {
-  const [activeTab, setActiveTab] = useState("property");
+  const { activeTab } = useModel();
 
   return (
     <div className="w-full space-y-4">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
-        <MainNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+        <div className="flex justify-between items-center">
+          <MainNavigation />
+          <div className="pr-4">
+            <NavigationControls />
+          </div>
+        </div>
       </div>
       
-      <Tabs value={activeTab} className="w-full" onValueChange={(value) => setActiveTab(value)}>
+      <Tabs value={activeTab} className="w-full">
         <div className="mt-4 bg-white rounded-md p-6 border border-gray-200">
           <TabsContent value="property" className="space-y-4">
             <PropertyBreakdown />
