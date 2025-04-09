@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,8 @@ import {
   MoreVertical,
   LayoutList,
   Save,
-  Plus
+  Plus,
+  RefreshCw
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Floor, FloorPlateTemplate, Product } from "@/hooks/usePropertyState";
@@ -62,6 +63,7 @@ interface BuildingLayoutProps {
   onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<boolean>;
   getUnitAllocation: (floorId: string, unitTypeId: string) => number;
   getFloorTemplateById: (templateId: string) => FloorPlateTemplate | undefined;
+  onRefreshData?: () => Promise<void>;
 }
 
 const BuildingLayout = ({
@@ -73,7 +75,8 @@ const BuildingLayout = ({
   onDeleteFloor,
   onUpdateUnitAllocation,
   getUnitAllocation,
-  getFloorTemplateById
+  getFloorTemplateById,
+  onRefreshData
 }: BuildingLayoutProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedFloors, setExpandedFloors] = useState<string[]>([]);
@@ -91,6 +94,10 @@ const BuildingLayout = ({
   const [selectedFloorForTemplate, setSelectedFloorForTemplate] = useState<Floor | null>(null);
   
   const [bulkAddModalOpen, setBulkAddModalOpen] = useState(false);
+  
+  useEffect(() => {
+    console.log("BuildingLayout: Current floors data:", floors);
+  }, [floors]);
   
   const projectId = floors.length > 0 && floors[0].projectId ? 
     floors[0].projectId : 
@@ -237,9 +244,15 @@ const BuildingLayout = ({
   };
   
   const handleRefreshData = async () => {
+    console.log("BuildingLayout: Requesting data refresh");
     try {
       if (floors.length > 0) {
         toast.info("Refreshing floor data...");
+      }
+      
+      if (onRefreshData) {
+        await onRefreshData();
+        console.log("BuildingLayout: Data refresh completed via prop");
       }
     } catch (error) {
       console.error("Error refreshing data:", error);
@@ -380,6 +393,15 @@ const BuildingLayout = ({
               disabled={sortedFloors.length === 0}
             >
               <Save className="h-4 w-4 mr-1" /> Save as Template
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshData}
+              title="Manually refresh floor data"
+            >
+              <RefreshCw className="h-4 w-4 mr-1" /> Refresh Data
             </Button>
           </div>
           

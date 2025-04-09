@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +50,10 @@ const PropertyBreakdown = () => {
   
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
   
-  // Calculate max buildable area whenever lot size or FAR changes
+  useEffect(() => {
+    console.log("PropertyBreakdown: Floors data updated:", floors);
+  }, [floors]);
+  
   useEffect(() => {
     if (projectData) {
       const maxArea = projectData.far_allowance > 0 && projectData.lot_size > 0 
@@ -64,14 +66,12 @@ const PropertyBreakdown = () => {
     }
   }, [projectData?.far_allowance, projectData?.lot_size]);
 
-  // Update formatted lot size whenever projectData changes
   useEffect(() => {
     if (projectData) {
       setFormattedLotSize(formatNumber(projectData.lot_size));
     }
   }, [projectData?.lot_size]);
 
-  // Handle lot size input change with formatting
   const handleLotSizeChange = (value: string) => {
     const rawValue = value.replace(/[^0-9]/g, '');
     const numericValue = rawValue === '' ? 0 : Number(rawValue);
@@ -80,15 +80,26 @@ const PropertyBreakdown = () => {
     setHasUnsavedChanges(true);
   };
 
-  // Handle user data change and mark as having unsaved changes
   const handleDataChange = (updates: any) => {
     updateProjectInfo(updates);
     setHasUnsavedChanges(true);
   };
 
-  // Handle retry loading
   const handleRetry = () => {
+    console.log("Manually triggering data reload");
     reloadProjectData();
+  };
+
+  const handleDataRefresh = async () => {
+    console.log("PropertyBreakdown: Manual data refresh requested");
+    try {
+      await reloadProjectData();
+      console.log("PropertyBreakdown: Manual data refresh completed");
+      toast.success("Data refreshed successfully");
+    } catch (error) {
+      console.error("PropertyBreakdown: Error during manual refresh:", error);
+      toast.error("Failed to refresh data");
+    }
   };
 
   if (loading) {
@@ -310,6 +321,7 @@ const PropertyBreakdown = () => {
             onUpdateUnitAllocation={updateUnitAllocation}
             getUnitAllocation={getUnitAllocation}
             getFloorTemplateById={getFloorTemplateById}
+            onRefreshData={handleDataRefresh}
           />
         </CardContent>
       </Card>

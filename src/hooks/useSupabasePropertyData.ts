@@ -21,7 +21,6 @@ export interface ProjectData {
   user_id: string;
 }
 
-// Define the shape of floor plate template data from Supabase
 interface FloorPlateTemplateData {
   area: number;
   created_at: string;
@@ -33,7 +32,6 @@ interface FloorPlateTemplateData {
   length: number | null;
 }
 
-// Define the shape of unit type data from Supabase
 interface UnitTypeData {
   area: number;
   category: string;
@@ -76,13 +74,12 @@ export function useSupabasePropertyData(projectId: string | null) {
       return;
     }
     
+    console.log("========= LOADING PROJECT DATA START =========");
+    console.log(`Loading project data for project ${effectiveProjectId}, attempt #${loadAttempts + 1}`);
     setLoading(true);
     setError(null);
     
     try {
-      console.log(`Loading project data for project ${effectiveProjectId}, attempt #${loadAttempts + 1}`);
-      
-      // Load project details
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
         .select('*')
@@ -102,7 +99,6 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       console.log("Project data loaded:", projectData);
       
-      // Ensure all required properties exist with default values if not present
       const completeProjectData: ProjectData = {
         id: projectData.id,
         name: projectData.name,
@@ -116,7 +112,6 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       setProjectData(completeProjectData);
       
-      // Load floor plate templates
       const { data: templateData, error: templateError } = await supabase
         .from('floor_plate_templates')
         .select('*')
@@ -124,7 +119,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (templateError) throw templateError;
       
-      // Transform to match internal format
       const transformedTemplates = (templateData || []).map((template: FloorPlateTemplateData) => ({
         id: template.id,
         name: template.name,
@@ -135,7 +129,6 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       setFloorPlateTemplates(transformedTemplates);
       
-      // Load unit types and organize by product
       const { data: unitTypesData, error: unitTypesError } = await supabase
         .from('unit_types')
         .select('*')
@@ -143,14 +136,13 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (unitTypesError) throw unitTypesError;
       
-      // Group unit types by category (which serves as our "product")
       const productMap = new Map<string, Product>();
       (unitTypesData || []).forEach((unitType: UnitTypeData) => {
         const category = unitType.category;
         
         if (!productMap.has(category)) {
           productMap.set(category, {
-            id: crypto.randomUUID(), // Create a client-side ID for the product
+            id: crypto.randomUUID(),
             name: category,
             unitTypes: [],
           });
@@ -169,26 +161,31 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       setProducts(Array.from(productMap.values()));
       
-      // Load floors
+      console.log("Loading floors for project:", effectiveProjectId);
       const { data: floorData, error: floorError } = await supabase
         .from('floors')
         .select('*')
         .eq('project_id', effectiveProjectId)
         .order('position', { ascending: false });
         
-      if (floorError) throw floorError;
+      if (floorError) {
+        console.error("Error loading floors:", floorError);
+        throw floorError;
+      }
       
-      // Transform to match internal format
+      console.log("Raw floor data loaded from database:", floorData);
+      
       const transformedFloors = (floorData || []).map(floor => ({
         id: floor.id,
         label: floor.label,
         position: floor.position,
         templateId: floor.template_id || '',
+        projectId: floor.project_id,
       }));
       
+      console.log("Transformed floor data:", transformedFloors);
       setFloors(transformedFloors);
       
-      // Load unit allocations
       const { data: unitAllocData, error: unitAllocError } = await supabase
         .from('unit_allocations')
         .select(`
@@ -201,18 +198,21 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       setUnitAllocations(unitAllocData || []);
       console.log("Project data loaded successfully");
+      console.log("========= LOADING PROJECT DATA END =========");
     } catch (error) {
       console.error("Error loading project data:", error);
       setError(error instanceof Error ? error.message : "Failed to load project data");
       toast.error("Could not load project data. Please try again.");
+      console.log("========= LOADING PROJECT DATA ERROR =========");
     } finally {
       setLoading(false);
     }
   }, [effectiveProjectId, user, loadAttempts]);
 
-  const reloadProjectData = () => {
+  const reloadProjectData = useCallback(() => {
+    console.log("Triggering project data reload (attempt #" + (loadAttempts + 1) + ")");
     setLoadAttempts(prev => prev + 1);
-  };
+  }, [loadAttempts]);
 
   useEffect(() => {
     console.log("useSupabasePropertyData - Effect running with projectId:", effectiveProjectId);
@@ -234,7 +234,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Update local state
       setProjectData({ ...projectData, ...updates });
       
     } catch (error) {
@@ -249,7 +248,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return null;
     
     try {
-      // Convert from internal format to database format
       const dbTemplate = {
         project_id: effectiveProjectId,
         name: template.name,
@@ -266,7 +264,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Create new template with server-generated ID
       const newTemplate: FloorPlateTemplate = {
         id: data.id,
         name: data.name,
@@ -275,7 +272,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         length: data.length ? Number(data.length) : undefined
       };
       
-      // Update local state
       setFloorPlateTemplates(prev => [...prev, newTemplate]);
       return newTemplate;
       
@@ -290,7 +286,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
-      // Convert from internal format to database format
       const dbUpdates: any = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.grossArea !== undefined) dbUpdates.area = updates.grossArea;
@@ -304,7 +299,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Update local state
       setFloorPlateTemplates(prev => 
         prev.map(template => 
           template.id === id ? { ...template, ...updates } : template
@@ -330,7 +324,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Update local state
       setFloorPlateTemplates(prev => prev.filter(template => template.id !== id));
       return true;
       

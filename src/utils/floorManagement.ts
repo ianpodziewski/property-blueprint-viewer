@@ -1,448 +1,170 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { v4 as uuidv4 } from "uuid";
+import { toast } from "sonner";
 
-/**
- * Duplicates a floor with its template and unit allocations
- * @param floorId The ID of the floor to duplicate
- * @param newLabel The label for the new floor
- * @param newPosition The position for the new floor
- * @returns The ID of the newly created floor
- */
-export const duplicateFloor = async (
-  floorId: string,
-  newLabel: string,
-  newPosition: number
-): Promise<string> => {
-  try {
-    // Get the source floor
-    const { data: sourceFloor, error: floorError } = await supabase
-      .from("floors")
-      .select()
-      .eq("id", floorId)
-      .single();
-
-    if (floorError || !sourceFloor) {
-      console.error("Error getting source floor:", floorError);
-      throw new Error("Failed to find source floor");
-    }
-
-    // Create the new floor
-    const newFloorId = uuidv4();
-    const { error: newFloorError } = await supabase
-      .from("floors")
-      .insert({
-        id: newFloorId,
-        label: newLabel,
-        position: newPosition,
-        template_id: sourceFloor.template_id,
-        project_id: sourceFloor.project_id
-      });
-
-    if (newFloorError) {
-      console.error("Error creating new floor:", newFloorError);
-      throw new Error("Failed to create new floor");
-    }
-
-    // Get the unit allocations from the source floor
-    const { data: allocations, error: allocationsError } = await supabase
-      .from("unit_allocations")
-      .select()
-      .eq("floor_id", floorId);
-
-    if (allocationsError) {
-      console.error("Error getting unit allocations:", allocationsError);
-      throw new Error("Failed to get unit allocations");
-    }
-
-    // Create new unit allocations for the new floor
-    if (allocations && allocations.length > 0) {
-      const newAllocations = allocations.map(allocation => ({
-        floor_id: newFloorId,
-        unit_type_id: allocation.unit_type_id,
-        quantity: allocation.quantity
-      }));
-
-      const { error: newAllocationsError } = await supabase
-        .from("unit_allocations")
-        .insert(newAllocations);
-
-      if (newAllocationsError) {
-        console.error("Error creating new allocations:", newAllocationsError);
-        throw new Error("Failed to create unit allocations");
-      }
-    }
-
-    return newFloorId;
-  } catch (error) {
-    console.error("Error duplicating floor:", error);
-    throw error;
-  }
-};
-
-/**
- * Creates multiple floors with the same template
- * @param projectId Project ID
- * @param templateId Floor plate template ID
- * @param startFloor Starting floor number
- * @param endFloor Ending floor number
- * @param labelPrefix Prefix for floor labels
- * @returns Array of created floor IDs
- */
-export const createBulkFloors = async (
+export async function createBulkFloors(
   projectId: string,
   templateId: string,
   startFloor: number,
   endFloor: number,
   labelPrefix: string
-): Promise<string[]> => {
+): Promise<string[]> {
+  console.log("Starting bulk floor creation with project ID:", projectId);
+  
+  if (!projectId) {
+    console.error("Missing project ID for floor creation");
+    throw new Error("Project ID is required for floor creation");
+  }
+  
   try {
-    // Validate projectId is provided and not empty
-    if (!projectId || projectId.trim() === '') {
-      console.error("Project ID is missing or empty:", projectId);
-      throw new Error("Project ID is required for creating floors");
-    }
-    
-    console.log("Starting bulk floor creation with project ID:", projectId);
-    
-    const floorIds: string[] = [];
-    const floorsToCreate = [];
-    
-    // Get the current max position to start positioning new floors
+    // Fetch existing floors to determine the next position
     console.log("Fetching existing floors for project:", projectId);
-    const { data: existingFloors, error: floorsError } = await supabase
-      .from("floors")
-      .select("position")
-      .eq("project_id", projectId)
-      .order("position", { ascending: false })
+    const { data: existingFloors, error: fetchError } = await supabase
+      .from('floors')
+      .select('position')
+      .eq('project_id', projectId)
+      .order('position', { ascending: false })
       .limit(1);
-      
-    if (floorsError) {
-      console.error("Error getting existing floors:", floorsError);
-      throw new Error("Failed to get existing floors");
+    
+    if (fetchError) {
+      console.error("Error fetching existing floors:", fetchError);
+      throw fetchError;
     }
     
-    let startPosition = existingFloors && existingFloors.length > 0 ? existingFloors[0].position + 1 : 1;
+    console.log("Existing floors data:", existingFloors);
     
-    console.log(`Starting position for new floors: ${startPosition}`);
-    console.log(`Creating floors from ${startFloor} to ${endFloor} with prefix "${labelPrefix}"`);
+    // Determine starting position
+    let startPosition = 1;
+    if (existingFloors && existingFloors.length > 0) {
+      startPosition = existingFloors[0].position + 1;
+    }
     
-    // Create floors from start to end
+    console.log("Starting position for new floors:", startPosition);
+    
+    // Prepare floors to create
+    const floorsToCreate = [];
+    const createdFloorIds = [];
+    
     for (let i = startFloor; i <= endFloor; i++) {
-      const floorId = uuidv4();
-      floorIds.push(floorId);
+      const floorLabel = `${labelPrefix} ${i}`;
+      const position = startPosition + (i - startFloor);
+      
+      const floorId = crypto.randomUUID();
+      createdFloorIds.push(floorId);
       
       floorsToCreate.push({
         id: floorId,
-        label: `${labelPrefix} ${i}`,
-        position: startPosition + (i - startFloor),
         project_id: projectId,
+        label: floorLabel,
+        position: position,
         template_id: templateId
       });
       
-      console.log(`Prepared floor "${labelPrefix} ${i}" with ID ${floorId}`);
+      console.log(`Prepared floor "${floorLabel}" with ID ${floorId}`);
     }
     
     console.log(`Inserting ${floorsToCreate.length} floors for project ${projectId}`);
     
-    // Insert all floors
     const { error: insertError } = await supabase
-      .from("floors")
+      .from('floors')
       .insert(floorsToCreate);
-      
+    
     if (insertError) {
-      console.error("Error creating bulk floors:", insertError);
-      throw new Error("Failed to create floors");
+      console.error("Error inserting floors:", insertError);
+      throw insertError;
     }
     
     console.log(`Successfully created ${floorsToCreate.length} floors`);
-    return floorIds;
+    return createdFloorIds;
+    
   } catch (error) {
-    console.error("Error creating bulk floors:", error);
+    console.error("Error in createBulkFloors:", error);
+    toast.error("Failed to create floors");
     throw error;
   }
-};
+}
 
-/**
- * Applies a floor's configuration to multiple floors
- * @param sourceFloorId Source floor ID
- * @param targetFloorIds Array of target floor IDs
- * @param replaceExisting Whether to replace existing unit allocations
- */
-export const applyFloorToRange = async (
-  sourceFloorId: string,
-  targetFloorIds: string[],
-  replaceExisting: boolean
-): Promise<void> => {
+export async function duplicateFloor(
+  floorId: string,
+  newLabel: string,
+  newPosition: number
+): Promise<string> {
+  console.log(`Duplicating floor ${floorId} to position ${newPosition} with label "${newLabel}"`);
+  
   try {
-    // Get the source floor's unit allocations
-    const { data: sourceAllocations, error: allocationsError } = await supabase
-      .from("unit_allocations")
-      .select()
-      .eq("floor_id", sourceFloorId);
-      
-    if (allocationsError || !sourceAllocations) {
-      console.error("Error getting source allocations:", allocationsError);
-      throw new Error("Failed to get source floor allocations");
+    // Get the original floor data
+    const { data: originalFloor, error: fetchError } = await supabase
+      .from('floors')
+      .select('*, project_id, template_id')
+      .eq('id', floorId)
+      .single();
+    
+    if (fetchError) {
+      console.error("Error fetching original floor:", fetchError);
+      throw fetchError;
     }
     
-    // Process each target floor
-    for (const targetFloorId of targetFloorIds) {
-      // Delete existing allocations if specified
-      if (replaceExisting) {
-        const { error: deleteError } = await supabase
-          .from("unit_allocations")
-          .delete()
-          .eq("floor_id", targetFloorId);
-          
-        if (deleteError) {
-          console.error(`Error deleting allocations for floor ${targetFloorId}:`, deleteError);
-          throw new Error("Failed to delete existing allocations");
-        }
-      }
-      
-      // Skip this floor if no allocations to copy
-      if (sourceAllocations.length === 0) continue;
-      
-      // Create new allocations based on source
-      const newAllocations = sourceAllocations.map(allocation => ({
-        floor_id: targetFloorId,
-        unit_type_id: allocation.unit_type_id,
-        quantity: allocation.quantity
-      }));
-      
-      // Insert new allocations or update existing ones
-      if (replaceExisting) {
-        // Insert new allocations
-        const { error: insertError } = await supabase
-          .from("unit_allocations")
-          .insert(newAllocations);
-          
-        if (insertError) {
-          console.error(`Error creating allocations for floor ${targetFloorId}:`, insertError);
-          throw new Error("Failed to create allocations");
-        }
-      } else {
-        // Upsert each allocation individually
-        for (const allocation of sourceAllocations) {
-          const { error: upsertError } = await supabase
-            .from("unit_allocations")
-            .upsert({
-              floor_id: targetFloorId,
-              unit_type_id: allocation.unit_type_id,
-              quantity: allocation.quantity
-            }, {
-              onConflict: 'floor_id,unit_type_id'
-            });
-            
-          if (upsertError) {
-            console.error(`Error upserting allocation for floor ${targetFloorId}:`, upsertError);
-            throw new Error("Failed to update allocations");
-          }
-        }
-      }
+    if (!originalFloor) {
+      throw new Error("Original floor not found");
     }
-  } catch (error) {
-    console.error("Error applying floor to range:", error);
-    throw error;
-  }
-};
-
-/**
- * Creates a floor usage template from a floor
- * @param projectId Project ID
- * @param name Template name
- * @param floorTemplateId Floor plate template ID
- * @param sourceFloorId Source floor ID to copy allocations from
- * @returns The ID of the created template
- */
-export const createFloorUsageTemplate = async (
-  projectId: string,
-  name: string,
-  floorTemplateId: string,
-  sourceFloorId: string
-): Promise<string> => {
-  try {
-    // Create the template
-    const templateId = uuidv4();
-    const { error: templateError } = await supabase
-      .from("floor_usage_templates")
+    
+    console.log("Original floor data:", originalFloor);
+    
+    // Create new floor with same template
+    const newFloorId = crypto.randomUUID();
+    
+    const { error: insertError } = await supabase
+      .from('floors')
       .insert({
-        id: templateId,
-        name,
-        project_id: projectId,
-        template_id: floorTemplateId
+        id: newFloorId,
+        project_id: originalFloor.project_id,
+        label: newLabel,
+        position: newPosition,
+        template_id: originalFloor.template_id
       });
-      
-    if (templateError) {
-      console.error("Error creating floor usage template:", templateError);
-      throw new Error("Failed to create template");
+    
+    if (insertError) {
+      console.error("Error inserting new floor:", insertError);
+      throw insertError;
     }
     
-    // Get allocations from the source floor
-    const { data: allocations, error: allocationsError } = await supabase
-      .from("unit_allocations")
-      .select()
-      .eq("floor_id", sourceFloorId);
-      
-    if (allocationsError) {
-      console.error("Error getting allocations:", allocationsError);
-      throw new Error("Failed to get allocations");
+    // Get unit allocations from original floor
+    const { data: allocations, error: allocError } = await supabase
+      .from('unit_allocations')
+      .select('unit_type_id, quantity')
+      .eq('floor_id', floorId);
+    
+    if (allocError) {
+      console.error("Error fetching original floor allocations:", allocError);
+      throw allocError;
     }
     
-    // Create template allocations
+    // Duplicate unit allocations if any exist
     if (allocations && allocations.length > 0) {
-      const templateAllocations = allocations.map(allocation => ({
-        template_id: templateId,
-        unit_type_id: allocation.unit_type_id,
-        quantity: allocation.quantity
+      console.log("Duplicating unit allocations:", allocations);
+      
+      const newAllocations = allocations.map(alloc => ({
+        floor_id: newFloorId,
+        unit_type_id: alloc.unit_type_id,
+        quantity: alloc.quantity
       }));
       
-      const { error: allocError } = await supabase
-        .from("floor_usage_template_allocations")
-        .insert(templateAllocations);
-        
-      if (allocError) {
-        console.error("Error creating template allocations:", allocError);
-        throw new Error("Failed to create template allocations");
-      }
-    }
-    
-    return templateId;
-  } catch (error) {
-    console.error("Error creating floor usage template:", error);
-    throw error;
-  }
-};
-
-/**
- * Fetches floor usage templates for a project
- * @param projectId Project ID
- * @returns Array of floor usage templates
- */
-export const fetchFloorUsageTemplates = async (projectId: string) => {
-  try {
-    if (!projectId || projectId.trim() === '') {
-      console.warn("No project ID provided for fetching floor usage templates");
-      return [];
-    }
-    
-    const { data: templates, error } = await supabase
-      .from("floor_usage_templates")
-      .select()
-      .eq("project_id", projectId);
-      
-    if (error) {
-      console.error("Error fetching floor usage templates:", error);
-      throw new Error("Failed to fetch templates");
-    }
-    
-    return templates || [];
-  } catch (error) {
-    console.error("Error fetching floor usage templates:", error);
-    // Return empty array instead of throwing to prevent UI errors
-    return [];
-  }
-};
-
-/**
- * Deletes a floor usage template
- * @param templateId Template ID
- */
-export const deleteFloorUsageTemplate = async (templateId: string): Promise<void> => {
-  try {
-    // Delete template allocations first
-    const { error: allocsError } = await supabase
-      .from("floor_usage_template_allocations")
-      .delete()
-      .eq("template_id", templateId);
-      
-    if (allocsError) {
-      console.error("Error deleting template allocations:", allocsError);
-      throw new Error("Failed to delete template allocations");
-    }
-    
-    // Delete the template
-    const { error } = await supabase
-      .from("floor_usage_templates")
-      .delete()
-      .eq("id", templateId);
-      
-    if (error) {
-      console.error("Error deleting floor usage template:", error);
-      throw new Error("Failed to delete template");
-    }
-  } catch (error) {
-    console.error("Error deleting floor usage template:", error);
-    throw error;
-  }
-};
-
-/**
- * Applies a floor usage template to floors
- * @param templateId Template ID
- * @param floorIds Array of floor IDs to apply the template to
- */
-export const applyTemplateToFloors = async (
-  templateId: string,
-  floorIds: string[]
-): Promise<void> => {
-  try {
-    if (!templateId || templateId.trim() === '') {
-      throw new Error("No template ID provided");
-    }
-    
-    if (!floorIds || floorIds.length === 0) {
-      throw new Error("No floor IDs provided");
-    }
-    
-    // Get template allocations
-    const { data: templateAllocations, error: allocsError } = await supabase
-      .from("floor_usage_template_allocations")
-      .select()
-      .eq("template_id", templateId);
-      
-    if (allocsError) {
-      console.error("Error getting template allocations:", allocsError);
-      throw new Error("Failed to get template allocations");
-    }
-    
-    // No allocations to apply
-    if (!templateAllocations || templateAllocations.length === 0) {
-      return;
-    }
-    
-    // Apply to each floor
-    for (const floorId of floorIds) {
-      // Delete existing allocations
-      const { error: deleteError } = await supabase
-        .from("unit_allocations")
-        .delete()
-        .eq("floor_id", floorId);
-        
-      if (deleteError) {
-        console.error(`Error deleting allocations for floor ${floorId}:`, deleteError);
-        throw new Error("Failed to delete existing allocations");
-      }
-      
-      // Create new allocations based on template
-      const newAllocations = templateAllocations.map(allocation => ({
-        floor_id: floorId,
-        unit_type_id: allocation.unit_type_id,
-        quantity: allocation.quantity
-      }));
-      
-      const { error: insertError } = await supabase
-        .from("unit_allocations")
+      const { error: allocInsertError } = await supabase
+        .from('unit_allocations')
         .insert(newAllocations);
-        
-      if (insertError) {
-        console.error(`Error creating allocations for floor ${floorId}:`, insertError);
-        throw new Error("Failed to create allocations");
+      
+      if (allocInsertError) {
+        console.error("Error duplicating unit allocations:", allocInsertError);
+        throw allocInsertError;
       }
     }
+    
+    console.log(`Successfully duplicated floor with ID ${newFloorId}`);
+    return newFloorId;
+    
   } catch (error) {
-    console.error("Error applying template to floors:", error);
+    console.error("Error in duplicateFloor:", error);
+    toast.error("Failed to duplicate floor");
     throw error;
   }
-};
+}

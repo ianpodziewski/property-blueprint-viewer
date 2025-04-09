@@ -14,10 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FloorPlateTemplate } from "@/hooks/usePropertyState";
 import { createBulkFloors } from "@/utils/floorManagement";
 import { Loader2, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useProject } from "@/context/ProjectContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BulkAddFloorsModalProps {
   isOpen: boolean;
@@ -48,6 +49,14 @@ const BulkAddFloorsModal = ({
   // Use project ID from props or fall back to context
   const effectiveProjectId = projectId || currentProjectId;
   
+  useEffect(() => {
+    // Reset template selection when templates change
+    if (templates.length > 0 && !templates.find(t => t.id === templateId)) {
+      console.log("Resetting template selection to first available template");
+      setTemplateId(templates[0].id);
+    }
+  }, [templates, templateId]);
+  
   // Generate preview of floors to be created
   const previewFloors = () => {
     const floors = [];
@@ -69,18 +78,48 @@ const BulkAddFloorsModal = ({
     if (!effectiveProjectId) return false;
     return true;
   };
+  
+  // Directly fetch fresh floors from the database
+  const fetchFreshFloors = async () => {
+    console.log("Explicitly fetching fresh floors from database");
+    if (!effectiveProjectId) {
+      console.error("Cannot fetch floors - missing project ID");
+      return null;
+    }
+    
+    try {
+      const { data: freshFloors, error } = await supabase
+        .from('floors')
+        .select('*')
+        .eq('project_id', effectiveProjectId)
+        .order('position', { ascending: false });
+        
+      if (error) {
+        console.error("Error fetching fresh floors:", error);
+        return null;
+      }
+      
+      console.log("Fresh floors fetched successfully:", freshFloors);
+      return freshFloors;
+    } catch (e) {
+      console.error("Exception fetching fresh floors:", e);
+      return null;
+    }
+  };
 
-  // Simple direct handler for floor creation
+  // Simple direct handler for floor creation with enhanced logging
   const handleCreateFloors = async () => {
     // Clear previous errors
     setErrorMessage(null);
     
     // Double-check project ID
     if (!effectiveProjectId) {
+      console.error("Missing project ID for floor creation");
       setErrorMessage("Project ID is missing. Please reload the page and try again.");
       return;
     }
     
+    console.log("======== FLOOR CREATION PROCESS START ========");
     console.log("Creating floors with the following values:");
     console.log("- Project ID:", effectiveProjectId);
     console.log("- Template ID:", templateId);
@@ -93,7 +132,7 @@ const BulkAddFloorsModal = ({
     
     try {
       // Call the floor creation function
-      await createBulkFloors(
+      const result = await createBulkFloors(
         effectiveProjectId,
         templateId,
         startFloor,
@@ -101,18 +140,39 @@ const BulkAddFloorsModal = ({
         labelPrefix
       );
       
+      console.log("Floor creation completed, result:", result);
+      
       // Show success message
       toast.success(`Created ${endFloor - startFloor + 1} floors successfully`);
       
-      // Refresh data and close modal
+      // Explicitly fetch fresh floors to verify they were created
+      const freshFloors = await fetchFreshFloors();
+      console.log("Floors in database after creation:", freshFloors);
+      
+      // Refresh data with explicit logging
+      console.log("Calling onComplete() to refresh UI data");
       await onComplete();
+      console.log("onComplete() finished execution");
+      
+      // Close modal
+      console.log("Closing modal");
       onClose();
+      console.log("Modal closed");
+      
+      // Add a delayed second refresh as a fallback
+      setTimeout(async () => {
+        console.log("Executing delayed second refresh");
+        await onComplete();
+        console.log("Delayed refresh complete");
+      }, 1000);
+      
     } catch (error) {
       console.error("Error creating bulk floors:", error);
       setErrorMessage(error instanceof Error ? error.message : "Failed to create floors");
       toast.error("Failed to create floors");
     } finally {
       setIsCreating(false);
+      console.log("======== FLOOR CREATION PROCESS END ========");
     }
   };
 
@@ -211,7 +271,7 @@ const BulkAddFloorsModal = ({
           
           {effectiveProjectId && (
             <div className="text-xs text-gray-500">
-              Floors will be created for project ID: {effectiveProjectId.substring(0, 8)}...
+              Floors will be created for project ID: {effectiveProjectId}
             </div>
           )}
           
@@ -238,7 +298,11 @@ const BulkAddFloorsModal = ({
               Cancel
             </Button>
             <Button 
-              onClick={handleCreateFloors}
+              onClick={() => {
+                console.log("Create floors button clicked");
+                console.log("Form validation status:", isValid());
+                handleCreateFloors();
+              }}
               disabled={!isValid() || isCreating}
             >
               {isCreating ? (
