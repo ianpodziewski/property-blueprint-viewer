@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpaceDefinition, FloorPlateTemplate } from "@/types/propertyTypes";
 import { Toaster } from "@/components/ui/toaster";
 import { useEffect, useCallback, useRef } from "react";
-import { FloorExpansionProvider } from "@/contexts/FloorExpansionContext";
 
 const PropertyBreakdown = () => {
   
@@ -90,14 +90,18 @@ const PropertyBreakdown = () => {
   const phasesData = generatePhasesData();
   
   // Create adapter functions to convert between the two function signatures
+  // For BuildingParameters component (expects id, field, value)
   const adaptedUpdateFloorTemplateForBuildingParams = useCallback((id: string, field: keyof FloorPlateTemplate, value: string) => {
     updateFloorTemplate(id, { [field]: value });
   }, [updateFloorTemplate]);
   
+  // For FloorConfigurationManager component (expects id, template)
   const adaptedUpdateFloorTemplateForConfigManager = useCallback((id: string, template: Partial<FloorPlateTemplate>) => {
     updateFloorTemplate(id, template);
   }, [updateFloorTemplate]);
   
+  // Fix: Direct pass through of template data rather than creating default values
+  // This ensures user input values are used when creating a new template
   const adaptedAddFloorTemplate = useCallback((defaultTemplate?: Omit<FloorPlateTemplate, "id">) => {
     // If a template is provided, pass it through, otherwise create a default
     const template = defaultTemplate || {
@@ -197,44 +201,42 @@ const PropertyBreakdown = () => {
         removeFloorTemplate={removeFloorTemplate}
       />
       
-      {/* Floor Configuration Manager wrapped with FloorExpansionProvider */}
-      <FloorExpansionProvider>
-        <FloorConfigurationManager 
+      {/* Floor Configuration Manager */}
+      <FloorConfigurationManager 
+        floorConfigurations={floorConfigurations}
+        floorTemplates={floorTemplates}
+        updateFloorConfiguration={updateFloorConfiguration}
+        copyFloorConfiguration={copyFloorConfiguration}
+        bulkEditFloorConfigurations={bulkEditFloorConfigurations}
+        updateFloorSpaces={updateFloorSpaces}
+        addFloors={addFloors}
+        removeFloors={removeFloors}
+        reorderFloor={reorderFloor}
+        addFloorTemplate={adaptedAddFloorTemplate}
+        updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
+        removeFloorTemplate={removeFloorTemplate}
+      />
+      
+      {/* Visualizations Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <BuildingMassingVisualization 
+          buildingFootprint={buildingFootprintAsNumber}
+          numberOfFloors={aboveGroundFloorsCount}
+          numberOfUndergroundFloors={belowGroundFloorsCount}
+          spaceBreakdown={spaceBreakdown}
           floorConfigurations={floorConfigurations}
           floorTemplates={floorTemplates}
-          updateFloorConfiguration={updateFloorConfiguration}
-          copyFloorConfiguration={copyFloorConfiguration}
-          bulkEditFloorConfigurations={bulkEditFloorConfigurations}
-          updateFloorSpaces={updateFloorSpaces}
-          addFloors={addFloors}
-          removeFloors={removeFloors}
-          reorderFloor={reorderFloor}
-          addFloorTemplate={adaptedAddFloorTemplate}
-          updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
-          removeFloorTemplate={removeFloorTemplate}
         />
         
-        {/* Visualizations Row - also inside FloorExpansionProvider context */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <BuildingMassingVisualization 
-            buildingFootprint={buildingFootprintAsNumber}
-            numberOfFloors={aboveGroundFloorsCount}
-            numberOfUndergroundFloors={belowGroundFloorsCount}
-            spaceBreakdown={spaceBreakdown}
-            floorConfigurations={floorConfigurations}
-            floorTemplates={floorTemplates}
-          />
-          
-          <FloorStackingDiagram 
-            floors={floorsData}
-            spaceTypeColors={spaceTypeColors}
-            floorTemplates={floorTemplates}
-            floorConfigurations={floorConfigurations}
-            updateFloorConfiguration={updateFloorConfiguration}
-            reorderFloor={reorderFloor}
-          />
-        </div>
-      </FloorExpansionProvider>
+        <FloorStackingDiagram 
+          floors={floorsData}
+          spaceTypeColors={spaceTypeColors}
+          floorTemplates={floorTemplates}
+          floorConfigurations={floorConfigurations}
+          updateFloorConfiguration={updateFloorConfiguration}
+          reorderFloor={reorderFloor}
+        />
+      </div>
       
       <Separator className="my-2" />
       

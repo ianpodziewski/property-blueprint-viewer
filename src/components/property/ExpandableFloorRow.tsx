@@ -1,92 +1,44 @@
-import React, { memo, useCallback } from "react";
+
+import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ChevronUp, ChevronDown, Pencil, Trash } from "lucide-react";
+import { ChevronUp, ChevronDown, ArrowUpDown, Pencil, Trash } from "lucide-react";
 import FloorDetailView from "./FloorDetailView";
 import { FloorConfiguration, FloorPlateTemplate } from "@/types/propertyTypes";
 import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
-import { useFloorExpansion } from "@/contexts/FloorExpansionContext";
 
 interface ExpandableFloorRowProps {
   floor: FloorConfiguration;
   floorTemplates: FloorPlateTemplate[];
   isSelected: boolean;
+  isExpanded: boolean;
   onSelect: (floorNumber: number) => void;
   onEdit: () => void;
   onDelete: (floorNumber: number) => void;
+  onToggleExpand: (floorNumber: number) => void;
   reorderFloor: (floorNumber: number, direction: "up" | "down") => void;
   updateFloorConfiguration: (floorNumber: number, field: keyof FloorConfiguration, value: any) => void;
   getTemplateName: (templateId: string | null) => string;
   totalRows: number;
 }
 
-// Use React.memo with custom equality check to prevent unnecessary re-renders
-const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
+const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
   floor,
   floorTemplates,
   isSelected,
+  isExpanded,
   onSelect,
   onEdit,
   onDelete,
+  onToggleExpand,
   reorderFloor,
   updateFloorConfiguration,
   getTemplateName,
   totalRows
 }) => {
-  // Use the floor expansion context instead of local state or parent state
-  const { isFloorExpanded, toggleFloorExpansion } = useFloorExpansion();
-  
-  // Check if this floor is expanded from the context
-  const effectiveIsExpanded = isFloorExpanded(floor.floorNumber);
-  
   const { getAllocationsByFloor } = useUnitAllocations();
-  
-  // Create memoized event handlers with explicit useCallback to prevent rerenders
-  const handleSelect = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onSelect(floor.floorNumber);
-  }, [onSelect, floor.floorNumber]);
-  
-  const handleToggleExpand = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Use the context function directly
-    toggleFloorExpansion(floor.floorNumber);
-  }, [toggleFloorExpansion, floor.floorNumber]);
-  
-  const handleEdit = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onEdit();
-  }, [onEdit]);
-  
-  const handleDelete = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDelete(floor.floorNumber);
-  }, [onDelete, floor.floorNumber]);
-  
-  const handleReorderUp = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    reorderFloor(floor.floorNumber, "up");
-  }, [reorderFloor, floor.floorNumber]);
-  
-  const handleReorderDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    reorderFloor(floor.floorNumber, "down");
-  }, [reorderFloor, floor.floorNumber]);
-  
-  const handleRowClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleToggleExpand(e);
-  }, [handleToggleExpand]);
   
   const template = floorTemplates.find(t => t.id === floor.templateId);
   const floorArea = floor.customSquareFootage && floor.customSquareFootage !== ""
@@ -96,46 +48,34 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
   const spaceCount = floor.spaces?.length || 0;
   const floorAllocations = getAllocationsByFloor(floor.floorNumber);
   const unitCount = floorAllocations.reduce(
-    (sum, allocation) => {
-      // Safely parse the count or return 0
-      const count = allocation.count ? parseInt(allocation.count.toString()) : 0;
-      return sum + (isNaN(count) ? 0 : count);
-    }, 0
+    (sum, allocation) => sum + parseInt(allocation.count as string || "0"), 0
   );
-  
-  // Safe parsing to prevent toLocaleString errors
-  const safeParseInt = (value: string): number => {
-    try {
-      const parsed = parseInt(value);
-      return isNaN(parsed) ? 0 : parsed;
-    } catch (e) {
-      return 0;
-    }
-  };
-  
-  const floorAreaFormatted = safeParseInt(floorArea).toLocaleString();
   
   return (
     <>
-      <TableRow 
-        className={effectiveIsExpanded ? "bg-gray-50" : ""}
-        onClick={handleRowClick} // Main row click expands
-      >
-        <TableCell className="relative" onClick={(e) => e.stopPropagation()}>
+      <TableRow className={isExpanded ? "bg-gray-50" : ""}>
+        <TableCell>
           <Checkbox 
             checked={isSelected} 
             onCheckedChange={() => onSelect(floor.floorNumber)}
+            onClick={(e) => e.stopPropagation()}
           />
         </TableCell>
-        <TableCell className="font-medium">
+        <TableCell 
+          className="font-medium cursor-pointer"
+          onClick={() => onToggleExpand(floor.floorNumber)}
+        >
           <div className="flex items-center">
             <Button
               variant="ghost"
               size="icon"
               className="h-6 w-6 mr-1 -ml-2"
-              onClick={handleToggleExpand}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand(floor.floorNumber);
+              }}
             >
-              {effectiveIsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
             <Badge
               variant={floor.isUnderground ? "outline" : "secondary"}
@@ -145,13 +85,13 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
             </Badge>
           </div>
         </TableCell>
-        <TableCell>
+        <TableCell onClick={() => onToggleExpand(floor.floorNumber)} className="cursor-pointer">
           {getTemplateName(floor.templateId)}
         </TableCell>
-        <TableCell className="text-right">
-          {floorAreaFormatted}
+        <TableCell onClick={() => onToggleExpand(floor.floorNumber)} className="text-right cursor-pointer">
+          {parseInt(floorArea).toLocaleString()}
         </TableCell>
-        <TableCell className="text-center">
+        <TableCell onClick={() => onToggleExpand(floor.floorNumber)} className="text-center cursor-pointer">
           <Badge variant="outline" className="capitalize">
             {floor.primaryUse}
           </Badge>
@@ -170,13 +110,13 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
             )}
           </div>
         </TableCell>
-        <TableCell onClick={e => e.stopPropagation()}>
+        <TableCell>
           <div className="flex items-center justify-center space-x-2">
             <Button 
               variant="ghost" 
               size="icon"
               className="h-8 w-8"
-              onClick={handleReorderUp}
+              onClick={() => reorderFloor(floor.floorNumber, "up")}
               disabled={floor.isUnderground ? floor.floorNumber <= -10 : floor.floorNumber >= totalRows}
             >
               <ChevronUp className="h-4 w-4" />
@@ -185,7 +125,7 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
               variant="ghost" 
               size="icon"
               className="h-8 w-8"
-              onClick={handleReorderDown}
+              onClick={() => reorderFloor(floor.floorNumber, "down")}
               disabled={floor.isUnderground ? floor.floorNumber >= -1 : floor.floorNumber <= 1}
             >
               <ChevronDown className="h-4 w-4" />
@@ -194,7 +134,7 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
               variant="ghost" 
               size="icon"
               className="h-8 w-8"
-              onClick={handleEdit}
+              onClick={onEdit}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -202,14 +142,17 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
               variant="ghost" 
               size="icon"
               className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(floor.floorNumber);
+              }}
             >
               <Trash className="h-4 w-4" />
             </Button>
           </div>
         </TableCell>
       </TableRow>
-      {effectiveIsExpanded && (
+      {isExpanded && (
         <TableRow>
           <TableCell colSpan={7} className="p-4 bg-gray-50">
             <FloorDetailView
@@ -222,18 +165,6 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
       )}
     </>
   );
-}, (prevProps, nextProps) => {
-  // Custom equality check to prevent unnecessary renders
-  return (
-    prevProps.floor.floorNumber === nextProps.floor.floorNumber &&
-    prevProps.isSelected === nextProps.isSelected &&
-    prevProps.floor.templateId === nextProps.floor.templateId &&
-    prevProps.floor.primaryUse === nextProps.floor.primaryUse &&
-    prevProps.totalRows === nextProps.totalRows
-    // Intentionally not comparing complete floor objects to avoid deep equality checks
-  );
-});
-
-ExpandableFloorRow.displayName = "ExpandableFloorRow";
+};
 
 export default ExpandableFloorRow;

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,7 +36,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import ExpandableFloorRow from "./ExpandableFloorRow";
 import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
-import { useFloorExpansion } from "@/contexts/FloorExpansionContext";
 
 interface FloorConfigurationManagerProps {
   floorConfigurations: FloorConfiguration[];
@@ -90,6 +90,8 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
   const [bulkEditField, setBulkEditField] = useState<keyof FloorConfiguration>("templateId");
   const [bulkEditValue, setBulkEditValue] = useState<string>("");
   
+  const [expandedFloors, setExpandedFloors] = useState<number[]>([]);
+  
   const { copyAllocations } = useUnitAllocations();
   const { toast } = useToast();
 
@@ -132,6 +134,16 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
       setAllSelected(true);
     }
   }, [floorConfigurations, allSelected, selectedRows.length]);
+  
+  const toggleFloorExpansion = useCallback((floorNumber: number) => {
+    setExpandedFloors(prev => {
+      if (prev.includes(floorNumber)) {
+        return prev.filter(num => num !== floorNumber);
+      } else {
+        return [...prev, floorNumber];
+      }
+    });
+  }, []);
   
   useEffect(() => {
     setSelectedRows([]);
@@ -359,12 +371,14 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
                     floorTemplates={floorTemplates}
                     isSelected={selectedRows.includes(floor.floorNumber)}
                     onSelect={handleRowSelection}
-                    onEdit={() => handleDeleteClick(floor.floorNumber)}
+                    onEdit={() => toggleFloorExpansion(floor.floorNumber)}
                     onDelete={handleDeleteClick}
                     reorderFloor={reorderFloor}
                     updateFloorConfiguration={updateFloorConfiguration}
                     getTemplateName={getTemplateName}
                     totalRows={floorConfigurations.length}
+                    isExpanded={expandedFloors.includes(floor.floorNumber)}
+                    onToggleExpand={toggleFloorExpansion}
                   />
                 ))}
               </TableBody>
@@ -392,6 +406,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         )}
       </CardContent>
       
+      {/* Add Floors Dialog */}
       <Dialog open={addFloorDialogOpen} onOpenChange={setAddFloorDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -530,6 +545,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
+      {/* Floor Template Manager Dialog */}
       <FloorTemplateManager
         isOpen={addTemplateDialogOpen}
         onClose={() => setAddTemplateDialogOpen(false)}
@@ -539,11 +555,13 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         removeTemplate={removeFloorTemplate}
       />
       
+      {/* Unit Type Manager Dialog */}
       <UnitTypeManager
         isOpen={unitTypeManagerOpen}
         onClose={() => setUnitTypeManagerOpen(false)}
       />
       
+      {/* Copy Configuration Dialog */}
       <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -605,6 +623,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
+      {/* Bulk Edit Dialog */}
       <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -710,6 +729,7 @@ const FloorConfigurationManager: React.FC<FloorConfigurationManagerProps> = ({
         </DialogContent>
       </Dialog>
       
+      {/* Delete Floor Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

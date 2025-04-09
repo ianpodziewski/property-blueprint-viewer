@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
@@ -10,99 +9,15 @@ import {
 
 const STORAGE_KEY = "realEstateModel_floorConfigurations";
 
-// Storage operation mutex to prevent parallel operations
-const storageMutex = {
-  locked: false,
-  lastOperation: 0,
-  MIN_OPERATION_INTERVAL: 2000, // 2 seconds minimum between operations
-  
-  canAcquire(): boolean {
-    const now = Date.now();
-    if (this.locked || (now - this.lastOperation < this.MIN_OPERATION_INTERVAL)) {
-      return false;
-    }
-    return true;
-  },
-  
-  acquire(): boolean {
-    if (!this.canAcquire()) return false;
-    
-    this.locked = true;
-    this.lastOperation = Date.now();
-    console.log(`Storage mutex acquired at ${new Date().toISOString()}`);
-    return true;
-  },
-  
-  release(): void {
-    this.locked = false;
-    console.log(`Storage mutex released at ${new Date().toISOString()}`);
-  }
-};
-
-// Enhanced dispatcher with suppressNotification flag
-const dispatchFloorConfigSavedEvent = (options: { suppressNotification?: boolean } = {}) => {
+const dispatchFloorConfigSavedEvent = () => {
   if (typeof window !== 'undefined') {
-    console.log(`Dispatching floorConfigSaved event with options:`, options);
-    const event = new CustomEvent('floorConfigSaved', { 
-      detail: {
-        suppressNotification: options.suppressNotification, 
-        timestamp: Date.now(),
-        id: `event-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-      }
-    });
+    const event = new CustomEvent('floorConfigSaved');
     window.dispatchEvent(event);
   }
 };
 
-// Global UI interaction tracking
-// This will be checked before any storage operation
-const uiInteractionTracker = {
-  interacting: false,
-  lastInteractionTime: 0,
-  COOLDOWN_PERIOD: 5000, // 5 seconds cooldown
-  
-  startInteraction() {
-    this.interacting = true;
-    this.lastInteractionTime = Date.now();
-    console.log("🔄 UI Interaction started in floor configurations");
-    
-    // Auto-reset after cooldown
-    setTimeout(() => {
-      if (Date.now() - this.lastInteractionTime >= this.COOLDOWN_PERIOD) {
-        this.resetInteraction();
-      }
-    }, this.COOLDOWN_PERIOD + 100);
-  },
-  
-  resetInteraction() {
-    this.interacting = false;
-    console.log("✅ UI Interaction reset in floor configurations");
-  },
-  
-  isInteracting() {
-    return this.interacting || Date.now() - this.lastInteractionTime < this.COOLDOWN_PERIOD;
-  }
-};
-
-// Generate a simple hash for object comparison
-function generateSimpleHash(obj: any): string {
-  try {
-    return JSON.stringify(obj)
-      .split('')
-      .reduce((hash, char) => ((hash << 5) - hash) + char.charCodeAt(0), 0)
-      .toString(36);
-  } catch (e) {
-    return Math.random().toString(36);
-  }
-}
-
 export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]) => {
   const isFirstRender = useRef(true);
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const operationCountRef = useRef(0);
-  const lastHashRef = useRef<string | null>(null);
-  const MAX_OPS_PER_MINUTE = 10;
-  const lastOpTimesRef = useRef<number[]>([]);
   
   const [floorConfigurations, setFloorConfigurations] = useState<FloorConfiguration[]>(() => {
     const storedFloorConfigurations = loadFromLocalStorage<FloorConfiguration[]>(STORAGE_KEY, []);
@@ -116,8 +31,6 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
         return config;
       });
       
-      // Generate initial hash
-      lastHashRef.current = generateSimpleHash(migratedConfigs);
       console.log("Loaded floor configurations from localStorage:", migratedConfigs);
       return migratedConfigs;
     }
@@ -127,134 +40,31 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
 
   const [isInitialized, setIsInitialized] = useState(true);
   
-  // Enhanced localStorage persistence with UI interaction awareness
+  const prevFloorConfigurationsRef = useRef<FloorConfiguration[]>([]);
+
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
+      prevFloorConfigurationsRef.current = floorConfigurations;
       return;
     }
     
-    // Skip if not initialized
-    if (!isInitialized) return;
-    
-    // Check if UI interaction is in progress - skip save if so
-    if (uiInteractionTracker.isInteracting()) {
-      console.log("Skipping floor configuration save due to active UI interaction");
-      return;
-    }
-    
-    // Generate hash for current state to compare with previous
-    const currentHash = generateSimpleHash(floorConfigurations);
-    
-    // Skip if hash hasn't changed (data is the same)
-    if (currentHash === lastHashRef.current) {
-      console.log('Floor configurations unchanged, skipping save');
-      return;
-    }
-    
-    // Clear any existing save timer
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-    }
-    
-    // Record operation count and time for rate limiting
-    const now = Date.now();
-    lastOpTimesRef.current.push(now);
-    
-    // Only keep operations from the last minute
-    lastOpTimesRef.current = lastOpTimesRef.current.filter(time => now - time < 60000);
-    
-    // Check if we're exceeding rate limits
-    if (lastOpTimesRef.current.length > MAX_OPS_PER_MINUTE) {
-      console.warn(`Excessive floor configuration saves: ${lastOpTimesRef.current.length} in the last minute`);
-      console.log('Rate limiting storage operations');
+    if (isInitialized && 
+        JSON.stringify(floorConfigurations) !== JSON.stringify(prevFloorConfigurationsRef.current)) {
       
-      // Don't completely block operations, but extend debounce significantly
-      saveTimerRef.current = setTimeout(() => {
-        performSaveOperation(currentHash);
-      }, 3000);
-      
-      return;
-    }
-    
-    // Normal operation - debounced save with longer 2s delay
-    saveTimerRef.current = setTimeout(() => {
-      performSaveOperation(currentHash);
-    }, 2000);
-    
-  }, [floorConfigurations, isInitialized]);
-  
-  // Separated save logic for better control
-  const performSaveOperation = useCallback((newHash: string) => {
-    // Skip save if UI interaction is in progress
-    if (uiInteractionTracker.isInteracting()) {
-      console.log("Skipping floor configuration save due to active UI interaction");
-      return;
-    }
-    
-    // Try to acquire mutex
-    if (!storageMutex.acquire()) {
-      console.log('Another storage operation is in progress, deferring save');
-      
-      // Retry after delay
-      setTimeout(() => {
-        // Check again for UI interaction
-        if (uiInteractionTracker.isInteracting()) {
-          console.log("Skipping floor configuration retry save due to active UI interaction");
-          return;
-        }
-        
-        if (storageMutex.acquire()) {
-          try {
-            console.log('Storage mutex acquired on retry, saving floor configurations');
-            saveToLocalStorage(STORAGE_KEY, floorConfigurations);
-            lastHashRef.current = newHash;
-            
-            // Dispatch event with suppressNotification flag if this is frequent
-            const suppressNotification = operationCountRef.current > 3;
-            dispatchFloorConfigSavedEvent({ suppressNotification });
-            
-            // Reset operation count after some time
-            setTimeout(() => {
-              operationCountRef.current = 0;
-            }, 30000);
-            
-            operationCountRef.current++;
-          } finally {
-            storageMutex.release();
-          }
-        }
-      }, 2500);
-      
-      return;
-    }
-    
-    try {
-      console.log('Saving floor configurations to localStorage');
       saveToLocalStorage(STORAGE_KEY, floorConfigurations);
-      lastHashRef.current = newHash;
+      console.log("Saved floor configurations to localStorage:", floorConfigurations);
+      dispatchFloorConfigSavedEvent();
       
-      // Dispatch event with suppressNotification flag if this is frequent
-      const suppressNotification = operationCountRef.current > 3;
-      dispatchFloorConfigSavedEvent({ suppressNotification });
-      
-      operationCountRef.current++;
-    } finally {
-      storageMutex.release();
+      prevFloorConfigurationsRef.current = floorConfigurations;
     }
-  }, [floorConfigurations]);
+  }, [floorConfigurations, isInitialized]);
 
   const updateFloorConfiguration = useCallback((
     floorNumber: number, 
     field: keyof FloorConfiguration, 
-    value: string | null | boolean | SpaceDefinition[] | BuildingSystemsConfig,
-    options: { suppressNotification?: boolean, isUIOperation?: boolean } = {}
+    value: string | null | boolean | SpaceDefinition[] | BuildingSystemsConfig
   ) => {
-    // If this is a UI operation, track it
-    if (options.isUIOperation) {
-      uiInteractionTracker.startInteraction();
-    }
-    
     console.log(`Updating floor ${floorNumber}, field ${String(field)}`, value);
     
     setFloorConfigurations(
@@ -267,31 +77,12 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
       })
     );
     
-    // Special case for spaces and buildingSystems - trigger immediate save
     if (field === 'spaces' || field === 'buildingSystems') {
-      // Skip if this is a UI operation
-      if (options.isUIOperation) {
-        console.log("Skipping immediate save for UI operation");
-        return;
-      }
-      
-      if (!uiInteractionTracker.isInteracting() && storageMutex.acquire()) {
-        try {
-          const updatedConfigs = floorConfigurations.map(floor => 
-            floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
-          );
-          
-          saveToLocalStorage(STORAGE_KEY, updatedConfigs);
-          const newHash = generateSimpleHash(updatedConfigs);
-          lastHashRef.current = newHash;
-          
-          dispatchFloorConfigSavedEvent(options);
-        } finally {
-          storageMutex.release();
-        }
-      } else {
-        console.log("Storage mutex locked or UI interaction in progress, skipping immediate save");
-      }
+      const updatedConfigs = floorConfigurations.map(floor => 
+        floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
+      );
+      saveToLocalStorage(STORAGE_KEY, updatedConfigs);
+      dispatchFloorConfigSavedEvent();
     }
   }, [floorConfigurations]);
 
@@ -431,9 +222,6 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   }, [floorConfigurations]);
 
   const reorderFloor = useCallback((floorNumber: number, direction: "up" | "down") => {
-    // Mark this as a UI interaction
-    uiInteractionTracker.startInteraction();
-    
     const sortedFloors = [...floorConfigurations].sort((a, b) => b.floorNumber - a.floorNumber);
     const currentIndex = sortedFloors.findIndex(f => f.floorNumber === floorNumber);
     
@@ -455,19 +243,18 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     setFloorConfigurations([...sortedFloors]);
   }, [floorConfigurations]);
 
-  const updateFloorSpaces = useCallback((floorNumber: number, spaces: SpaceDefinition[], options: { suppressNotification?: boolean, isUIOperation?: boolean } = {}) => {
+  const updateFloorSpaces = useCallback((floorNumber: number, spaces: SpaceDefinition[]) => {
     const validatedSpaces = spaces.map(space => ({
       ...space,
       dimensions: space.dimensions || { width: "0", depth: "0" },
       subType: space.subType || null,
       percentage: typeof space.percentage === 'number' ? space.percentage : 0
     }));
-    
     console.log(`Updating spaces for floor ${floorNumber}`, validatedSpaces);
-    updateFloorConfiguration(floorNumber, 'spaces', validatedSpaces, options);
+    updateFloorConfiguration(floorNumber, 'spaces', validatedSpaces);
   }, [updateFloorConfiguration]);
 
-  const updateFloorBuildingSystems = useCallback((floorNumber: number, systems: BuildingSystemsConfig, options: { suppressNotification?: boolean, isUIOperation?: boolean } = {}) => {
+  const updateFloorBuildingSystems = useCallback((floorNumber: number, systems: BuildingSystemsConfig) => {
     const validatedSystems = {
       ...systems,
       elevators: systems.elevators || {
@@ -477,7 +264,7 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
       }
     };
     console.log(`Updating building systems for floor ${floorNumber}`, validatedSystems);
-    updateFloorConfiguration(floorNumber, 'buildingSystems', validatedSystems, options);
+    updateFloorConfiguration(floorNumber, 'buildingSystems', validatedSystems);
   }, [updateFloorConfiguration]);
 
   const importFloorConfigurations = useCallback((configurations: FloorConfiguration[]) => {
@@ -537,6 +324,3 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     resetAllData
   };
 };
-
-// Export the UI interaction tracker for use in other components
-export const floorUIInteractionTracker = uiInteractionTracker;
