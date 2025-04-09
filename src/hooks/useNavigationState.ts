@@ -19,7 +19,7 @@ export const useNavigationState = () => {
         setActiveTab(tabFromHash);
       }
     }
-  }, []);
+  }, [location.hash, activeTab, setActiveTab]);
 
   // Update URL hash when tab changes
   useEffect(() => {
