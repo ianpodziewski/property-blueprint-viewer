@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Check, AlertCircle, Upload, Download, RefreshCw } from 'lucide-react';
 import { Toast, ToastProvider, ToastTitle, ToastViewport } from '@/components/ui/toast';
@@ -10,7 +11,31 @@ interface SaveNotificationProps {
 
 // Keep track of recent notifications to prevent duplicates
 const recentNotifications = new Map<string, number>();
-const NOTIFICATION_EXPIRY = 5000; // 5 seconds
+const NOTIFICATION_EXPIRY = 10000; // 10 seconds (increased from 5)
+const MAX_NOTIFICATIONS_PER_MINUTE = 3;
+let notificationCount = 0;
+let lastResetTime = Date.now();
+
+// Global UI interaction tracking
+let uiInteractionInProgress = false;
+let uiInteractionTimeout: NodeJS.Timeout | null = null;
+
+// Mark that a UI interaction is in progress to prevent notifications
+export const markUIInteractionInProgress = () => {
+  uiInteractionInProgress = true;
+  console.log("UI interaction in progress, notifications will be suppressed");
+  
+  // Clear any existing timeout
+  if (uiInteractionTimeout) {
+    clearTimeout(uiInteractionTimeout);
+  }
+  
+  // Set a timeout to reset the flag after 5 seconds
+  uiInteractionTimeout = setTimeout(() => {
+    uiInteractionInProgress = false;
+    console.log("UI interaction cooldown complete, notifications resumed");
+  }, 5000);
+};
 
 const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) => {
   const [visible, setVisible] = useState(false);
@@ -20,9 +45,35 @@ const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) 
   // Use centralized toast system for notifications
   const { toast } = useToast();
   
+  // Reset notification count every minute
+  useEffect(() => {
+    const now = Date.now();
+    if (now - lastResetTime > 60000) {
+      notificationCount = 0;
+      lastResetTime = now;
+    }
+  }, [status]);
+  
   // Only show important notifications as toasts with deduplication
   useEffect(() => {
     if (!status) return;
+    
+    // Skip notifications if UI interaction is in progress
+    if (uiInteractionInProgress) {
+      console.log(`Notification suppressed due to active UI interaction: ${status}`);
+      onClose();
+      return;
+    }
+    
+    // Check notification rate limiting
+    if (notificationCount >= MAX_NOTIFICATIONS_PER_MINUTE) {
+      console.log(`Notification rate limit exceeded, suppressing: ${status}`);
+      onClose();
+      return;
+    }
+    
+    // Increment notification count
+    notificationCount++;
     
     // Create a unique key for this notification type
     const notificationKey = `notification-${status}-${Date.now()}`;
@@ -66,7 +117,7 @@ const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) 
         duration: 3000,
       });
     }
-  }, [status, toast]);
+  }, [status, toast, onClose]);
   
   // Handle visibility of notification with debouncing
   useEffect(() => {

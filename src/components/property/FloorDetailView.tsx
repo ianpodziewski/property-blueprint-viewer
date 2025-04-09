@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -86,6 +87,7 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
   }, [unitTypes, categories]);
   
   const handleTemplateChange = (templateId: string) => {
+    console.log(`Floor ${floor.floorNumber}: Template changed to ${templateId}`);
     updateFloorConfiguration(floor.floorNumber, "templateId", templateId);
     
     const selectedTemplate = floorTemplates.find(t => t.id === templateId);
@@ -418,7 +420,7 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map(category => (
-                        <React.Fragment key={category}>
+                        <div key={category} data-lov-id={`category-${category}`}>
                           <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
                             {category}
                           </div>
@@ -461,7 +463,7 @@ const FloorDetailView: React.FC<FloorDetailViewProps> = ({
                             );
                           })}
                           <div className="h-px bg-gray-100 my-1" />
-                        </React.Fragment>
+                        </div>
                       ))}
                     </SelectContent>
                   </Select>

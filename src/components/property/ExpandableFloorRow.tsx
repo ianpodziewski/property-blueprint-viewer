@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,11 +13,9 @@ interface ExpandableFloorRowProps {
   floor: FloorConfiguration;
   floorTemplates: FloorPlateTemplate[];
   isSelected: boolean;
-  isExpanded: boolean;
   onSelect: (floorNumber: number) => void;
   onEdit: () => void;
   onDelete: (floorNumber: number) => void;
-  onToggleExpand: (floorNumber: number) => void;
   reorderFloor: (floorNumber: number, direction: "up" | "down") => void;
   updateFloorConfiguration: (floorNumber: number, field: keyof FloorConfiguration, value: any) => void;
   getTemplateName: (templateId: string | null) => string;
@@ -28,16 +26,16 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
   floor,
   floorTemplates,
   isSelected,
-  isExpanded,
   onSelect,
   onEdit,
   onDelete,
-  onToggleExpand,
   reorderFloor,
   updateFloorConfiguration,
   getTemplateName,
   totalRows
 }) => {
+  // Local state for expansion to prevent global state issues
+  const [isExpanded, setIsExpanded] = useState(false);
   const { getAllocationsByFloor } = useUnitAllocations();
   
   const template = floorTemplates.find(t => t.id === floor.templateId);
@@ -51,6 +49,42 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
     (sum, allocation) => sum + parseInt(allocation.count as string || "0"), 0
   );
   
+  // Use useCallback to stabilize event handlers
+  const handleToggleExpand = useCallback((e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    console.log(`Toggling expansion for floor ${floor.floorNumber}. Current state: ${isExpanded}, changing to: ${!isExpanded}`);
+    setIsExpanded(prev => !prev);
+  }, [floor.floorNumber, isExpanded]);
+
+  const handleSelect = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelect(floor.floorNumber);
+  }, [floor.floorNumber, onSelect]);
+
+  const handleEdit = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onEdit();
+  }, [onEdit]);
+
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete(floor.floorNumber);
+  }, [floor.floorNumber, onDelete]);
+
+  const handleReorder = useCallback((direction: "up" | "down") => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log(`Reordering floor ${floor.floorNumber} direction: ${direction}`);
+    reorderFloor(floor.floorNumber, direction);
+  }, [floor.floorNumber, reorderFloor]);
+  
   return (
     <>
       <TableRow className={isExpanded ? "bg-gray-50" : ""}>
@@ -63,17 +97,14 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
         </TableCell>
         <TableCell 
           className="font-medium cursor-pointer"
-          onClick={() => onToggleExpand(floor.floorNumber)}
+          onClick={handleToggleExpand}
         >
           <div className="flex items-center">
             <Button
               variant="ghost"
               size="icon"
               className="h-6 w-6 mr-1 -ml-2"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleExpand(floor.floorNumber);
-              }}
+              onClick={handleToggleExpand}
             >
               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
@@ -85,13 +116,13 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
             </Badge>
           </div>
         </TableCell>
-        <TableCell onClick={() => onToggleExpand(floor.floorNumber)} className="cursor-pointer">
+        <TableCell onClick={handleToggleExpand} className="cursor-pointer">
           {getTemplateName(floor.templateId)}
         </TableCell>
-        <TableCell onClick={() => onToggleExpand(floor.floorNumber)} className="text-right cursor-pointer">
+        <TableCell onClick={handleToggleExpand} className="text-right cursor-pointer">
           {parseInt(floorArea).toLocaleString()}
         </TableCell>
-        <TableCell onClick={() => onToggleExpand(floor.floorNumber)} className="text-center cursor-pointer">
+        <TableCell onClick={handleToggleExpand} className="text-center cursor-pointer">
           <Badge variant="outline" className="capitalize">
             {floor.primaryUse}
           </Badge>
@@ -116,7 +147,7 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
               variant="ghost" 
               size="icon"
               className="h-8 w-8"
-              onClick={() => reorderFloor(floor.floorNumber, "up")}
+              onClick={handleReorder("up")}
               disabled={floor.isUnderground ? floor.floorNumber <= -10 : floor.floorNumber >= totalRows}
             >
               <ChevronUp className="h-4 w-4" />
@@ -125,7 +156,7 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
               variant="ghost" 
               size="icon"
               className="h-8 w-8"
-              onClick={() => reorderFloor(floor.floorNumber, "down")}
+              onClick={handleReorder("down")}
               disabled={floor.isUnderground ? floor.floorNumber >= -1 : floor.floorNumber <= 1}
             >
               <ChevronDown className="h-4 w-4" />
@@ -134,7 +165,7 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
               variant="ghost" 
               size="icon"
               className="h-8 w-8"
-              onClick={onEdit}
+              onClick={handleEdit}
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -142,10 +173,7 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = ({
               variant="ghost" 
               size="icon"
               className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(floor.floorNumber);
-              }}
+              onClick={handleDelete}
             >
               <Trash className="h-4 w-4" />
             </Button>
