@@ -5,6 +5,7 @@ import { saveToLocalStorage, loadFromLocalStorage } from '../utils/localStorage'
 import { ModelState } from '../types/modelTypes';
 import { modelReducer } from './modelReducer';
 import { initialModelState } from './initialState';
+import { NavigationContextType } from '../types/contextTypes';
 
 // Create the context
 type ModelContextType = {
@@ -14,6 +15,7 @@ type ModelContextType = {
 };
 
 const ModelContext = createContext<ModelContextType | undefined>(undefined);
+const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
 
 // Local storage key
 const LOCAL_STORAGE_KEY = 'real_estate_model';
@@ -55,9 +57,32 @@ export const ModelProvider: React.FC<ModelProviderProps> = ({ children }) => {
     };
   }, [state]);
 
+  // Navigation context values
+  const setActiveTab = (tab: string) => {
+    dispatch({
+      type: 'SET_ACTIVE_TAB',
+      payload: tab
+    });
+  };
+  
+  const hasDirtyFields = Object.values(state.navigation.dirtyFields).some(Boolean);
+  
+  const navigationValue: NavigationContextType = {
+    activeTab: state.navigation.activeTab,
+    setActiveTab,
+    dirtyFields: state.navigation.dirtyFields,
+    hasDirtyFields,
+    navigateWithConfirmation: (tab: string) => {
+      // This will be overridden by useNavigationState
+      setActiveTab(tab);
+    }
+  };
+
   return (
     <ModelContext.Provider value={{ state, dispatch, saveModel }}>
-      {children}
+      <NavigationContext.Provider value={navigationValue}>
+        {children}
+      </NavigationContext.Provider>
     </ModelContext.Provider>
   );
 };
@@ -107,24 +132,12 @@ export const useModelSection = <T extends keyof Omit<ModelState, 'validation' | 
 };
 
 // Hook for navigation state
-export const useModelNavigation = () => {
-  const { state, dispatch } = useModelContext();
-  
-  const setActiveTab = (tab: string) => {
-    dispatch({
-      type: 'SET_ACTIVE_TAB',
-      payload: tab
-    });
-  };
-  
-  const hasDirtyFields = Object.values(state.navigation.dirtyFields).some(Boolean);
-  
-  return {
-    activeTab: state.navigation.activeTab,
-    setActiveTab,
-    dirtyFields: state.navigation.dirtyFields,
-    hasDirtyFields
-  };
+export const useModelNavigation = (): NavigationContextType => {
+  const context = useContext(NavigationContext);
+  if (context === undefined) {
+    throw new Error('useModelNavigation must be used within a ModelProvider');
+  }
+  return context;
 };
 
 // Utility hook for saving state

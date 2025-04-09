@@ -25,13 +25,13 @@ const ModelingTabs = () => {
         setActiveTab(hash);
       }
     }
-  }, [window.location.hash]);
+  }, [window.location.hash, activeTab, setActiveTab]);
   
   return (
     <div className="w-full space-y-4">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 shadow-sm">
         <div className="flex items-center justify-between px-4 py-2">
-          <MainNavigation activeTab={activeTab} setActiveTab={setActiveTab} />
+          <MainNavigation />
           <SaveButton />
         </div>
       </div>
