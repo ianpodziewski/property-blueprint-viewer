@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,10 @@ import {
   LayoutList,
   Save,
   Plus,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowUpDown
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Floor, FloorPlateTemplate, Product } from "@/hooks/usePropertyState";
@@ -94,6 +98,10 @@ const BuildingLayout = ({
   const [selectedFloorForTemplate, setSelectedFloorForTemplate] = useState<Floor | null>(null);
   
   const [bulkAddModalOpen, setBulkAddModalOpen] = useState(false);
+
+  // Sorting state
+  const [sortField, setSortField] = useState<string>("position");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   
   useEffect(() => {
     console.log("BuildingLayout: Current floors data:", floors);
@@ -277,10 +285,77 @@ const BuildingLayout = ({
     
     return totalFloorArea - allocatedSpace;
   };
+
+  const calculateAllocatedSpace = (floorId: string): number => {
+    let allocatedSpace = 0;
+    
+    products.forEach(product => {
+      product.unitTypes.forEach(unitType => {
+        const allocation = getUnitAllocation(floorId, unitType.id);
+        allocatedSpace += (unitType.grossArea || 0) * allocation;
+      });
+    });
+    
+    return allocatedSpace;
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new field and default to descending
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
   
   const sortedFloors = useMemo(() => {
-    return [...floors].sort((a, b) => b.position - a.position);
-  }, [floors]);
+    let sortableFloors = [...floors];
+    
+    // Custom sorting logic based on field
+    if (sortField === "position") {
+      sortableFloors.sort((a, b) => {
+        return sortDirection === "desc" 
+          ? b.position - a.position 
+          : a.position - b.position;
+      });
+    } else if (sortField === "label") {
+      sortableFloors.sort((a, b) => {
+        return sortDirection === "desc"
+          ? b.label.localeCompare(a.label)
+          : a.label.localeCompare(b.label);
+      });
+    } else if (sortField === "remaining") {
+      sortableFloors.sort((a, b) => {
+        const aRemaining = calculateRemainingSpace(a.id);
+        const bRemaining = calculateRemainingSpace(b.id);
+        return sortDirection === "desc"
+          ? bRemaining - aRemaining
+          : aRemaining - bRemaining;
+      });
+    } else if (sortField === "allocated") {
+      sortableFloors.sort((a, b) => {
+        const aAllocated = calculateAllocatedSpace(a.id);
+        const bAllocated = calculateAllocatedSpace(b.id);
+        return sortDirection === "desc"
+          ? bAllocated - aAllocated
+          : aAllocated - bAllocated;
+      });
+    } else if (sortField === "totalArea") {
+      sortableFloors.sort((a, b) => {
+        const aTemplate = getFloorTemplateById(a.templateId);
+        const bTemplate = getFloorTemplateById(b.templateId);
+        const aArea = aTemplate?.grossArea || 0;
+        const bArea = bTemplate?.grossArea || 0;
+        return sortDirection === "desc"
+          ? bArea - aArea
+          : aArea - bArea;
+      });
+    }
+    
+    return sortableFloors;
+  }, [floors, sortField, sortDirection, getFloorTemplateById]);
   
   const totalUnitsByType = useMemo(() => {
     const totals = new Map<string, number>();
@@ -340,6 +415,25 @@ const BuildingLayout = ({
     }
     return undefined;
   };
+  
+  // Render the sortable column header
+  const renderSortableHeader = (label: string, field: string) => (
+    <div 
+      className="flex items-center cursor-pointer" 
+      onClick={() => handleSort(field)}
+    >
+      {label}
+      {sortField === field ? (
+        sortDirection === "asc" ? (
+          <ArrowUp className="h-4 w-4 ml-1" />
+        ) : (
+          <ArrowDown className="h-4 w-4 ml-1" />
+        )
+      ) : (
+        <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />
+      )}
+    </div>
+  );
   
   return (
     <>
@@ -429,36 +523,50 @@ const BuildingLayout = ({
             </Card>
           ) : (
             <div className="space-y-3 mb-4">
-              {sortedFloors.map((floor) => {
-                const remainingSpace = calculateRemainingSpace(floor.id);
-                const isOverAllocated = remainingSpace < 0;
-                
-                return (
-                  <Card key={floor.id} className="bg-white">
-                    <CardContent className="py-4 px-4">
-                      <div className="grid grid-cols-1 gap-4">
-                        <div className="flex items-center justify-between">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
-                            <div>
-                              <Label htmlFor={`floor-label-${floor.id}`} className="text-sm">Floor Label</Label>
+              {/* Excel-like grid structure */}
+              <Card className="bg-white">
+                <CardContent className="p-0 overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+                        <TableHead>{renderSortableHeader("Floor", "label")}</TableHead>
+                        <TableHead>Template</TableHead>
+                        <TableHead className="text-right">{renderSortableHeader("Total Area (sf)", "totalArea")}</TableHead>
+                        <TableHead className="text-right">{renderSortableHeader("Allocated (sf)", "allocated")}</TableHead>
+                        <TableHead className="text-right">{renderSortableHeader("Remaining (sf)", "remaining")}</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="w-[180px] text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedFloors.map((floor, index) => {
+                        const template = getFloorTemplateById(floor.templateId);
+                        const totalFloorArea = template?.grossArea || 0;
+                        const allocatedSpace = calculateAllocatedSpace(floor.id);
+                        const remainingSpace = calculateRemainingSpace(floor.id);
+                        const isOverAllocated = remainingSpace < 0;
+                        
+                        return (
+                          <TableRow 
+                            key={floor.id} 
+                            className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                          >
+                            <TableCell>
                               <Input
-                                id={`floor-label-${floor.id}`}
                                 value={floor.label}
                                 onChange={(e) => handleLabelChange(floor.id, e.target.value)}
                                 placeholder="Enter floor label"
-                                className="mt-1"
+                                className="h-8"
                                 disabled={isSubmitting}
                               />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor={`floor-template-${floor.id}`} className="text-sm">Template</Label>
+                            </TableCell>
+                            <TableCell>
                               <Select 
                                 value={floor.templateId} 
                                 onValueChange={(value) => handleTemplateChange(floor.id, value)}
                                 disabled={isSubmitting}
                               >
-                                <SelectTrigger id={`floor-template-${floor.id}`} className="mt-1">
+                                <SelectTrigger className="h-8">
                                   <SelectValue placeholder="Select a template" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -469,160 +577,201 @@ const BuildingLayout = ({
                                   ))}
                                 </SelectContent>
                               </Select>
-                            </div>
-                            
-                            <div>
-                              <Label className="text-sm">Floor Area</Label>
-                              <div className="h-10 px-4 flex items-center border rounded-md mt-1 bg-gray-50">
-                                {formatNumber(getFloorTemplateById(floor.templateId)?.grossArea)} sf
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatNumber(totalFloorArea)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatNumber(allocatedSpace)}
+                            </TableCell>
+                            <TableCell className={`text-right ${isOverAllocated ? "text-red-600 font-medium" : ""}`}>
+                              {formatNumber(remainingSpace)}
+                            </TableCell>
+                            <TableCell>
+                              {isOverAllocated ? (
+                                <div className="flex items-center">
+                                  <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />
+                                  <span className="text-xs text-red-500">Over-allocated</span>
+                                </div>
+                              ) : allocatedSpace === 0 ? (
+                                <div className="flex items-center">
+                                  <div className="h-3 w-3 bg-gray-300 rounded-full mr-1"></div>
+                                  <span className="text-xs text-gray-500">Empty</span>
+                                </div>
+                              ) : allocatedSpace === totalFloorArea ? (
+                                <div className="flex items-center">
+                                  <CheckCircle2 className="h-4 w-4 text-green-500 mr-1" />
+                                  <span className="text-xs text-green-500">Full</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center">
+                                  <div className="h-3 w-3 bg-blue-400 rounded-full mr-1"></div>
+                                  <span className="text-xs text-blue-500">Partial</span>
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => toggleFloorExpansion(floor.id)}
+                                >
+                                  {expandedFloors.includes(floor.id) ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => handleMoveFloor(floor.id, 'up')}
+                                  disabled={isSubmitting || floor.position === Math.max(...floors.map(f => f.position))}
+                                >
+                                  <ArrowUp className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => handleMoveFloor(floor.id, 'down')}
+                                  disabled={isSubmitting || floor.position === Math.min(...floors.map(f => f.position))}
+                                >
+                                  <ArrowDown className="h-4 w-4" />
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 w-7 p-0"
+                                      disabled={isSubmitting}
+                                    >
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleOpenDuplicateModal(floor)}>
+                                      <Copy className="h-4 w-4 mr-2" /> Duplicate Floor
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleOpenApplyToRangeModal(floor)}>
+                                      <LayoutList className="h-4 w-4 mr-2" /> Apply to Range...
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleOpenSaveTemplateModal(floor)}>
+                                      <Save className="h-4 w-4 mr-2" /> Save as Template
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                                  onClick={() => handleDeleteFloor(floor.id)}
+                                  disabled={isSubmitting}
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
                               </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+              
+              {/* Expanded floor details section (when a floor is expanded) */}
+              {expandedFloors.length > 0 && (
+                <div className="space-y-3 mt-4">
+                  {expandedFloors.map(floorId => {
+                    const floor = floors.find(f => f.id === floorId);
+                    if (!floor) return null;
+                    
+                    const remainingSpace = calculateRemainingSpace(floor.id);
+                    const isOverAllocated = remainingSpace < 0;
+                    
+                    return (
+                      <Card key={`expanded-${floorId}`} className="bg-white border-blue-200 border-2">
+                        <CardContent className="py-4 px-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-semibold">
+                              Unit Allocation for Floor: {floor.label}
+                            </h4>
+                            <div className={`text-sm font-medium ${isOverAllocated ? 'text-red-500' : 'text-blue-600'}`}>
+                              Remaining: {formatNumber(remainingSpace)} sf
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-1 ml-2 mt-6">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  disabled={isSubmitting}
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenDuplicateModal(floor)}>
-                                  <Copy className="h-4 w-4 mr-2" /> Duplicate Floor
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenApplyToRangeModal(floor)}>
-                                  <LayoutList className="h-4 w-4 mr-2" /> Apply to Range...
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenSaveTemplateModal(floor)}>
-                                  <Save className="h-4 w-4 mr-2" /> Save as Template
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => handleMoveFloor(floor.id, 'up')}
-                              disabled={isSubmitting || floor.position === Math.max(...floors.map(f => f.position))}
-                            >
-                              <ArrowUp className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => handleMoveFloor(floor.id, 'down')}
-                              disabled={isSubmitting || floor.position === Math.min(...floors.map(f => f.position))}
-                            >
-                              <ArrowDown className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                              onClick={() => handleDeleteFloor(floor.id)}
-                              disabled={isSubmitting}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0"
-                              onClick={() => toggleFloorExpansion(floor.id)}
-                              disabled={isSubmitting}
-                            >
-                              {expandedFloors.includes(floor.id) ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        {expandedFloors.includes(floor.id) && (
-                          <div className="mt-4 border-t pt-4">
-                            <div className="flex items-center justify-between mb-4">
-                              <h4 className="text-sm font-medium">Unit Allocation</h4>
-                              <div className={`text-sm font-medium ${isOverAllocated ? 'text-red-500' : 'text-blue-600'}`}>
-                                Remaining: {formatNumber(remainingSpace)} sf
-                              </div>
+                          {groupedProducts.length === 0 ? (
+                            <p className="text-sm text-gray-500">No product units available. Add products in the Unit Mix section.</p>
+                          ) : (
+                            <div className="space-y-4">
+                              {groupedProducts.map((product) => (
+                                <div key={product.id} className="space-y-2">
+                                  <h5 className="text-sm font-medium">{product.name}</h5>
+                                  
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="w-[180px]">Unit Type</TableHead>
+                                        <TableHead className="w-[100px]">Size (sf)</TableHead>
+                                        <TableHead className="w-[120px]">Quantity</TableHead>
+                                        <TableHead className="w-[120px] text-right">Total Area (sf)</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {product.unitTypes.map((unitType) => {
+                                        const quantity = getUnitAllocation(floor.id, unitType.id);
+                                        const totalArea = unitType.grossArea * quantity;
+                                        const allocationKey = `${floor.id}-${unitType.id}`;
+                                        const isPending = pendingAllocationUpdates[allocationKey];
+                                        
+                                        return (
+                                          <TableRow key={unitType.id}>
+                                            <TableCell>{unitType.unitType}</TableCell>
+                                            <TableCell>{formatNumber(unitType.grossArea)}</TableCell>
+                                            <TableCell>
+                                              <div className="flex items-center">
+                                                <Input
+                                                  type="number"
+                                                  min="0"
+                                                  value={quantity || 0}
+                                                  onChange={(e) => {
+                                                    const value = parseInt(e.target.value) || 0;
+                                                    if (value >= 0) {
+                                                      handleUnitAllocationChange(floor.id, unitType.id, value);
+                                                    }
+                                                  }}
+                                                  className="w-20 h-8 mr-2"
+                                                  disabled={isPending}
+                                                />
+                                                {isPending && (
+                                                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                                                )}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                              {formatNumber(totalArea)}
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              ))}
                             </div>
-                            
-                            {groupedProducts.length === 0 ? (
-                              <p className="text-sm text-gray-500">No product units available. Add products in the Unit Mix section.</p>
-                            ) : (
-                              <div className="space-y-4">
-                                {groupedProducts.map((product) => (
-                                  <div key={product.id} className="space-y-2">
-                                    <h5 className="text-sm font-medium">{product.name}</h5>
-                                    
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow>
-                                          <TableHead className="w-[180px]">Unit Type</TableHead>
-                                          <TableHead className="w-[100px]">Size (sf)</TableHead>
-                                          <TableHead className="w-[120px]">Quantity</TableHead>
-                                          <TableHead className="w-[120px] text-right">Total Area (sf)</TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {product.unitTypes.map((unitType) => {
-                                          const quantity = getUnitAllocation(floor.id, unitType.id);
-                                          const totalArea = unitType.grossArea * quantity;
-                                          const allocationKey = `${floor.id}-${unitType.id}`;
-                                          const isPending = pendingAllocationUpdates[allocationKey];
-                                          
-                                          return (
-                                            <TableRow key={unitType.id}>
-                                              <TableCell>{unitType.unitType}</TableCell>
-                                              <TableCell>{formatNumber(unitType.grossArea)}</TableCell>
-                                              <TableCell>
-                                                <div className="flex items-center">
-                                                  <Input
-                                                    type="number"
-                                                    min="0"
-                                                    value={quantity || 0}
-                                                    onChange={(e) => {
-                                                      const value = parseInt(e.target.value) || 0;
-                                                      if (value >= 0) {
-                                                        handleUnitAllocationChange(floor.id, unitType.id, value);
-                                                      }
-                                                    }}
-                                                    className="w-20 h-8 mr-2"
-                                                    disabled={isPending}
-                                                  />
-                                                  {isPending && (
-                                                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                                                  )}
-                                                </div>
-                                              </TableCell>
-                                              <TableCell className="text-right">
-                                                {formatNumber(totalArea)}
-                                              </TableCell>
-                                            </TableRow>
-                                          );
-                                        })}
-                                      </TableBody>
-                                    </Table>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
           
