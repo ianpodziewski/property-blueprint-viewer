@@ -28,7 +28,7 @@ export const validateModelData = (modelData: any): ValidationResult => {
 
   // Check property section has required fields
   if (modelData.property) {
-    const propertyFields = ['projectName', 'spaceTypes', 'unitMixes'];
+    const propertyFields = ['projectName', 'projectType', 'projectLocation'];
     for (const field of propertyFields) {
       if (modelData.property[field] === undefined) {
         result.errors.push(`Missing required property field: ${field}`);

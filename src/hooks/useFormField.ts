@@ -11,6 +11,7 @@ export const useFormField = (initialValue: string = '', fieldName: string, secti
   useEffect(() => {
     if (modelContext[sectionKey] && modelContext[sectionKey][fieldName] !== undefined) {
       setValue(modelContext[sectionKey][fieldName]);
+      console.log(`[useFormField] Initialized ${sectionKey}.${fieldName} with:`, modelContext[sectionKey][fieldName]);
     }
   }, [modelContext, sectionKey, fieldName]);
   

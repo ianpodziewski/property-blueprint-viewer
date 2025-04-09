@@ -2,9 +2,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { PlusCircle, Trash2 } from "lucide-react";
 import { useModel } from "@/context/ModelContext";
 import { useEffect } from "react";
 
@@ -21,9 +18,6 @@ const PropertyBreakdown = () => {
       projectName: property.projectName,
       projectLocation: property.projectLocation,
       projectType: property.projectType,
-      totalLandArea: property.totalLandArea,
-      spaceTypes: property.spaceTypes,
-      unitMixes: property.unitMixes
     });
   }, [property]);
 
@@ -40,15 +34,15 @@ const PropertyBreakdown = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold text-blue-700 mb-4">Property Breakdown</h2>
-        <p className="text-gray-600 mb-6">Define the basic characteristics and mix of your development project.</p>
+        <p className="text-gray-600 mb-6">Define the basic characteristics of your development project.</p>
       </div>
       
-      <Card>
+      <Card className="mb-10">
         <CardHeader>
           <CardTitle>Project Information</CardTitle>
           <CardDescription>Set your project's basic details</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
           <div className="space-y-2">
             <Label htmlFor="project-name">Project Name</Label>
             <Input 
@@ -87,237 +81,6 @@ const PropertyBreakdown = () => {
                 console.log("Project type input changed to:", e.target.value);
               }}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="total-area">Total Land Area (sq ft)</Label>
-            <Input 
-              id="total-area" 
-              placeholder="0" 
-              type="number"
-              value={property.totalLandArea}
-              onChange={(e) => {
-                property.setTotalLandArea(e.target.value);
-                setHasUnsavedChanges(true);
-                console.log("Total land area input changed to:", e.target.value);
-              }}
-            />
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Space Types</CardTitle>
-          <CardDescription>Define the different space types in your development</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {property.spaceTypes.map((space, index) => (
-              <div 
-                key={space.id} 
-                className="grid grid-cols-1 md:grid-cols-5 gap-4 pb-6 border-b border-gray-200 last:border-0"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor={`space-type-${space.id}`}>Space Type</Label>
-                  <Select 
-                    onValueChange={(value) => {
-                      property.updateSpaceType(space.id, "type", value);
-                      setHasUnsavedChanges(true);
-                    }}
-                    value={space.type}
-                  >
-                    <SelectTrigger id={`space-type-${space.id}`}>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="residential">Residential</SelectItem>
-                      <SelectItem value="office">Office</SelectItem>
-                      <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="parking">Parking</SelectItem>
-                      <SelectItem value="hotel">Hotel</SelectItem>
-                      <SelectItem value="amenities">Amenities</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor={`square-footage-${space.id}`}>Square Footage</Label>
-                  <Input 
-                    id={`square-footage-${space.id}`} 
-                    placeholder="0" 
-                    type="number" 
-                    value={space.squareFootage}
-                    onChange={(e) => {
-                      property.updateSpaceType(space.id, "squareFootage", e.target.value);
-                      setHasUnsavedChanges(true);
-                    }}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor={`units-${space.id}`}>Number of Units (optional)</Label>
-                  <Input 
-                    id={`units-${space.id}`} 
-                    placeholder="0" 
-                    type="number"
-                    value={space.units}
-                    onChange={(e) => {
-                      property.updateSpaceType(space.id, "units", e.target.value);
-                      setHasUnsavedChanges(true);
-                    }}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor={`phase-${space.id}`}>Phasing</Label>
-                  <Select 
-                    onValueChange={(value) => {
-                      property.updateSpaceType(space.id, "phase", value);
-                      setHasUnsavedChanges(true);
-                    }}
-                    value={space.phase}
-                  >
-                    <SelectTrigger id={`phase-${space.id}`}>
-                      <SelectValue placeholder="Select phase" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="phase1">Phase 1</SelectItem>
-                      <SelectItem value="phase2">Phase 2</SelectItem>
-                      <SelectItem value="phase3">Phase 3</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-end justify-end">
-                  {property.spaceTypes.length > 1 && (
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => {
-                        property.removeSpaceType(space.id);
-                        setHasUnsavedChanges(true);
-                      }}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            <div className="pt-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => {
-                  property.addSpaceType();
-                  setHasUnsavedChanges(true);
-                  console.log("Space type added");
-                }}
-                className="flex items-center gap-2"
-              >
-                <PlusCircle className="h-4 w-4" /> Add Another Space Type
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Unit Mix</CardTitle>
-          <CardDescription>Define the mix of unit types in your residential spaces</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {property.unitMixes.map((unit, index) => (
-              <div 
-                key={unit.id} 
-                className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-6 border-b border-gray-200 last:border-0"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor={`unit-type-${unit.id}`}>Unit Type</Label>
-                  <Select 
-                    onValueChange={(value) => {
-                      property.updateUnitMix(unit.id, "type", value);
-                      setHasUnsavedChanges(true);
-                    }}
-                    value={unit.type}
-                  >
-                    <SelectTrigger id={`unit-type-${unit.id}`}>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Studio">Studio</SelectItem>
-                      <SelectItem value="1-bed">1 Bedroom</SelectItem>
-                      <SelectItem value="2-bed">2 Bedroom</SelectItem>
-                      <SelectItem value="3-bed">3 Bedroom</SelectItem>
-                      <SelectItem value="penthouse">Penthouse</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor={`unit-count-${unit.id}`}>Number of Units</Label>
-                  <Input 
-                    id={`unit-count-${unit.id}`} 
-                    placeholder="0" 
-                    type="number"
-                    value={unit.count}
-                    onChange={(e) => {
-                      property.updateUnitMix(unit.id, "count", e.target.value);
-                      setHasUnsavedChanges(true);
-                    }}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor={`unit-sqft-${unit.id}`}>Avg. Square Footage</Label>
-                  <Input 
-                    id={`unit-sqft-${unit.id}`} 
-                    placeholder="0" 
-                    type="number"
-                    value={unit.squareFootage}
-                    onChange={(e) => {
-                      property.updateUnitMix(unit.id, "squareFootage", e.target.value);
-                      setHasUnsavedChanges(true);
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-end justify-end">
-                  {property.unitMixes.length > 1 && (
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => {
-                        property.removeUnitMix(unit.id);
-                        setHasUnsavedChanges(true);
-                      }}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-            
-            <div className="pt-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => {
-                  property.addUnitMix();
-                  setHasUnsavedChanges(true);
-                  console.log("Unit mix added");
-                }}
-                className="flex items-center gap-2"
-              >
-                <PlusCircle className="h-4 w-4" /> Add Another Unit Type
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
