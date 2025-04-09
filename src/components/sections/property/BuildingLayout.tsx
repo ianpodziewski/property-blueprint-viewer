@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,9 @@ import {
   Loader2, 
   Copy, 
   MoreVertical,
-  LayoutList 
+  LayoutList,
+  Save,
+  Plus
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Floor, FloorPlateTemplate, Product } from "@/hooks/usePropertyState";
@@ -41,13 +42,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { duplicateFloor } from "@/utils/floorManagement";
 import FloorDuplicateModal from "./FloorDuplicateModal";
+import ApplyFloorToRangeModal from "./ApplyFloorToRangeModal";
+import SaveAsTemplateModal from "./SaveAsTemplateModal";
+import BulkAddFloorsModal from "./BulkAddFloorsModal";
+import FloorUsageTemplates from "./FloorUsageTemplates";
 import { toast } from "sonner";
 
 const formatNumber = (num: number | undefined): string => {
   return num === undefined || isNaN(num) ? "0" : num.toLocaleString('en-US');
 };
 
-// Props interface for the component
 interface BuildingLayoutProps {
   floors: Floor[];
   templates: FloorPlateTemplate[];
@@ -76,10 +80,19 @@ const BuildingLayout = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingAllocationUpdates, setPendingAllocationUpdates] = useState<Record<string, boolean>>({});
   
-  // State for floor duplication
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [selectedFloorForDuplicate, setSelectedFloorForDuplicate] = useState<Floor | null>(null);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  
+  const [applyToRangeModalOpen, setApplyToRangeModalOpen] = useState(false);
+  const [selectedFloorForRange, setSelectedFloorForRange] = useState<Floor | null>(null);
+  
+  const [saveTemplateModalOpen, setSaveTemplateModalOpen] = useState(false);
+  const [selectedFloorForTemplate, setSelectedFloorForTemplate] = useState<Floor | null>(null);
+  
+  const [bulkAddModalOpen, setBulkAddModalOpen] = useState(false);
+  
+  const projectId = floors.length > 0 ? floors[0].projectId : "";
   
   const handleAddFloor = async () => {
     setIsSubmitting(true);
@@ -93,7 +106,6 @@ const BuildingLayout = ({
     setIsSubmitting(false);
     
     if (success) {
-      // Remove from expanded floors if it was expanded
       setExpandedFloors(prev => prev.filter(floorId => floorId !== id));
     }
   };
@@ -105,7 +117,6 @@ const BuildingLayout = ({
     const currentPosition = floors[floorIndex].position;
     
     if (direction === 'up' && floorIndex < floors.length - 1) {
-      // Swap positions with the floor above
       const nextFloorIndex = floorIndex + 1;
       const nextPosition = floors[nextFloorIndex].position;
       
@@ -116,7 +127,6 @@ const BuildingLayout = ({
       ]);
       setIsSubmitting(false);
     } else if (direction === 'down' && floorIndex > 0) {
-      // Swap positions with the floor below
       const prevFloorIndex = floorIndex - 1;
       const prevPosition = floors[prevFloorIndex].position;
       
@@ -165,42 +175,44 @@ const BuildingLayout = ({
     }));
   };
 
-  // Handle opening the duplicate modal
   const handleOpenDuplicateModal = (floor: Floor) => {
     setSelectedFloorForDuplicate(floor);
     setDuplicateModalOpen(true);
   };
+  
+  const handleOpenApplyToRangeModal = (floor: Floor) => {
+    setSelectedFloorForRange(floor);
+    setApplyToRangeModalOpen(true);
+  };
+  
+  const handleOpenSaveTemplateModal = (floor: Floor) => {
+    setSelectedFloorForTemplate(floor);
+    setSaveTemplateModalOpen(true);
+  };
 
-  // Handle the duplicate operation
   const handleDuplicateFloor = async (newLabel: string, positionType: "above" | "below") => {
     if (!selectedFloorForDuplicate) return;
 
     setIsDuplicating(true);
     try {
-      // Find floor positions for placement
       const sortedFloors = [...floors].sort((a, b) => b.position - a.position);
       const floorIndex = sortedFloors.findIndex(f => f.id === selectedFloorForDuplicate.id);
       
       let newPosition: number;
       if (positionType === "above") {
-        // Position it above the current floor (which means a higher position value)
         newPosition = sortedFloors[floorIndex].position + 1;
         
-        // If there's already a floor above, position it between them
         if (floorIndex > 0) {
           newPosition = (sortedFloors[floorIndex].position + sortedFloors[floorIndex - 1].position) / 2;
         }
       } else {
-        // Position it below the current floor (which means a lower position value)
         newPosition = sortedFloors[floorIndex].position - 1;
         
-        // If there's already a floor below, position it between them
         if (floorIndex < sortedFloors.length - 1) {
           newPosition = (sortedFloors[floorIndex].position + sortedFloors[floorIndex + 1].position) / 2;
         }
       }
       
-      // Call the duplicate function
       const newFloorId = await duplicateFloor(
         selectedFloorForDuplicate.id,
         newLabel,
@@ -209,7 +221,6 @@ const BuildingLayout = ({
       
       if (newFloorId) {
         toast.success(`Floor "${newLabel}" created successfully`);
-        // Automatically expand the new floor
         setExpandedFloors(prev => [...prev, newFloorId]);
       } else {
         toast.error("Failed to duplicate floor");
@@ -223,7 +234,16 @@ const BuildingLayout = ({
     }
   };
   
-  // Calculate remaining space for a floor
+  const handleRefreshData = async () => {
+    try {
+      if (floors.length > 0) {
+        toast.info("Refreshing floor data...");
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    }
+  };
+  
   const calculateRemainingSpace = (floorId: string): number => {
     const floor = floors.find(f => f.id === floorId);
     if (!floor) return 0;
@@ -231,7 +251,6 @@ const BuildingLayout = ({
     const template = getFloorTemplateById(floor.templateId);
     const totalFloorArea = template?.grossArea || 0;
     
-    // Calculate allocated space for this floor
     let allocatedSpace = 0;
     
     products.forEach(product => {
@@ -244,12 +263,10 @@ const BuildingLayout = ({
     return totalFloorArea - allocatedSpace;
   };
   
-  // Sort floors by position
   const sortedFloors = useMemo(() => {
     return [...floors].sort((a, b) => b.position - a.position);
   }, [floors]);
   
-  // Calculate total units by type
   const totalUnitsByType = useMemo(() => {
     const totals = new Map<string, number>();
     
@@ -270,18 +287,15 @@ const BuildingLayout = ({
     return totals;
   }, [floors, products, getUnitAllocation]);
   
-  // Calculate total building area and total units
   const buildingTotals = useMemo(() => {
     let area = 0;
     let units = 0;
     
-    // Sum floor areas
     sortedFloors.forEach(floor => {
       const template = getFloorTemplateById(floor.templateId);
       area += template?.grossArea || 0;
     });
     
-    // Sum unit counts
     products.forEach(product => {
       product.unitTypes.forEach(unitType => {
         floors.forEach(floor => {
@@ -295,7 +309,6 @@ const BuildingLayout = ({
   
   const { totalArea, totalUnits } = buildingTotals;
   
-  // Group products and unit types for display
   const groupedProducts = useMemo(() => {
     return products.map(product => ({
       ...product,
@@ -305,7 +318,6 @@ const BuildingLayout = ({
     }));
   }, [products]);
   
-  // Find a unit type by ID across all products
   const findUnitTypeById = (unitTypeId: string) => {
     for (const product of products) {
       const unitType = product.unitTypes.find(ut => ut.id === unitTypeId);
@@ -333,6 +345,40 @@ const BuildingLayout = ({
         <CollapsibleContent className="pt-2">
           <div className="text-sm text-gray-500 mb-4">
             Configure your building's floors and assign units
+          </div>
+          
+          <FloorUsageTemplates 
+            floors={floors}
+            templates={templates}
+            projectId={projectId}
+            onRefresh={handleRefreshData}
+          />
+          
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setBulkAddModalOpen(true)}
+              disabled={templates.length === 0}
+            >
+              <Plus className="h-4 w-4 mr-1" /> Add Multiple Floors
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                if (sortedFloors.length === 0) {
+                  toast.error("No floors available to save as template");
+                  return;
+                }
+                setSelectedFloorForTemplate(sortedFloors[0]);
+                setSaveTemplateModalOpen(true);
+              }}
+              disabled={sortedFloors.length === 0}
+            >
+              <Save className="h-4 w-4 mr-1" /> Save as Template
+            </Button>
           </div>
           
           {sortedFloors.length === 0 ? (
@@ -410,7 +456,6 @@ const BuildingLayout = ({
                           </div>
                           
                           <div className="flex items-center gap-1 ml-2 mt-6">
-                            {/* New dropdown menu for floor actions */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -426,8 +471,11 @@ const BuildingLayout = ({
                                 <DropdownMenuItem onClick={() => handleOpenDuplicateModal(floor)}>
                                   <Copy className="h-4 w-4 mr-2" /> Duplicate Floor
                                 </DropdownMenuItem>
-                                <DropdownMenuItem disabled>
+                                <DropdownMenuItem onClick={() => handleOpenApplyToRangeModal(floor)}>
                                   <LayoutList className="h-4 w-4 mr-2" /> Apply to Range...
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleOpenSaveTemplateModal(floor)}>
+                                  <Save className="h-4 w-4 mr-2" /> Save as Template
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -590,7 +638,6 @@ const BuildingLayout = ({
                   </div>
                 </div>
                 
-                {/* Units by type summary */}
                 {Array.from(totalUnitsByType.entries()).length > 0 && (
                   <div className="mt-4 pt-4 border-t border-blue-100">
                     <Label className="text-sm font-medium">Units by Type</Label>
@@ -614,16 +661,37 @@ const BuildingLayout = ({
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Floor Duplication Modal */}
-      {selectedFloorForDuplicate && (
-        <FloorDuplicateModal
-          isOpen={duplicateModalOpen}
-          onClose={() => setDuplicateModalOpen(false)}
-          onDuplicate={handleDuplicateFloor}
-          currentFloorLabel={selectedFloorForDuplicate.label}
-          isLoading={isDuplicating}
-        />
-      )}
+      <FloorDuplicateModal
+        isOpen={duplicateModalOpen}
+        onClose={() => setDuplicateModalOpen(false)}
+        onDuplicate={handleDuplicateFloor}
+        currentFloorLabel={selectedFloorForDuplicate.label}
+        isLoading={isDuplicating}
+      />
+      
+      <ApplyFloorToRangeModal
+        isOpen={applyToRangeModalOpen}
+        onClose={() => setApplyToRangeModalOpen(false)}
+        sourceFloor={selectedFloorForRange}
+        floors={floors}
+        onComplete={handleRefreshData}
+      />
+      
+      <SaveAsTemplateModal
+        isOpen={saveTemplateModalOpen}
+        onClose={() => setSaveTemplateModalOpen(false)}
+        sourceFloor={selectedFloorForTemplate}
+        projectId={projectId}
+        onComplete={handleRefreshData}
+      />
+      
+      <BulkAddFloorsModal
+        isOpen={bulkAddModalOpen}
+        onClose={() => setBulkAddModalOpen(false)}
+        templates={templates}
+        projectId={projectId}
+        onComplete={handleRefreshData}
+      />
     </>
   );
 };
