@@ -305,6 +305,11 @@ export const createFloorUsageTemplate = async (
  */
 export const fetchFloorUsageTemplates = async (projectId: string) => {
   try {
+    if (!projectId) {
+      console.warn("No project ID provided for fetching floor usage templates");
+      return [];
+    }
+    
     const { data: templates, error } = await supabase
       .from("floor_usage_templates")
       .select()
@@ -318,7 +323,8 @@ export const fetchFloorUsageTemplates = async (projectId: string) => {
     return templates || [];
   } catch (error) {
     console.error("Error fetching floor usage templates:", error);
-    throw error;
+    // Return empty array instead of throwing to prevent UI errors
+    return [];
   }
 };
 
@@ -365,6 +371,14 @@ export const applyTemplateToFloors = async (
   floorIds: string[]
 ): Promise<void> => {
   try {
+    if (!templateId) {
+      throw new Error("No template ID provided");
+    }
+    
+    if (!floorIds || floorIds.length === 0) {
+      throw new Error("No floor IDs provided");
+    }
+    
     // Get template allocations
     const { data: templateAllocations, error: allocsError } = await supabase
       .from("floor_usage_template_allocations")
