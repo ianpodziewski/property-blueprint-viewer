@@ -1,79 +1,24 @@
 
-import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Trash2 } from "lucide-react";
-
-interface SpaceType {
-  id: string;
-  type: string;
-  squareFootage: string;
-  units: string;
-  phase: string;
-}
-
-interface UnitMix {
-  id: string;
-  type: string;
-  count: string;
-  squareFootage: string;
-}
+import { useModel } from "@/context/ModelContext";
+import { useEffect } from "react";
 
 const PropertyBreakdown = () => {
-  const [spaceTypes, setSpaceTypes] = useState<SpaceType[]>([
-    { id: "space-1", type: "", squareFootage: "", units: "", phase: "" }
-  ]);
+  // Use the model context instead of local state
+  const { 
+    property, 
+    setHasUnsavedChanges 
+  } = useModel();
 
-  const [unitMixes, setUnitMixes] = useState<UnitMix[]>([
-    { id: "unit-1", type: "Studio", count: "", squareFootage: "" }
-  ]);
-
-  const addSpaceType = () => {
-    const newId = `space-${spaceTypes.length + 1}`;
-    setSpaceTypes([
-      ...spaceTypes,
-      { id: newId, type: "", squareFootage: "", units: "", phase: "" }
-    ]);
-  };
-
-  const removeSpaceType = (id: string) => {
-    if (spaceTypes.length > 1) {
-      setSpaceTypes(spaceTypes.filter(space => space.id !== id));
-    }
-  };
-
-  const updateSpaceType = (id: string, field: keyof SpaceType, value: string) => {
-    setSpaceTypes(
-      spaceTypes.map(space => 
-        space.id === id ? { ...space, [field]: value } : space
-      )
-    );
-  };
-
-  const addUnitMix = () => {
-    const newId = `unit-${unitMixes.length + 1}`;
-    setUnitMixes([
-      ...unitMixes,
-      { id: newId, type: "", count: "", squareFootage: "" }
-    ]);
-  };
-
-  const removeUnitMix = (id: string) => {
-    if (unitMixes.length > 1) {
-      setUnitMixes(unitMixes.filter(unit => unit.id !== id));
-    }
-  };
-
-  const updateUnitMix = (id: string, field: keyof UnitMix, value: string) => {
-    setUnitMixes(
-      unitMixes.map(unit => 
-        unit.id === id ? { ...unit, [field]: value } : unit
-      )
-    );
-  };
+  // Set unsaved changes when component mounts
+  useEffect(() => {
+    console.log("PropertyBreakdown mounted, connected to context state");
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -90,19 +35,52 @@ const PropertyBreakdown = () => {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label htmlFor="project-name">Project Name</Label>
-            <Input id="project-name" placeholder="Enter project name" />
+            <Input 
+              id="project-name" 
+              placeholder="Enter project name" 
+              value={property.projectName}
+              onChange={(e) => {
+                property.setProjectName(e.target.value);
+                setHasUnsavedChanges(true);
+              }}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
-            <Input id="location" placeholder="City, State" />
+            <Input 
+              id="location" 
+              placeholder="City, State" 
+              value={property.projectLocation}
+              onChange={(e) => {
+                property.setProjectLocation(e.target.value);
+                setHasUnsavedChanges(true);
+              }}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="project-type">Project Type</Label>
-            <Input id="project-type" placeholder="Mixed-use, Residential, etc." />
+            <Input 
+              id="project-type" 
+              placeholder="Mixed-use, Residential, etc." 
+              value={property.projectType}
+              onChange={(e) => {
+                property.setProjectType(e.target.value);
+                setHasUnsavedChanges(true);
+              }}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="total-area">Total Land Area (sq ft)</Label>
-            <Input id="total-area" placeholder="0" type="number" />
+            <Input 
+              id="total-area" 
+              placeholder="0" 
+              type="number"
+              value={property.totalLandArea}
+              onChange={(e) => {
+                property.setTotalLandArea(e.target.value);
+                setHasUnsavedChanges(true);
+              }}
+            />
           </div>
         </CardContent>
       </Card>
@@ -114,7 +92,7 @@ const PropertyBreakdown = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {spaceTypes.map((space, index) => (
+            {property.spaceTypes.map((space, index) => (
               <div 
                 key={space.id} 
                 className="grid grid-cols-1 md:grid-cols-5 gap-4 pb-6 border-b border-gray-200 last:border-0"
@@ -122,7 +100,10 @@ const PropertyBreakdown = () => {
                 <div className="space-y-2">
                   <Label htmlFor={`space-type-${space.id}`}>Space Type</Label>
                   <Select 
-                    onValueChange={(value) => updateSpaceType(space.id, "type", value)}
+                    onValueChange={(value) => {
+                      property.updateSpaceType(space.id, "type", value);
+                      setHasUnsavedChanges(true);
+                    }}
                     value={space.type}
                   >
                     <SelectTrigger id={`space-type-${space.id}`}>
@@ -146,7 +127,10 @@ const PropertyBreakdown = () => {
                     placeholder="0" 
                     type="number" 
                     value={space.squareFootage}
-                    onChange={(e) => updateSpaceType(space.id, "squareFootage", e.target.value)}
+                    onChange={(e) => {
+                      property.updateSpaceType(space.id, "squareFootage", e.target.value);
+                      setHasUnsavedChanges(true);
+                    }}
                   />
                 </div>
                 
@@ -157,14 +141,20 @@ const PropertyBreakdown = () => {
                     placeholder="0" 
                     type="number"
                     value={space.units}
-                    onChange={(e) => updateSpaceType(space.id, "units", e.target.value)}
+                    onChange={(e) => {
+                      property.updateSpaceType(space.id, "units", e.target.value);
+                      setHasUnsavedChanges(true);
+                    }}
                   />
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor={`phase-${space.id}`}>Phasing</Label>
                   <Select 
-                    onValueChange={(value) => updateSpaceType(space.id, "phase", value)}
+                    onValueChange={(value) => {
+                      property.updateSpaceType(space.id, "phase", value);
+                      setHasUnsavedChanges(true);
+                    }}
                     value={space.phase}
                   >
                     <SelectTrigger id={`phase-${space.id}`}>
@@ -179,11 +169,14 @@ const PropertyBreakdown = () => {
                 </div>
 
                 <div className="flex items-end justify-end">
-                  {spaceTypes.length > 1 && (
+                  {property.spaceTypes.length > 1 && (
                     <Button 
                       variant="outline" 
                       size="icon"
-                      onClick={() => removeSpaceType(space.id)}
+                      onClick={() => {
+                        property.removeSpaceType(space.id);
+                        setHasUnsavedChanges(true);
+                      }}
                       className="text-red-500 hover:text-red-700"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -197,7 +190,10 @@ const PropertyBreakdown = () => {
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={addSpaceType}
+                onClick={() => {
+                  property.addSpaceType();
+                  setHasUnsavedChanges(true);
+                }}
                 className="flex items-center gap-2"
               >
                 <PlusCircle className="h-4 w-4" /> Add Another Space Type
@@ -214,7 +210,7 @@ const PropertyBreakdown = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {unitMixes.map((unit, index) => (
+            {property.unitMixes.map((unit, index) => (
               <div 
                 key={unit.id} 
                 className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-6 border-b border-gray-200 last:border-0"
@@ -222,7 +218,10 @@ const PropertyBreakdown = () => {
                 <div className="space-y-2">
                   <Label htmlFor={`unit-type-${unit.id}`}>Unit Type</Label>
                   <Select 
-                    onValueChange={(value) => updateUnitMix(unit.id, "type", value)}
+                    onValueChange={(value) => {
+                      property.updateUnitMix(unit.id, "type", value);
+                      setHasUnsavedChanges(true);
+                    }}
                     value={unit.type}
                   >
                     <SelectTrigger id={`unit-type-${unit.id}`}>
@@ -245,7 +244,10 @@ const PropertyBreakdown = () => {
                     placeholder="0" 
                     type="number"
                     value={unit.count}
-                    onChange={(e) => updateUnitMix(unit.id, "count", e.target.value)}
+                    onChange={(e) => {
+                      property.updateUnitMix(unit.id, "count", e.target.value);
+                      setHasUnsavedChanges(true);
+                    }}
                   />
                 </div>
                 
@@ -256,16 +258,22 @@ const PropertyBreakdown = () => {
                     placeholder="0" 
                     type="number"
                     value={unit.squareFootage}
-                    onChange={(e) => updateUnitMix(unit.id, "squareFootage", e.target.value)}
+                    onChange={(e) => {
+                      property.updateUnitMix(unit.id, "squareFootage", e.target.value);
+                      setHasUnsavedChanges(true);
+                    }}
                   />
                 </div>
 
                 <div className="flex items-end justify-end">
-                  {unitMixes.length > 1 && (
+                  {property.unitMixes.length > 1 && (
                     <Button 
                       variant="outline" 
                       size="icon"
-                      onClick={() => removeUnitMix(unit.id)}
+                      onClick={() => {
+                        property.removeUnitMix(unit.id);
+                        setHasUnsavedChanges(true);
+                      }}
                       className="text-red-500 hover:text-red-700"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -279,7 +287,10 @@ const PropertyBreakdown = () => {
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={addUnitMix}
+                onClick={() => {
+                  property.addUnitMix();
+                  setHasUnsavedChanges(true);
+                }}
                 className="flex items-center gap-2"
               >
                 <PlusCircle className="h-4 w-4" /> Add Another Unit Type
