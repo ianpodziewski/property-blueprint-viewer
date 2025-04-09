@@ -48,6 +48,18 @@ interface UnitTypeData {
   length: number | null;
 }
 
+// Define a proper interface for unit allocation data from the database
+interface UnitAllocationData {
+  id: string;
+  floor_id: string;
+  unit_type_id: string;
+  quantity: number;
+  floors?: {
+    id: string;
+    project_id: string;
+  };
+}
+
 export function useSupabasePropertyData(projectId: string | null) {
   const { user } = useAuth();
   const { currentProjectId } = useProject();
@@ -201,7 +213,9 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       // Transform unit allocations data into a lookup object
       const allocationMap: Record<string, Record<string, number>> = {};
-      (unitAllocData || []).forEach((allocation: any) => {
+      
+      // Process the returned data as UnitAllocationData objects
+      (unitAllocData || []).forEach((allocation: UnitAllocationData) => {
         const floorId = allocation.floor_id;
         const unitTypeId = allocation.unit_type_id;
         const quantity = allocation.quantity;
@@ -644,49 +658,67 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
-      const existingAllocation = unitAllocations.find(
-        a => a.floor_id === floorId && a.unit_type_id === unitTypeId
-      );
+      // Check if allocation already exists
+      const { data, error: checkError } = await supabase
+        .from('unit_allocations')
+        .select('id')
+        .eq('floor_id', floorId)
+        .eq('unit_type_id', unitTypeId)
+        .maybeSingle();
       
-      if (existingAllocation) {
+      if (checkError) throw checkError;
+      
+      if (data) {
+        // Allocation exists, update or delete
         if (quantity === 0) {
           const { error } = await supabase
             .from('unit_allocations')
             .delete()
-            .eq('id', existingAllocation.id);
+            .eq('id', data.id);
             
           if (error) throw error;
-          
-          setUnitAllocations(prev => 
-            prev.filter(a => a.id !== existingAllocation.id)
-          );
         } else {
           const { error } = await supabase
             .from('unit_allocations')
             .update({ quantity })
-            .eq('id', existingAllocation.id);
+            .eq('id', data.id);
             
           if (error) throw error;
-          
-          setUnitAllocations(prev => 
-            prev.map(a => a.id === existingAllocation.id ? { ...a, quantity } : a)
-          );
         }
       } else if (quantity > 0) {
-        const { data, error } = await supabase
+        // Allocation doesn't exist, create it
+        const { error } = await supabase
           .from('unit_allocations')
           .insert({
             floor_id: floorId,
             unit_type_id: unitTypeId,
             quantity
-          })
-          .select()
-          .single();
+          });
           
         if (error) throw error;
-        
-        setUnitAllocations(prev => [...prev, data]);
       }
+      
+      // Update local state
+      setUnitAllocations(prev => {
+        // Create deep copy of the state
+        const updated = { ...prev };
+        
+        // Make sure floor entry exists
+        if (!updated[floorId]) {
+          updated[floorId] = {};
+        }
+        
+        if (quantity === 0) {
+          // Remove allocation if quantity is 0
+          const { [unitTypeId]: _, ...rest } = updated[floorId];
+          updated[floorId] = rest;
+        } else {
+          // Set updated quantity
+          updated[floorId][unitTypeId] = quantity;
+        }
+        
+        return updated;
+      });
       
       return true;
       
