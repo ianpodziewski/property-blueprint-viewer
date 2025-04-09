@@ -14,12 +14,12 @@ type ModelContextType = {
   setHasUnsavedChanges: (hasChanges: boolean) => void;
   
   isSaving: boolean;
-  isAutoSaving?: boolean; // Added this property
+  isAutoSaving?: boolean;
   lastSaved: Date | null;
-  meta?: { version: string }; // Added this property
+  meta?: { version: string };
   
   saveModel: () => void;
-  resetModel?: () => void; // Added this property
+  resetModel?: () => void;
   
   // Model state from hooks
   property: ReturnType<typeof useModelState>["property"];
@@ -39,9 +39,9 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeTab, setActiveTab] = useState<ModelTabType>("property");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isAutoSaving, setIsAutoSaving] = useState(false); // Added this state
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [meta, setMeta] = useState<{ version: string } | undefined>(); // Added meta state
+  const [meta, setMeta] = useState<{ version: string } | undefined>();
   
   // Create model state using all our hooks
   const modelState = useModelState();
@@ -91,8 +91,6 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           expenseGrowthRate: modelState.expenses.expenseGrowthRate,
           operatingExpenseRatio: modelState.expenses.operatingExpenseRatio,
           replacementReserves: modelState.expenses.replacementReserves,
-          // Updated property names to match the actual state variables
-          // in useExpensesState
           propertyTaxes: modelState.expenses.propertyTaxes,
           propertyInsurance: modelState.expenses.propertyInsurance,
           utilitiesExpense: modelState.expenses.utilitiesExpense,
@@ -118,7 +116,6 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         timeline: {
           startDate: modelState.timeline.startDate?.toISOString(),
           completionDate: modelState.timeline.completionDate?.toISOString(),
-          // Using the actual property names from the timeline state
           phaseCount: modelState.timeline.phaseCount,
           phaseDuration: modelState.timeline.phaseDuration,
           stabilizationPeriod: modelState.timeline.stabilizationPeriod,
