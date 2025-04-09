@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback, MouseEvent, KeyboardEvent } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,15 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle2,
-  ArrowUpDown
+  ArrowUpDown,
+  Check,
+  ClipboardCopy,
+  ClipboardPaste,
+  Trash2,
+  ListFilter,
+  MoveVertical,
+  RotateCcw,
+  Shield
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Floor, FloorPlateTemplate, Product } from "@/hooks/usePropertyState";
@@ -43,7 +51,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
@@ -51,6 +61,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { duplicateFloor } from "@/utils/floorManagement";
 import FloorDuplicateModal from "./FloorDuplicateModal";
 import ApplyFloorToRangeModal from "./ApplyFloorToRangeModal";
@@ -75,6 +94,216 @@ interface BuildingLayoutProps {
   getFloorTemplateById: (templateId: string) => FloorPlateTemplate | undefined;
   onRefreshData?: () => Promise<void>;
 }
+
+// Interface for the bulk apply template modal
+interface BulkApplyTemplateModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedFloors: Floor[];
+  templates: FloorPlateTemplate[];
+  onApply: (templateId: string, applyUnitAllocations: boolean) => Promise<void>;
+}
+
+// Component for bulk applying templates
+const BulkApplyTemplateModal: React.FC<BulkApplyTemplateModalProps> = ({
+  isOpen,
+  onClose,
+  selectedFloors,
+  templates,
+  onApply
+}) => {
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [applyUnitAllocations, setApplyUnitAllocations] = useState<boolean>(false);
+  const [isApplying, setIsApplying] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isOpen && templates.length > 0) {
+      setSelectedTemplateId(templates[0].id);
+    }
+  }, [isOpen, templates]);
+
+  const handleApply = async () => {
+    if (!selectedTemplateId) {
+      toast.error("Please select a template");
+      return;
+    }
+
+    setIsApplying(true);
+    try {
+      await onApply(selectedTemplateId, applyUnitAllocations);
+      onClose();
+      toast.success(`Template applied to ${selectedFloors.length} floors`);
+    } catch (error) {
+      console.error("Error applying template:", error);
+      toast.error("Failed to apply template to floors");
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Apply Template to Selected Floors</DialogTitle>
+          <DialogDescription>
+            Apply a floor template to {selectedFloors.length} selected floor{selectedFloors.length !== 1 ? 's' : ''}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="template-select">Select Template</Label>
+            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+              <SelectTrigger id="template-select">
+                <SelectValue placeholder="Select a template" />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map(template => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name} ({formatNumber(template.grossArea)} sf)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedTemplate && (
+            <div className="bg-blue-50 p-3 rounded-md">
+              <div className="text-sm font-medium mb-1">Template Info:</div>
+              <div className="text-sm">
+                <span className="font-medium">Name:</span> {selectedTemplate.name}
+              </div>
+              <div className="text-sm">
+                <span className="font-medium">Area:</span> {formatNumber(selectedTemplate.grossArea)} sf
+              </div>
+              {selectedTemplate.width && selectedTemplate.length && (
+                <div className="text-sm">
+                  <span className="font-medium">Dimensions:</span> {selectedTemplate.width}' x {selectedTemplate.length}'
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox 
+              id="apply-allocations" 
+              checked={applyUnitAllocations} 
+              onCheckedChange={(checked) => setApplyUnitAllocations(checked === true)}
+            />
+            <Label htmlFor="apply-allocations" className="text-sm cursor-pointer">
+              Also apply default unit allocations from template
+            </Label>
+          </div>
+
+          <div className="bg-amber-50 p-3 rounded-md border border-amber-200">
+            <div className="flex items-start">
+              <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 mt-0.5" />
+              <div className="text-sm text-amber-800">
+                This will replace the floor template for all selected floors. 
+                {applyUnitAllocations && " Unit allocations will be reset based on the template."}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isApplying}>
+            Cancel
+          </Button>
+          <Button onClick={handleApply} disabled={!selectedTemplateId || isApplying}>
+            {isApplying ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Applying...
+              </>
+            ) : (
+              "Apply Template"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Interface for the bulk actions menu
+interface BulkActionsMenuProps {
+  selectedCount: number;
+  onApplyTemplate: () => void;
+  onClearAllocations: () => void;
+  onDeleteSelected: () => void;
+  onCopySelected: () => void;
+  onPasteToSelected: () => void;
+  canPaste: boolean;
+}
+
+// Component for the bulk actions menu
+const BulkActionsMenu: React.FC<BulkActionsMenuProps> = ({
+  selectedCount,
+  onApplyTemplate,
+  onClearAllocations,
+  onDeleteSelected,
+  onCopySelected,
+  onPasteToSelected,
+  canPaste
+}) => {
+  return (
+    <div className="flex items-center space-x-2 py-2 px-3 bg-blue-100 rounded-md mb-3">
+      <div className="text-blue-700 font-medium mr-2">
+        {selectedCount} floor{selectedCount !== 1 ? 's' : ''} selected
+      </div>
+      
+      <Button 
+        size="sm" 
+        variant="outline" 
+        className="bg-white"
+        onClick={onApplyTemplate}
+      >
+        <LayoutList className="h-4 w-4 mr-1" /> Apply Template
+      </Button>
+      
+      <Button 
+        size="sm" 
+        variant="outline" 
+        className="bg-white"
+        onClick={onClearAllocations}
+      >
+        <RotateCcw className="h-4 w-4 mr-1" /> Clear Allocations
+      </Button>
+      
+      <Button 
+        size="sm" 
+        variant="outline" 
+        className="bg-white"
+        onClick={onCopySelected}
+      >
+        <ClipboardCopy className="h-4 w-4 mr-1" /> Copy
+      </Button>
+      
+      <Button 
+        size="sm" 
+        variant="outline" 
+        className="bg-white"
+        onClick={onPasteToSelected}
+        disabled={!canPaste}
+      >
+        <ClipboardPaste className="h-4 w-4 mr-1" /> Paste
+      </Button>
+      
+      <Button 
+        size="sm" 
+        variant="outline" 
+        className="bg-white text-red-600 hover:text-red-700"
+        onClick={onDeleteSelected}
+      >
+        <Trash2 className="h-4 w-4 mr-1" /> Delete
+      </Button>
+    </div>
+  );
+};
 
 const BuildingLayout = ({
   floors,
@@ -496,539 +725,191 @@ const BuildingLayout = ({
     setExpandedFloors([]);
   };
   
-  return (
-    <>
-      <Collapsible
-        open={!isCollapsed}
-        onOpenChange={setIsCollapsed}
-        className="w-full space-y-2 mt-8"
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">Building Layout</h3>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
-              {isCollapsed ? "+" : "-"}
-            </Button>
-          </CollapsibleTrigger>
-        </div>
+  // Add new state for selection
+  const [selectedFloorIds, setSelectedFloorIds] = useState<Set<string>>(new Set());
+  const [lastSelectedFloorId, setLastSelectedFloorId] = useState<string | null>(null);
+  const [clipboardData, setClipboardData] = useState<{floorId: string, templateId: string, allocations: {unitTypeId: string, quantity: number}[]} | null>(null);
+  const [bulkApplyTemplateModalOpen, setBulkApplyTemplateModalOpen] = useState(false);
+  
+  // Clear selections when floors change
+  useEffect(() => {
+    setSelectedFloorIds(new Set());
+    setLastSelectedFloorId(null);
+  }, [floors]);
+  
+  const isSelected = useCallback((floorId: string) => {
+    return selectedFloorIds.has(floorId);
+  }, [selectedFloorIds]);
+  
+  const toggleSelection = useCallback((floorId: string, multiSelect = false, rangeSelect = false) => {
+    setSelectedFloorIds(prev => {
+      const newSelection = new Set(prev);
+      
+      if (rangeSelect && lastSelectedFloorId) {
+        // Find indices for range selection
+        const sortedFloors = [...floors].sort((a, b) => b.position - a.position);
+        const currentIndex = sortedFloors.findIndex(f => f.id === floorId);
+        const lastIndex = sortedFloors.findIndex(f => f.id === lastSelectedFloorId);
         
-        <CollapsibleContent className="pt-2">
-          <div className="text-sm text-gray-500 mb-4">
-            Configure your building's floors and assign units
-          </div>
+        if (currentIndex !== -1 && lastIndex !== -1) {
+          const start = Math.min(currentIndex, lastIndex);
+          const end = Math.max(currentIndex, lastIndex);
           
-          <FloorUsageTemplates 
-            floors={floors}
-            templates={templates}
-            projectId={projectId}
-            onRefresh={handleRefreshData}
-          />
-          
-          <div className="flex flex-wrap gap-2 mb-4">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setBulkAddModalOpen(true)}
-              disabled={templates.length === 0}
-            >
-              <Plus className="h-4 w-4 mr-1" /> Add Multiple Floors
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                if (sortedFloors.length === 0) {
-                  toast.error("No floors available to save as template");
-                  return;
-                }
-                setSelectedFloorForTemplate(sortedFloors[0]);
-                setSaveTemplateModalOpen(true);
-              }}
-              disabled={sortedFloors.length === 0}
-            >
-              <Save className="h-4 w-4 mr-1" /> Save as Template
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefreshData}
-              title="Manually refresh floor data"
-            >
-              <RefreshCw className="h-4 w-4 mr-1" /> Refresh Data
-            </Button>
-            
-            {sortedFloors.length > 0 && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExpandAll}
-                  title="Expand all floors"
-                >
-                  <ChevronDown className="h-4 w-4 mr-1" /> Expand All
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCollapseAll}
-                  title="Collapse all floors"
-                >
-                  <ChevronUp className="h-4 w-4 mr-1" /> Collapse All
-                </Button>
-              </>
-            )}
-          </div>
-          
-          {sortedFloors.length === 0 ? (
-            <Card className="bg-gray-50 border border-dashed border-gray-200">
-              <CardContent className="py-6 flex flex-col items-center justify-center text-center">
-                <p className="text-gray-500 mb-4">No floors added yet</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleAddFloor} 
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Adding...
-                    </>
-                  ) : (
-                    <>
-                      <PlusCircle className="h-4 w-4 mr-1" /> Add your first floor
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3 mb-4">
-              <Card className="bg-white">
-                <CardContent className="p-0 overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50 hover:bg-gray-50">
-                        <TableHead>{renderSortableHeader("Floor", "label")}</TableHead>
-                        <TableHead>Template</TableHead>
-                        <TableHead className="text-right">{renderSortableHeader("Total Area (sf)", "totalArea")}</TableHead>
-                        <TableHead className="text-right">{renderSortableHeader("Allocated (sf)", "allocated")}</TableHead>
-                        <TableHead className="text-right">{renderSortableHeader("Remaining (sf)", "remaining")}</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="w-[180px] text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedFloors.map((floor, index) => {
-                        const template = getFloorTemplateById(floor.templateId);
-                        const totalFloorArea = template?.grossArea || 0;
-                        const allocatedSpace = calculateAllocatedSpace(floor.id);
-                        const remainingSpace = calculateRemainingSpace(floor.id);
-                        const isOverAllocated = remainingSpace < 0;
-                        const allocationPercentage = calculateAllocationPercentage(floor.id);
-                        const statusInfo = getStatusInfo(floor.id);
-                        const isExpanded = expandedFloors.includes(floor.id);
-                        
-                        return (
-                          <React.Fragment key={floor.id}>
-                            <TableRow 
-                              className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"} ${
-                                isExpanded ? "border-b-0 border-blue-200 bg-blue-50" : ""
-                              }`}
-                            >
-                              <TableCell>
-                                <Input
-                                  value={floor.label}
-                                  onChange={(e) => handleLabelChange(floor.id, e.target.value)}
-                                  placeholder="Enter floor label"
-                                  className="h-8"
-                                  disabled={isSubmitting}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Select 
-                                  value={floor.templateId} 
-                                  onValueChange={(value) => handleTemplateChange(floor.id, value)}
-                                  disabled={isSubmitting}
-                                >
-                                  <SelectTrigger className="h-8">
-                                    <SelectValue placeholder="Select a template" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {templates.map((template) => (
-                                      <SelectItem key={template.id} value={template.id}>
-                                        {template.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatNumber(totalFloorArea)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {formatNumber(allocatedSpace)}
-                              </TableCell>
-                              <TableCell className={`text-right ${isOverAllocated ? "text-red-600 font-medium" : ""}`}>
-                                {formatNumber(remainingSpace)}
-                              </TableCell>
-                              <TableCell>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="w-full">
-                                        <div className="flex items-center mb-1">
-                                          {isOverAllocated ? (
-                                            <div className="flex items-center">
-                                              <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />
-                                              <span className="text-xs text-red-500">Over-allocated</span>
-                                            </div>
-                                          ) : allocatedSpace === 0 ? (
-                                            <div className="flex items-center">
-                                              <div className="h-3 w-3 bg-gray-300 rounded-full mr-1"></div>
-                                              <span className="text-xs text-gray-500">Empty</span>
-                                            </div>
-                                          ) : allocatedSpace === totalFloorArea ? (
-                                            <div className="flex items-center">
-                                              <CheckCircle2 className="h-4 w-4 text-green-500 mr-1" />
-                                              <span className="text-xs text-green-500">Full</span>
-                                            </div>
-                                          ) : (
-                                            <div className="flex items-center">
-                                              <div className="h-3 w-3 bg-blue-400 rounded-full mr-1"></div>
-                                              <span className="text-xs text-blue-500">Partial</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <Progress 
-                                          value={Math.min(allocationPercentage, 100)} 
-                                          className={`h-2 ${
-                                            isOverAllocated ? "bg-red-100" : 
-                                            allocatedSpace === 0 ? "bg-gray-100" : 
-                                            "bg-blue-100"
-                                          }`}
-                                        />
-                                        <div className="flex justify-between mt-1">
-                                          <span className="text-xs text-gray-500">
-                                            {allocationPercentage.toFixed(0)}%
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom">
-                                      <div className="space-y-1 max-w-xs">
-                                        <p className="font-medium">{statusInfo.text}</p>
-                                        <p className="text-sm">{statusInfo.tip || "No units allocated to this floor yet"}</p>
-                                        {isOverAllocated && (
-                                          <p className="text-sm text-red-500">
-                                            Suggestion: Reduce the number of units or switch to a larger floor template
-                                          </p>
-                                        )}
-                                        {!isOverAllocated && allocatedSpace === 0 && (
-                                          <p className="text-sm text-gray-500">
-                                            Suggestion: Add some units to utilize this floor space
-                                          </p>
-                                        )}
-                                        {!isOverAllocated && allocatedSpace > 0 && allocatedSpace < totalFloorArea && (
-                                          <p className="text-sm text-blue-500">
-                                            Suggestion: Add more units to utilize the remaining space
-                                          </p>
-                                        )}
-                                      </div>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={`h-7 w-7 p-0 ${isExpanded ? "bg-blue-100" : ""}`}
-                                    onClick={() => toggleFloorExpansion(floor.id)}
-                                  >
-                                    {isExpanded ? (
-                                      <ChevronUp className="h-4 w-4" />
-                                    ) : (
-                                      <ChevronDown className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 w-7 p-0"
-                                    onClick={() => handleMoveFloor(floor.id, 'up')}
-                                    disabled={isSubmitting || floor.position === Math.max(...floors.map(f => f.position))}
-                                  >
-                                    <ArrowUp className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 w-7 p-0"
-                                    onClick={() => handleMoveFloor(floor.id, 'down')}
-                                    disabled={isSubmitting || floor.position === Math.min(...floors.map(f => f.position))}
-                                  >
-                                    <ArrowDown className="h-4 w-4" />
-                                  </Button>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 w-7 p-0"
-                                        disabled={isSubmitting}
-                                      >
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => handleOpenDuplicateModal(floor)}>
-                                        <Copy className="h-4 w-4 mr-2" /> Duplicate Floor
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleOpenApplyToRangeModal(floor)}>
-                                        <LayoutList className="h-4 w-4 mr-2" /> Apply to Range...
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleOpenSaveTemplateModal(floor)}>
-                                        <Save className="h-4 w-4 mr-2" /> Save as Template
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                                    onClick={() => handleDeleteFloor(floor.id)}
-                                    disabled={isSubmitting}
-                                  >
-                                    <Trash className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                            
-                            {isExpanded && (
-                              <TableRow 
-                                className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"} border-blue-200 hover:bg-blue-50/60`}
-                              >
-                                <TableCell colSpan={7} className="p-0">
-                                  <div className="px-4 py-3 bg-blue-50 border-t border-b border-blue-200">
-                                    <div className="mb-2">
-                                      <h4 className="text-sm font-semibold text-blue-800">
-                                        Unit Allocation for {floor.label}
-                                      </h4>
-                                      <div className="text-xs text-blue-600 mb-2">
-                                        Configure the units placed on this floor. Total remaining space: {formatNumber(remainingSpace)} sf
-                                      </div>
-                                    </div>
-                                    
-                                    {groupedProducts.length === 0 ? (
-                                      <p className="text-sm text-gray-500 p-3">No product units available. Add products in the Unit Mix section.</p>
-                                    ) : (
-                                      <div className="space-y-4">
-                                        {groupedProducts.map((product) => (
-                                          <div key={product.id} className="bg-white rounded-md border border-blue-100 overflow-hidden">
-                                            <div className="px-3 py-2 bg-blue-100/50 border-b border-blue-100">
-                                              <h5 className="text-sm font-medium">{product.name}</h5>
-                                            </div>
-                                            
-                                            <Table>
-                                              <TableHeader>
-                                                <TableRow className="hover:bg-blue-50/20">
-                                                  <TableHead className="w-[180px]">Unit Type</TableHead>
-                                                  <TableHead className="w-[100px]">Size (sf)</TableHead>
-                                                  <TableHead className="w-[120px]">Quantity</TableHead>
-                                                  <TableHead className="w-[120px] text-right">Total Area (sf)</TableHead>
-                                                </TableRow>
-                                              </TableHeader>
-                                              <TableBody>
-                                                {product.unitTypes.map((unitType) => {
-                                                  const quantity = getUnitAllocation(floor.id, unitType.id);
-                                                  const totalArea = unitType.grossArea * quantity;
-                                                  const allocationKey = `${floor.id}-${unitType.id}`;
-                                                  const isPending = pendingAllocationUpdates[allocationKey];
-                                                  
-                                                  return (
-                                                    <TableRow key={unitType.id} className="hover:bg-blue-50/20">
-                                                      <TableCell>{unitType.unitType}</TableCell>
-                                                      <TableCell>{formatNumber(unitType.grossArea)}</TableCell>
-                                                      <TableCell>
-                                                        <div className="flex items-center">
-                                                          <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="h-7 w-7 p-0 mr-1"
-                                                            onClick={() => {
-                                                              if (quantity > 0) {
-                                                                handleUnitAllocationChange(floor.id, unitType.id, quantity - 1);
-                                                              }
-                                                            }}
-                                                            disabled={isPending || quantity <= 0}
-                                                          >
-                                                            -
-                                                          </Button>
-                                                          <Input
-                                                            type="number"
-                                                            min="0"
-                                                            value={quantity || 0}
-                                                            onChange={(e) => {
-                                                              const value = parseInt(e.target.value) || 0;
-                                                              if (value >= 0) {
-                                                                handleUnitAllocationChange(floor.id, unitType.id, value);
-                                                              }
-                                                            }}
-                                                            className="w-16 h-8 text-center"
-                                                            disabled={isPending}
-                                                          />
-                                                          <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="h-7 w-7 p-0 ml-1"
-                                                            onClick={() => {
-                                                              handleUnitAllocationChange(floor.id, unitType.id, quantity + 1);
-                                                            }}
-                                                            disabled={isPending}
-                                                          >
-                                                            +
-                                                          </Button>
-                                                          {isPending && (
-                                                            <Loader2 className="h-4 w-4 ml-2 animate-spin text-blue-500" />
-                                                          )}
-                                                        </div>
-                                                      </TableCell>
-                                                      <TableCell className="text-right">
-                                                        {formatNumber(totalArea)}
-                                                      </TableCell>
-                                                    </TableRow>
-                                                  );
-                                                })}
-                                                
-                                                <TableRow className="bg-blue-50/30 font-medium border-t border-blue-100">
-                                                  <TableCell colSpan={3} className="text-right">
-                                                    Subtotal:
-                                                  </TableCell>
-                                                  <TableCell className="text-right">
-                                                    {formatNumber(
-                                                      product.unitTypes.reduce((sum, unitType) => {
-                                                        const quantity = getUnitAllocation(floor.id, unitType.id);
-                                                        return sum + unitType.grossArea * quantity;
-                                                      }, 0)
-                                                    )}
-                                                  </TableCell>
-                                                </TableRow>
-                                              </TableBody>
-                                            </Table>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleAddFloor}
-            className="mt-2"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Adding...
-              </>
-            ) : (
-              <>
-                <PlusCircle className="h-4 w-4 mr-1" /> Add Floor
-              </>
-            )}
-          </Button>
-          
-          {sortedFloors.length > 0 && (
-            <Card className="mt-4 bg-blue-50">
-              <CardContent className="py-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Total Floors</Label>
-                    <p className="mt-1">{sortedFloors.length}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Total Units</Label>
-                    <p className="mt-1">{totalUnits}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Total Building Area</Label>
-                    <p className="mt-1">{formatNumber(totalArea)} sf</p>
-                  </div>
-                </div>
-                
-                {Array.from(totalUnitsByType.entries()).length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-blue-100">
-                    <Label className="text-sm font-medium">Units by Type</Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
-                      {Array.from(totalUnitsByType.entries()).map(([unitTypeId, count]) => {
-                        const unitType = findUnitTypeById(unitTypeId);
-                        if (!unitType) return null;
-                        
-                        return (
-                          <div key={unitTypeId} className="text-sm">
-                            <span className="font-medium">{unitType.unitType}:</span> {count}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
-
-      <FloorDuplicateModal
-        isOpen={duplicateModalOpen}
-        onClose={() => setDuplicateModalOpen(false)}
-        onDuplicate={handleDuplicateFloor}
-        currentFloorLabel={selectedFloorForDuplicate?.label || ""}
-        isLoading={isDuplicating}
-      />
+          for (let i = start; i <= end; i++) {
+            newSelection.add(sortedFloors[i].id);
+          }
+        }
+      } else if (multiSelect) {
+        // Toggle individual selection for Ctrl+click
+        if (newSelection.has(floorId)) {
+          newSelection.delete(floorId);
+          if (lastSelectedFloorId === floorId) {
+            setLastSelectedFloorId(null);
+          }
+        } else {
+          newSelection.add(floorId);
+          setLastSelectedFloorId(floorId);
+        }
+      } else {
+        // Single selection (replace)
+        newSelection.clear();
+        newSelection.add(floorId);
+        setLastSelectedFloorId(floorId);
+      }
       
-      <ApplyFloorToRangeModal
-        isOpen={applyToRangeModalOpen}
-        onClose={() => setApplyToRangeModalOpen(false)}
-        sourceFloor={selectedFloorForRange}
-        floors={floors}
-        onComplete={handleRefreshData}
-      />
+      return newSelection;
+    });
+  }, [floors, lastSelectedFloorId]);
+  
+  const selectAll = useCallback((selected: boolean) => {
+    if (selected) {
+      const allIds = new Set(floors.map(floor => floor.id));
+      setSelectedFloorIds(allIds);
+    } else {
+      setSelectedFloorIds(new Set());
+    }
+    setLastSelectedFloorId(null);
+  }, [floors]);
+  
+  const handleRowClick = useCallback((floorId: string, event: MouseEvent) => {
+    const isCtrlPressed = event.ctrlKey || event.metaKey;
+    const isShiftPressed = event.shiftKey;
+    
+    toggleSelection(floorId, isCtrlPressed, isShiftPressed);
+  }, [toggleSelection]);
+  
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedFloorIds.size === 0) return;
+    
+    const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedFloorIds.size} floor${selectedFloorIds.size !== 1 ? 's' : ''}?`);
+    if (!confirmDelete) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      let successCount = 0;
       
-      <SaveAsTemplateModal
-        isOpen={saveTemplateModalOpen}
-        onClose={() => setSaveTemplateModalOpen(false)}
-        sourceFloor={selectedFloorForTemplate}
-        projectId={projectId}
-        onComplete={handleRefreshData}
-      />
+      for (const floorId of selectedFloorIds) {
+        const success = await onDeleteFloor(floorId);
+        if (success) {
+          successCount++;
+          setExpandedFloors(prev => prev.filter(id => id !== floorId));
+        }
+      }
       
-      <BulkAddFloorsModal
-        isOpen={bulkAddModalOpen}
-        onClose={() => setBulkAddModalOpen(false)}
-        templates={templates}
-        projectId={projectId}
-        onComplete={handleRefreshData}
-      />
-    </>
-  );
-};
-
-export default BuildingLayout;
+      if (successCount > 0) {
+        toast.success(`Deleted ${successCount} floor${successCount !== 1 ? 's' : ''}`);
+      }
+      
+      setSelectedFloorIds(new Set());
+    } catch (error) {
+      console.error("Error deleting floors:", error);
+      toast.error("Failed to delete some floors");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [selectedFloorIds, onDeleteFloor]);
+  
+  const handleCopySelected = useCallback(() => {
+    if (selectedFloorIds.size === 0) return;
+    
+    // For simplicity, just copy the first selected floor
+    const floorId = Array.from(selectedFloorIds)[0];
+    const floor = floors.find(f => f.id === floorId);
+    
+    if (!floor) return;
+    
+    // Collect unit allocations for this floor
+    const allocations: {unitTypeId: string, quantity: number}[] = [];
+    
+    products.forEach(product => {
+      product.unitTypes.forEach(unitType => {
+        const quantity = getUnitAllocation(floorId, unitType.id);
+        if (quantity > 0) {
+          allocations.push({
+            unitTypeId: unitType.id,
+            quantity
+          });
+        }
+      });
+    });
+    
+    setClipboardData({
+      floorId,
+      templateId: floor.templateId,
+      allocations
+    });
+    
+    toast.success(selectedFloorIds.size > 1 
+      ? `Copied configuration from first selected floor (${floor.label})` 
+      : `Copied configuration from ${floor.label}`
+    );
+  }, [selectedFloorIds, floors, products, getUnitAllocation]);
+  
+  const handlePasteToSelected = useCallback(async () => {
+    if (selectedFloorIds.size === 0 || !clipboardData) return;
+    
+    const confirmPaste = window.confirm(
+      `Paste configuration to ${selectedFloorIds.size} selected floor${selectedFloorIds.size !== 1 ? 's' : ''}?`
+    );
+    
+    if (!confirmPaste) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      let successCount = 0;
+      const sourceFloor = floors.find(f => f.id === clipboardData.floorId);
+      
+      for (const floorId of selectedFloorIds) {
+        if (floorId === clipboardData.floorId) continue; // Skip source floor
+        
+        // Update floor template
+        const templateSuccess = await onUpdateFloor(floorId, { 
+          templateId: clipboardData.templateId 
+        });
+        
+        if (templateSuccess) {
+          // Update unit allocations
+          for (const allocation of clipboardData.allocations) {
+            await onUpdateUnitAllocation(
+              floorId, 
+              allocation.unitTypeId, 
+              allocation.quantity
+            );
+          }
+          
+          successCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        toast.success(`Applied configuration to ${successCount} floor${successCount !== 1 ? 's' : ''}`);
+      }
+    } catch (error) {
+      console.error("Error pasting configuration:", error);
+      toast.error("Failed to paste configuration to some floors");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [selectedFloorIds,
