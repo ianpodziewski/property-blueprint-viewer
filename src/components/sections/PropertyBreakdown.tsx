@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { useModel } from "@/context/ModelContext";
 import { toast } from "sonner";
 import { calculateBuildingSummary } from "@/utils/buildingSummary";
-import { exportToCsv, exportToExcel } from "@/utils/exportUtils";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
@@ -123,33 +122,6 @@ const PropertyBreakdown = () => {
     } catch (error) {
       console.error("PropertyBreakdown: Error during manual refresh:", error);
       toast.error("Failed to refresh data");
-    }
-  };
-
-  // Export functions
-  const handleExportCsv = () => {
-    if (projectData) {
-      exportToCsv(
-        projectData.name || "Project",
-        floors,
-        floorPlateTemplates,
-        products,
-        unitAllocations
-      );
-      toast.success("CSV export successful");
-    }
-  };
-
-  const handleExportExcel = () => {
-    if (projectData) {
-      exportToExcel(
-        projectData.name || "Project",
-        floors,
-        floorPlateTemplates,
-        products,
-        unitAllocations
-      );
-      toast.success("Excel export successful");
     }
   };
 
@@ -381,8 +353,6 @@ const PropertyBreakdown = () => {
             templates={floorPlateTemplates}
             products={products}
             unitAllocations={unitAllocations}
-            onExportCsv={handleExportCsv}
-            onExportExcel={handleExportExcel}
           />
         </CardContent>
       </Card>

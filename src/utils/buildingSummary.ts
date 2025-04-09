@@ -1,5 +1,5 @@
 
-import { Floor, FloorPlateTemplate, Product, UnitType } from '@/hooks/usePropertyState';
+import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
 import { BuildingSummary } from '@/components/sections/property/BuildingSummaryPanel';
 
 // Calculate the building summary data based on floors, templates, products, and allocations
