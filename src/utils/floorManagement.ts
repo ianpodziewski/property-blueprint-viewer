@@ -1,5 +1,5 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { extendedSupabase as supabase } from "@/context/ProjectContext";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 
