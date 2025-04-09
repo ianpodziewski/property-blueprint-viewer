@@ -1,6 +1,7 @@
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
+import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
@@ -19,7 +20,18 @@ const AppRoutes = () => {
   
   return (
     <Routes>
-      <Route path="/" element={
+      {/* Redirect from root to projects page */}
+      <Route path="/" element={<Navigate to="/projects" replace />} />
+      
+      {/* Projects page (landing page after login) */}
+      <Route path="/projects" element={
+        <ProtectedRoute>
+          <Projects />
+        </ProtectedRoute>
+      } />
+      
+      {/* Model editor page (former index) */}
+      <Route path="/model/:projectId" element={
         <ProtectedRoute>
           <Index />
         </ProtectedRoute>
