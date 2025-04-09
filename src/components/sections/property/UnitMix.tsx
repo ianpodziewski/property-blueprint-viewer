@@ -1,12 +1,10 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PlusCircle, Pencil, Trash2, X, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useModel } from "@/context/ModelContext";
-import { Separator } from "@/components/ui/separator";
 import { 
   Dialog, 
   DialogContent, 
@@ -37,7 +35,6 @@ const UnitMix = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
   
-  // Product modal state
   const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [isDeleteProductDialogOpen, setIsDeleteProductDialogOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -45,14 +42,12 @@ const UnitMix = () => {
   const [productName, setProductName] = useState("");
   const [productNameError, setProductNameError] = useState("");
   
-  // Unit type form state
   const [activeProductId, setActiveProductId] = useState<string | null>(null);
   const [showUnitTypeForm, setShowUnitTypeForm] = useState(false);
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [isDeleteUnitDialogOpen, setIsDeleteUnitDialogOpen] = useState(false);
   const [deleteUnitInfo, setDeleteUnitInfo] = useState<{productId: string, unitId: string} | null>(null);
   
-  // Unit type form fields
   const [unitType, setUnitType] = useState("");
   const [numberOfUnits, setNumberOfUnits] = useState("");
   const [width, setWidth] = useState("");
@@ -60,10 +55,12 @@ const UnitMix = () => {
   const [grossArea, setGrossArea] = useState("");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
-  // Debug logging
   console.log("UnitMix rendering with products:", property.products);
   
-  // Toggle product expansion
+  useEffect(() => {
+    console.log("UnitMix products updated:", property.products);
+  }, [property.products]);
+  
   const toggleProductExpansion = (productId: string) => {
     setExpandedProducts(prev => ({
       ...prev,
@@ -71,7 +68,6 @@ const UnitMix = () => {
     }));
   };
   
-  // Handle opening the add product dialog
   const handleAddProduct = () => {
     setProductName("");
     setProductNameError("");
@@ -79,7 +75,6 @@ const UnitMix = () => {
     setIsProductDialogOpen(true);
   };
   
-  // Handle opening the edit product dialog
   const handleEditProduct = (product: Product) => {
     setProductName(product.name);
     setProductNameError("");
@@ -87,7 +82,6 @@ const UnitMix = () => {
     setIsProductDialogOpen(true);
   };
   
-  // Handle deleting a product
   const handleDeleteProductConfirm = (id: string) => {
     setDeleteProductId(id);
     setIsDeleteProductDialogOpen(true);
@@ -102,15 +96,12 @@ const UnitMix = () => {
     }
   };
   
-  // Handle saving a product
   const handleSaveProduct = () => {
-    // Validate product name
     if (!productName.trim()) {
       setProductNameError("Product name is required");
       return;
     }
     
-    // Check for duplicate product name
     const isDuplicate = property.products.some(
       p => p.name.toLowerCase() === productName.trim().toLowerCase() && 
         p.id !== editingProductId
@@ -133,13 +124,11 @@ const UnitMix = () => {
     setProductNameError("");
   };
   
-  // Handle showing the unit type form
   const handleShowUnitTypeForm = (productId: string, unitId?: string) => {
     setActiveProductId(productId);
     setFormErrors({});
     
     if (unitId) {
-      // Editing existing unit
       const product = property.products.find(p => p.id === productId);
       const unit = product?.unitTypes.find(u => u.id === unitId);
       
@@ -152,21 +141,18 @@ const UnitMix = () => {
         setGrossArea(String(unit.grossArea));
       }
     } else {
-      // Adding new unit
       resetUnitTypeForm();
       setEditingUnitId(null);
     }
     
     setShowUnitTypeForm(true);
     
-    // Make sure the product section is expanded
     setExpandedProducts(prev => ({
       ...prev,
       [productId]: true
     }));
   };
   
-  // Reset unit type form fields
   const resetUnitTypeForm = () => {
     setUnitType("");
     setNumberOfUnits("");
@@ -175,7 +161,6 @@ const UnitMix = () => {
     setGrossArea("");
   };
   
-  // Handle unit type form cancellation
   const handleCancelUnitTypeForm = () => {
     setShowUnitTypeForm(false);
     setEditingUnitId(null);
@@ -183,13 +168,11 @@ const UnitMix = () => {
     setFormErrors({});
   };
   
-  // Handle numeric input changes
   const handleNumericChange = (value: string, setter: React.Dispatch<React.SetStateAction<string>>) => {
     const numericValue = value.replace(/[^0-9.]/g, '');
     setter(numericValue);
   };
   
-  // Calculate gross area when width and length are provided
   const calculateGrossArea = () => {
     const widthValue = parseFloat(width);
     const lengthValue = parseFloat(length);
@@ -202,7 +185,6 @@ const UnitMix = () => {
     return false;
   };
   
-  // Handle width change
   const handleWidthChange = (value: string) => {
     const numericValue = value.replace(/[^0-9.]/g, '');
     setWidth(numericValue);
@@ -212,7 +194,6 @@ const UnitMix = () => {
     }
   };
   
-  // Handle length change
   const handleLengthChange = (value: string) => {
     const numericValue = value.replace(/[^0-9.]/g, '');
     setLength(numericValue);
@@ -222,9 +203,7 @@ const UnitMix = () => {
     }
   };
   
-  // Handle unit type form submission
   const handleSaveUnitType = () => {
-    // Validate form inputs
     const errors: Record<string, string> = {};
     
     if (!unitType.trim()) {
@@ -251,7 +230,6 @@ const UnitMix = () => {
       errors.grossArea = "Gross area must be a positive number";
     }
     
-    // Check for duplicate unit type within the same product
     if (activeProductId) {
       const product = property.products.find(p => p.id === activeProductId);
       const isDuplicate = product?.unitTypes.some(
@@ -290,7 +268,6 @@ const UnitMix = () => {
     }
   };
   
-  // Handle deleting a unit type
   const handleDeleteUnitConfirm = (productId: string, unitId: string) => {
     setDeleteUnitInfo({ productId, unitId });
     setIsDeleteUnitDialogOpen(true);
@@ -548,7 +525,6 @@ const UnitMix = () => {
         </CollapsibleContent>
       </Collapsible>
       
-      {/* Add/Edit Product Dialog */}
       <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -587,7 +563,6 @@ const UnitMix = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Product Dialog */}
       <AlertDialog open={isDeleteProductDialogOpen} onOpenChange={setIsDeleteProductDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -607,7 +582,6 @@ const UnitMix = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Delete Unit Type Dialog */}
       <AlertDialog open={isDeleteUnitDialogOpen} onOpenChange={setIsDeleteUnitDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

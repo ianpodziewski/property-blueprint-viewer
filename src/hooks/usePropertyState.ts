@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { safeNumberConversion } from "@/utils/modelValidation";
 
@@ -93,6 +94,36 @@ export const usePropertyState = () => {
   
   // Project Configuration - Unit Mix (Products)
   const [products, setProducts] = useState<Product[]>([]);
+  
+  // Flag to track initial load completion
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  
+  // Load saved data on initial render
+  useEffect(() => {
+    try {
+      console.log("Loading saved property data from localStorage");
+      
+      // Load floor plate templates
+      const savedTemplates = getSavedArrayValue('floorPlateTemplates', []);
+      if (savedTemplates.length > 0) {
+        console.log(`Loading ${savedTemplates.length} floor plate templates from localStorage`);
+        setFloorPlateTemplates(savedTemplates);
+      }
+      
+      // Load products and unit mix
+      const savedProducts = getSavedArrayValue('products', []);
+      if (savedProducts.length > 0) {
+        console.log(`Loading ${savedProducts.length} products with unit types from localStorage`);
+        setProducts(savedProducts);
+      }
+      
+      setInitialLoadComplete(true);
+      console.log("Initial property data load complete");
+    } catch (error) {
+      console.error("Error loading saved property data:", error);
+      setInitialLoadComplete(true);
+    }
+  }, []);
   
   // Calculate maximum buildable area
   const maxBuildableArea = farAllowance > 0 && lotSize > 0 ? (lotSize * farAllowance / 100) : 0;
@@ -238,13 +269,15 @@ export const usePropertyState = () => {
   
   // Log state changes for debugging
   useEffect(() => {
-    console.log("Property state updated:", {
-      projectName, projectLocation, projectType, 
-      farAllowance, lotSize, maxBuildableArea,
-      floorPlateTemplates,
-      products
-    });
-  }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, products]);
+    if (initialLoadComplete) {
+      console.log("Property state updated after initial load:", {
+        projectName, projectLocation, projectType, 
+        farAllowance, lotSize, maxBuildableArea,
+        floorPlateTemplates,
+        products
+      });
+    }
+  }, [initialLoadComplete, projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, products]);
   
   return {
     // Project Information
@@ -272,6 +305,9 @@ export const usePropertyState = () => {
     addUnitType,
     updateUnitType,
     deleteUnitType,
-    setAllProducts
+    setAllProducts,
+    
+    // Loading state
+    initialLoadComplete
   };
 };
