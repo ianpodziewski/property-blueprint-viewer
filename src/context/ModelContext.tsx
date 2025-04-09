@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { usePropertyState } from '@/hooks/usePropertyState';
 import { useDevelopmentCosts } from '@/hooks/useDevelopmentCosts';
@@ -14,6 +13,11 @@ import { validateModelData, findInvalidValues } from '@/utils/modelValidation';
 
 const STORAGE_KEY = 'realEstateModel';
 const MODEL_VERSION = '1.1.0'; // Add versioning for future compatibility
+
+interface ModelMeta {
+  version: string;
+  lastSaved?: string;
+}
 
 type ModelContextType = {
   activeTab: string;
@@ -32,6 +36,7 @@ type ModelContextType = {
   setHasUnsavedChanges: (value: boolean) => void;
   lastSaved: Date | null;
   isAutoSaving: boolean;
+  meta?: ModelMeta;
 };
 
 const ModelContext = createContext<ModelContextType | null>(null);
@@ -527,7 +532,10 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     hasUnsavedChanges,
     setHasUnsavedChanges,
     lastSaved,
-    isAutoSaving
+    isAutoSaving,
+    meta: {
+      version: MODEL_VERSION,
+    }
   };
 
   return (
