@@ -15,10 +15,26 @@ const PropertyBreakdown = () => {
     setHasUnsavedChanges 
   } = useModel();
 
-  // Set unsaved changes when component mounts
+  // Debug logging on component mount
   useEffect(() => {
-    console.log("PropertyBreakdown mounted, connected to context state");
-  }, []);
+    console.log("PropertyBreakdown mounted, connected to context state", {
+      projectName: property.projectName,
+      projectLocation: property.projectLocation,
+      projectType: property.projectType,
+      totalLandArea: property.totalLandArea,
+      spaceTypes: property.spaceTypes,
+      unitMixes: property.unitMixes
+    });
+  }, [property]);
+
+  // Debug log when specific fields change
+  useEffect(() => {
+    console.log("Project name updated:", property.projectName);
+  }, [property.projectName]);
+
+  useEffect(() => {
+    console.log("Project location updated:", property.projectLocation);
+  }, [property.projectLocation]);
 
   return (
     <div className="space-y-6">
@@ -42,6 +58,7 @@ const PropertyBreakdown = () => {
               onChange={(e) => {
                 property.setProjectName(e.target.value);
                 setHasUnsavedChanges(true);
+                console.log("Project name input changed to:", e.target.value);
               }}
             />
           </div>
@@ -54,6 +71,7 @@ const PropertyBreakdown = () => {
               onChange={(e) => {
                 property.setProjectLocation(e.target.value);
                 setHasUnsavedChanges(true);
+                console.log("Location input changed to:", e.target.value);
               }}
             />
           </div>
@@ -66,6 +84,7 @@ const PropertyBreakdown = () => {
               onChange={(e) => {
                 property.setProjectType(e.target.value);
                 setHasUnsavedChanges(true);
+                console.log("Project type input changed to:", e.target.value);
               }}
             />
           </div>
@@ -79,6 +98,7 @@ const PropertyBreakdown = () => {
               onChange={(e) => {
                 property.setTotalLandArea(e.target.value);
                 setHasUnsavedChanges(true);
+                console.log("Total land area input changed to:", e.target.value);
               }}
             />
           </div>
@@ -193,6 +213,7 @@ const PropertyBreakdown = () => {
                 onClick={() => {
                   property.addSpaceType();
                   setHasUnsavedChanges(true);
+                  console.log("Space type added");
                 }}
                 className="flex items-center gap-2"
               >
@@ -290,6 +311,7 @@ const PropertyBreakdown = () => {
                 onClick={() => {
                   property.addUnitMix();
                   setHasUnsavedChanges(true);
+                  console.log("Unit mix added");
                 }}
                 className="flex items-center gap-2"
               >

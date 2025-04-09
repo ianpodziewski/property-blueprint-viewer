@@ -3,9 +3,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useModel } from "@/context/ModelContext";
+import { useEffect } from "react";
 
 const CapitalStackCard = () => {
   const { financing, setHasUnsavedChanges } = useModel();
+
+  // Debug logging on mount to verify field values
+  useEffect(() => {
+    console.log("CapitalStackCard mounted with values:", {
+      totalProjectCost: financing.totalProjectCost,
+      debtAmount: financing.debtAmount,
+      equityAmount: financing.equityAmount,
+      loanToCost: financing.loanToCost,
+      loanToValue: financing.loanToValue,
+      dscr: financing.dscr
+    });
+  }, [financing]);
+
+  // Consistent handleChange function for all inputs
+  const handleInputChange = (field: string, value: string) => {
+    // Ensure we have a valid field setter function
+    const setterName = `set${field.charAt(0).toUpperCase() + field.slice(1)}`;
+    if (typeof financing[setterName] === 'function') {
+      financing[setterName](value);
+      console.log(`Field ${field} updated to:`, value);
+      setHasUnsavedChanges(true);
+    } else {
+      console.error(`No setter found for field: ${field}`);
+    }
+  };
 
   return (
     <Card>
@@ -39,6 +65,7 @@ const CapitalStackCard = () => {
               onChange={(e) => {
                 financing.setDebtAmount(e.target.value);
                 setHasUnsavedChanges(true);
+                console.log("Debt amount updated:", e.target.value);
               }}
             />
           </div>
@@ -52,6 +79,7 @@ const CapitalStackCard = () => {
               onChange={(e) => {
                 financing.setEquityAmount(e.target.value);
                 setHasUnsavedChanges(true);
+                console.log("Equity amount updated:", e.target.value);
               }}
             />
           </div>
@@ -67,6 +95,7 @@ const CapitalStackCard = () => {
               onChange={(e) => {
                 financing.setLoanToCost(e.target.value);
                 setHasUnsavedChanges(true);
+                console.log("Loan to cost updated:", e.target.value);
               }}
             />
           </div>
@@ -80,6 +109,7 @@ const CapitalStackCard = () => {
               onChange={(e) => {
                 financing.setLoanToValue(e.target.value);
                 setHasUnsavedChanges(true);
+                console.log("Loan to value updated:", e.target.value);
               }}
             />
           </div>
@@ -93,6 +123,7 @@ const CapitalStackCard = () => {
               onChange={(e) => {
                 financing.setDscr(e.target.value);
                 setHasUnsavedChanges(true);
+                console.log("DSCR updated:", e.target.value);
               }}
             />
           </div>
