@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -199,13 +198,13 @@ const SortableFloorRow = ({
             value={floor.templateId}
             onValueChange={handleTemplateChange}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-60">
               <SelectValue placeholder="Select template" />
             </SelectTrigger>
             <SelectContent>
               {templates.map(template => (
                 <SelectItem key={template.id} value={template.id}>
-                  {template.name} ({template.grossArea.toLocaleString()} sf)
+                  {template.name}
                 </SelectItem>
               ))}
             </SelectContent>
