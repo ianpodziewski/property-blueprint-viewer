@@ -99,19 +99,21 @@ export const createBulkFloors = async (
   try {
     // Validate projectId is provided and not empty
     if (!projectId || projectId.trim() === '') {
+      console.error("Project ID is missing or empty:", projectId);
       throw new Error("Project ID is required for creating floors");
     }
+    
+    console.log("Starting bulk floor creation with project ID:", projectId);
     
     const floorIds: string[] = [];
     const floorsToCreate = [];
     
-    console.log(`Creating bulk floors for project: ${projectId}`);
-    
     // Get the current max position to start positioning new floors
+    console.log("Fetching existing floors for project:", projectId);
     const { data: existingFloors, error: floorsError } = await supabase
       .from("floors")
       .select("position")
-      .eq("project_id", projectId) // Ensure projectId is passed correctly
+      .eq("project_id", projectId)
       .order("position", { ascending: false })
       .limit(1);
       
@@ -123,6 +125,7 @@ export const createBulkFloors = async (
     let startPosition = existingFloors && existingFloors.length > 0 ? existingFloors[0].position + 1 : 1;
     
     console.log(`Starting position for new floors: ${startPosition}`);
+    console.log(`Creating floors from ${startFloor} to ${endFloor} with prefix "${labelPrefix}"`);
     
     // Create floors from start to end
     for (let i = startFloor; i <= endFloor; i++) {
@@ -136,9 +139,11 @@ export const createBulkFloors = async (
         project_id: projectId,
         template_id: templateId
       });
+      
+      console.log(`Prepared floor "${labelPrefix} ${i}" with ID ${floorId}`);
     }
     
-    console.log(`Creating ${floorsToCreate.length} floors for project ${projectId}`);
+    console.log(`Inserting ${floorsToCreate.length} floors for project ${projectId}`);
     
     // Insert all floors
     const { error: insertError } = await supabase
@@ -150,6 +155,7 @@ export const createBulkFloors = async (
       throw new Error("Failed to create floors");
     }
     
+    console.log(`Successfully created ${floorsToCreate.length} floors`);
     return floorIds;
   } catch (error) {
     console.error("Error creating bulk floors:", error);

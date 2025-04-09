@@ -14,13 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FloorPlateTemplate } from "@/hooks/usePropertyState";
 import { createBulkFloors } from "@/utils/floorManagement";
 import { Loader2, AlertCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
+import { useProject } from "@/context/ProjectContext";
 
 interface BulkAddFloorsModalProps {
   isOpen: boolean;
@@ -30,21 +27,6 @@ interface BulkAddFloorsModalProps {
   onComplete: () => Promise<void>;
 }
 
-// Form validation schema
-const formSchema = z.object({
-  templateId: z.string().min(1, "Please select a floor template"),
-  startFloor: z.number().min(1, "Start floor must be at least 1"),
-  endFloor: z.number().min(1, "End floor must be at least 1")
-    .refine(val => val >= 0, "End floor must be a positive number"),
-  labelPrefix: z.string().min(1, "Label prefix is required"),
-}).refine(data => data.endFloor >= data.startFloor, {
-  message: "End floor must be greater than or equal to start floor",
-  path: ["endFloor"], 
-}).refine(data => (data.endFloor - data.startFloor) <= 100, {
-  message: "Cannot create more than 100 floors at once",
-  path: ["endFloor"],
-});
-
 const BulkAddFloorsModal = ({
   isOpen,
   onClose,
@@ -52,34 +34,23 @@ const BulkAddFloorsModal = ({
   projectId,
   onComplete,
 }: BulkAddFloorsModalProps) => {
+  // Project context as backup
+  const { currentProjectId } = useProject();
+  
+  // Simple state management with direct values
+  const [templateId, setTemplateId] = useState(templates.length > 0 ? templates[0].id : "");
+  const [startFloor, setStartFloor] = useState(1);
+  const [endFloor, setEndFloor] = useState(5);
+  const [labelPrefix, setLabelPrefix] = useState("Floor");
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Use project ID from props or fall back to context
+  const effectiveProjectId = projectId || currentProjectId;
   
-  // Initialize form with react-hook-form and zod validation
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      templateId: templates.length > 0 ? templates[0].id : "",
-      startFloor: 1,
-      endFloor: 5,
-      labelPrefix: "Floor",
-    },
-  });
-
-  // Update form values when templates change
-  useEffect(() => {
-    if (templates.length > 0 && !form.getValues("templateId")) {
-      form.setValue("templateId", templates[0].id);
-    }
-  }, [templates, form]);
-
   // Generate preview of floors to be created
   const previewFloors = () => {
     const floors = [];
-    const startFloor = form.getValues("startFloor");
-    const endFloor = form.getValues("endFloor");
-    const labelPrefix = form.getValues("labelPrefix");
-    
     if (startFloor <= endFloor) {
       for (let i = startFloor; i <= endFloor; i++) {
         floors.push(`${labelPrefix} ${i}`);
@@ -88,29 +59,52 @@ const BulkAddFloorsModal = ({
     return floors;
   };
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  // Perform basic validation
+  const isValid = () => {
+    if (!templateId) return false;
+    if (!labelPrefix.trim()) return false;
+    if (startFloor < 1) return false;
+    if (endFloor < startFloor) return false;
+    if (endFloor - startFloor > 100) return false;
+    if (!effectiveProjectId) return false;
+    return true;
+  };
+
+  // Simple direct handler for floor creation
+  const handleCreateFloors = async () => {
+    // Clear previous errors
     setErrorMessage(null);
     
-    // Double-check projectId
-    if (!projectId || projectId.trim() === '') {
+    // Double-check project ID
+    if (!effectiveProjectId) {
       setErrorMessage("Project ID is missing. Please reload the page and try again.");
       return;
     }
     
-    console.log("Creating floors with values:", values);
-    console.log("Project ID:", projectId);
+    console.log("Creating floors with the following values:");
+    console.log("- Project ID:", effectiveProjectId);
+    console.log("- Template ID:", templateId);
+    console.log("- Start Floor:", startFloor);
+    console.log("- End Floor:", endFloor);
+    console.log("- Label Prefix:", labelPrefix);
     
+    // Set loading state
     setIsCreating(true);
+    
     try {
+      // Call the floor creation function
       await createBulkFloors(
-        projectId,
-        values.templateId,
-        values.startFloor,
-        values.endFloor,
-        values.labelPrefix
+        effectiveProjectId,
+        templateId,
+        startFloor,
+        endFloor,
+        labelPrefix
       );
       
-      toast.success(`Created ${values.endFloor - values.startFloor + 1} floors successfully`);
+      // Show success message
+      toast.success(`Created ${endFloor - startFloor + 1} floors successfully`);
+      
+      // Refresh data and close modal
       await onComplete();
       onClose();
     } catch (error) {
@@ -139,149 +133,125 @@ const BulkAddFloorsModal = ({
           </Alert>
         )}
         
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="templateId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Floor Template</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    disabled={isCreating || templates.length === 0}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a template" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {templates.length > 0 ? (
-                        templates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="none" disabled>
-                          No templates available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startFloor"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Floor Number</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                        disabled={isCreating}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="template">Floor Template</Label>
+            <Select
+              value={templateId}
+              onValueChange={setTemplateId}
+              disabled={isCreating || templates.length === 0}
+            >
+              <SelectTrigger id="template">
+                <SelectValue placeholder="Select a template" />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.length > 0 ? (
+                  templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="none" disabled>
+                    No templates available
+                  </SelectItem>
                 )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="endFloor"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>End Floor Number</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={form.getValues("startFloor")}
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || form.getValues("startFloor"))}
-                        disabled={isCreating}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startFloor">Start Floor Number</Label>
+              <Input
+                id="startFloor"
+                type="number"
+                min="1"
+                value={startFloor}
+                onChange={(e) => setStartFloor(parseInt(e.target.value) || 1)}
+                disabled={isCreating}
               />
             </div>
             
-            <FormField
-              control={form.control}
-              name="labelPrefix"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Floor Label Prefix</FormLabel>
-                  <FormControl>
-                    <Input {...field} disabled={isCreating} />
-                  </FormControl>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Example: "{field.value} 1", "{field.value} 2", etc.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            {projectId && (
-              <div className="text-xs text-gray-500">
-                Floors will be created for project ID: {projectId.substring(0, 8)}...
-              </div>
-            )}
-            
-            {previewFloors().length > 0 && (
-              <div className="border rounded-md p-3 mt-2 bg-gray-50">
-                <Label className="mb-2 block">Preview ({previewFloors().length} floors)</Label>
-                <div className="text-sm text-gray-600 max-h-24 overflow-y-auto">
-                  {previewFloors().map((floor, index) => (
-                    <div key={index} className="mb-1">
-                      {floor}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <DialogFooter className="pt-4">
-              <Button 
-                variant="outline" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  onClose();
-                }} 
-                type="button" 
+            <div className="space-y-2">
+              <Label htmlFor="endFloor">End Floor Number</Label>
+              <Input
+                id="endFloor"
+                type="number"
+                min={startFloor}
+                value={endFloor}
+                onChange={(e) => setEndFloor(parseInt(e.target.value) || startFloor)}
                 disabled={isCreating}
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={isCreating || templates.length === 0 || !projectId}
-              >
-                {isCreating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  "Create Floors"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+              />
+              {endFloor < startFloor && (
+                <p className="text-sm text-red-500 mt-1">
+                  End floor must be greater than or equal to start floor
+                </p>
+              )}
+              {(endFloor - startFloor) > 100 && (
+                <p className="text-sm text-red-500 mt-1">
+                  Cannot create more than 100 floors at once
+                </p>
+              )}
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="labelPrefix">Floor Label Prefix</Label>
+            <Input
+              id="labelPrefix"
+              value={labelPrefix}
+              onChange={(e) => setLabelPrefix(e.target.value)}
+              disabled={isCreating}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Example: "{labelPrefix} 1", "{labelPrefix} 2", etc.
+            </p>
+          </div>
+          
+          {effectiveProjectId && (
+            <div className="text-xs text-gray-500">
+              Floors will be created for project ID: {effectiveProjectId.substring(0, 8)}...
+            </div>
+          )}
+          
+          {previewFloors().length > 0 && (
+            <div className="border rounded-md p-3 mt-2 bg-gray-50">
+              <Label className="mb-2 block">Preview ({previewFloors().length} floors)</Label>
+              <div className="text-sm text-gray-600 max-h-24 overflow-y-auto">
+                {previewFloors().map((floor, index) => (
+                  <div key={index} className="mb-1">
+                    {floor}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="pt-4">
+            <Button 
+              variant="outline" 
+              onClick={onClose}
+              type="button" 
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateFloors}
+              disabled={!isValid() || isCreating}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Floors"
+              )}
+            </Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
