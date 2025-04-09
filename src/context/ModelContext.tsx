@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { usePropertyState } from '@/hooks/usePropertyState';
 import { useDevelopmentCosts } from '@/hooks/useDevelopmentCosts';
@@ -14,14 +15,16 @@ import { validateModelData, findInvalidValues } from '@/utils/modelValidation';
 const STORAGE_KEY = 'realEstateModel';
 const MODEL_VERSION = '1.1.0'; // Add versioning for future compatibility
 
+export type ModelTabType = 'property' | 'devCosts' | 'timeline' | 'opex' | 'oprev' | 'capex' | 'financing' | 'disposition' | 'sensitivity';
+
 interface ModelMeta {
   version: string;
   lastSaved?: string;
 }
 
 type ModelContextType = {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+  activeTab: ModelTabType;
+  setActiveTab: (tab: ModelTabType) => void;
   saveModel: () => void;
   resetModel: () => void;
   property: ReturnType<typeof usePropertyState>;
@@ -42,7 +45,7 @@ type ModelContextType = {
 const ModelContext = createContext<ModelContextType | null>(null);
 
 export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [activeTab, setActiveTab] = useState<string>("property");
+  const [activeTab, setActiveTab] = useState<ModelTabType>("property");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
@@ -57,7 +60,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const disposition = useDispositionState();
   const sensitivity = useSensitivityState();
 
-  const handleTabChange = (tab: string) => {
+  const handleTabChange = (tab: ModelTabType) => {
     saveToLocalStorage(false);
     setActiveTab(tab);
   };
@@ -159,9 +162,9 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 id: template.id,
                 name: template.name,
                 width: typeof template.width === 'number' ? template.width : 
-                      (template.width && typeof template.width === 'object' ? undefined : template.width),
+                      (template.width && typeof template.width === 'string' ? parseFloat(template.width) : undefined),
                 length: typeof template.length === 'number' ? template.length : 
-                       (template.length && typeof template.length === 'object' ? undefined : template.length),
+                       (template.length && typeof template.length === 'string' ? parseFloat(template.length) : undefined),
                 grossArea: Number(template.grossArea || 0)
               };
             });
@@ -171,6 +174,10 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           // Set all templates at once instead of adding them one by one
           property.setAllFloorPlateTemplates(validTemplates);
           console.log("FloorPlateTemplates loaded, count after:", validTemplates.length);
+        } else {
+          // Ensure floorPlateTemplates is initialized even when none exist in localStorage
+          property.setAllFloorPlateTemplates([]);
+          console.log("No floorPlateTemplates found, initialized empty array");
         }
         
         // Load products with unit types
@@ -190,9 +197,9 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                       unitType: unit.unitType,
                       numberOfUnits: Number(unit.numberOfUnits || 1),
                       width: typeof unit.width === 'number' ? unit.width : 
-                            (unit.width && typeof unit.width === 'object' ? undefined : Number(unit.width)),
+                            (unit.width && typeof unit.width === 'string' ? parseFloat(unit.width) : undefined),
                       length: typeof unit.length === 'number' ? unit.length : 
-                            (unit.length && typeof unit.length === 'object' ? undefined : Number(unit.length)),
+                            (unit.length && typeof unit.length === 'string' ? parseFloat(unit.length) : undefined),
                       grossArea: Number(unit.grossArea || 0)
                     }))
                 : [];
@@ -213,45 +220,11 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           } else {
             console.warn("setAllProducts function not available");
           }
-        }
-        
-        // Handle legacy unit mix format conversion to products format
-        // This ensures backward compatibility with older model data that used unitMix
-        else if (Array.isArray(parsedModel.property.unitMix) && parsedModel.property.unitMix.length > 0) {
-          console.log("Found legacy unitMix data, converting to products format");
-          
-          // Group unit types by product
-          const unitsByProduct: Record<string, any[]> = {};
-          
-          parsedModel.property.unitMix.forEach((unit: any) => {
-            if (unit && unit.id && unit.product && unit.unitType) {
-              if (!unitsByProduct[unit.product]) {
-                unitsByProduct[unit.product] = [];
-              }
-              
-              unitsByProduct[unit.product].push({
-                id: unit.id,
-                unitType: unit.unitType,
-                numberOfUnits: 1, // Default to 1 for legacy data
-                width: unit.width,
-                length: unit.length,
-                grossArea: Number(unit.grossArea || 0)
-              });
-            }
-          });
-          
-          // Create products from grouped unit types
-          const products = Object.entries(unitsByProduct).map(([productName, units]) => ({
-            id: crypto.randomUUID(),
-            name: productName,
-            unitTypes: units
-          }));
-          
-          console.log("Created products from legacy unitMix:", products);
-          
+        } else {
+          // Ensure products is initialized even when none exist in localStorage
           if (typeof property.setAllProducts === 'function') {
-            property.setAllProducts(products);
-            console.log("Products loaded from legacy data, count:", products.length);
+            property.setAllProducts([]);
+            console.log("No products found, initialized empty array");
           } else {
             console.warn("setAllProducts function not available");
           }
@@ -401,25 +374,26 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           farAllowance: property.farAllowance,
           lotSize: property.lotSize,
           maxBuildableArea: property.maxBuildableArea,
-          floorPlateTemplates: property.floorPlateTemplates.map(template => ({
+          // Ensure both floor plate templates and products are always arrays
+          floorPlateTemplates: Array.isArray(property.floorPlateTemplates) ? property.floorPlateTemplates.map(template => ({
             id: template.id,
             name: template.name,
             width: template.width,
             length: template.length,
             grossArea: template.grossArea
-          })),
-          products: property.products.map(product => ({
+          })) : [],
+          products: Array.isArray(property.products) ? property.products.map(product => ({
             id: product.id,
             name: product.name,
-            unitTypes: product.unitTypes.map(unit => ({
+            unitTypes: Array.isArray(product.unitTypes) ? product.unitTypes.map(unit => ({
               id: unit.id,
               unitType: unit.unitType,
               numberOfUnits: unit.numberOfUnits,
               width: unit.width,
               length: unit.length,
               grossArea: unit.grossArea
-            }))
-          }))
+            })) : []
+          })) : []
         },
         // Expenses section
         expenses: {
@@ -545,19 +519,19 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const parsedData = JSON.parse(savedData);
       
       // Check that all required sections exist
-      if (!parsedData.meta || !parsedData.property || !parsedData.expenses || !parsedData.sensitivity) {
+      if (!parsedData.meta || !parsedData.property) {
         console.error("Verification failed: Saved data is missing required sections");
         return false;
       }
       
-      // Verify property section has required data
-      if (!parsedData.property.projectName && parsedData.property.projectName !== "") {
-        console.error("Verification failed: Property section missing projectName");
+      // Verify property section has arrays for both floorPlateTemplates and products
+      if (!Array.isArray(parsedData.property.floorPlateTemplates)) {
+        console.error("Verification failed: Property section floorPlateTemplates is not an array");
         return false;
       }
       
-      if (!Array.isArray(parsedData.property.floorPlateTemplates)) {
-        console.error("Verification failed: Property section floorPlateTemplates is not an array");
+      if (!Array.isArray(parsedData.property.products)) {
+        console.error("Verification failed: Property section products is not an array");
         return false;
       }
       
