@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,12 +8,15 @@ import { useEffect, useState } from "react";
 import FloorPlateTemplates from "./property/FloorPlateTemplates";
 import UnitMix from "./property/UnitMix";
 import BuildingLayout from "./property/BuildingLayout";
+import BuildingSummaryPanel from "./property/BuildingSummaryPanel";
 import { useSupabasePropertyData } from "@/hooks/useSupabasePropertyData";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useModel } from "@/context/ModelContext";
 import { toast } from "sonner";
+import { calculateBuildingSummary } from "@/utils/buildingSummary";
+import { exportToCsv, exportToExcel } from "@/utils/exportUtils";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
@@ -20,7 +24,7 @@ const formatNumber = (num: number): string => {
 
 const PropertyBreakdown = () => {
   const { id: projectId } = useParams<{ id: string }>();
-  const { setHasUnsavedChanges } = useModel();
+  const { setHasUnsavedChanges, hasUnsavedChanges } = useModel();
   
   const {
     loading,
@@ -46,10 +50,22 @@ const PropertyBreakdown = () => {
     updateUnitAllocation,
     getUnitAllocation,
     getFloorTemplateById,
-    reloadProjectData
+    reloadProjectData,
+    unitAllocations
   } = useSupabasePropertyData(projectId || null);
   
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  
+  // Calculate building summary
+  const buildingSummary = calculateBuildingSummary(
+    floors,
+    floorPlateTemplates,
+    products,
+    unitAllocations,
+    lastSaved,
+    hasUnsavedChanges
+  );
   
   useEffect(() => {
     console.log("PropertyBreakdown: Floors data updated:", floors);
@@ -72,6 +88,13 @@ const PropertyBreakdown = () => {
       setFormattedLotSize(formatNumber(projectData.lot_size));
     }
   }, [projectData?.lot_size]);
+
+  // Update last saved time when saving completes
+  useEffect(() => {
+    if (!saving && !hasUnsavedChanges) {
+      setLastSaved(new Date());
+    }
+  }, [saving, hasUnsavedChanges]);
 
   const handleLotSizeChange = (value: string) => {
     const rawValue = value.replace(/[^0-9]/g, '');
@@ -100,6 +123,33 @@ const PropertyBreakdown = () => {
     } catch (error) {
       console.error("PropertyBreakdown: Error during manual refresh:", error);
       toast.error("Failed to refresh data");
+    }
+  };
+
+  // Export functions
+  const handleExportCsv = () => {
+    if (projectData) {
+      exportToCsv(
+        projectData.name || "Project",
+        floors,
+        floorPlateTemplates,
+        products,
+        unitAllocations
+      );
+      toast.success("CSV export successful");
+    }
+  };
+
+  const handleExportExcel = () => {
+    if (projectData) {
+      exportToExcel(
+        projectData.name || "Project",
+        floors,
+        floorPlateTemplates,
+        products,
+        unitAllocations
+      );
+      toast.success("Excel export successful");
     }
   };
 
@@ -323,6 +373,16 @@ const PropertyBreakdown = () => {
             getUnitAllocation={getUnitAllocation}
             getFloorTemplateById={getFloorTemplateById}
             onRefreshData={handleDataRefresh}
+          />
+          
+          <BuildingSummaryPanel
+            summary={buildingSummary}
+            floors={floors}
+            templates={floorPlateTemplates}
+            products={products}
+            unitAllocations={unitAllocations}
+            onExportCsv={handleExportCsv}
+            onExportExcel={handleExportExcel}
           />
         </CardContent>
       </Card>
