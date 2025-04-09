@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { saveToLocalStorage, loadFromLocalStorage } from "../useLocalStoragePersistence";
 import { 
@@ -42,8 +43,44 @@ const storageMutex = {
 const dispatchFloorConfigSavedEvent = (options: { suppressNotification?: boolean } = {}) => {
   if (typeof window !== 'undefined') {
     console.log(`Dispatching floorConfigSaved event with options:`, options);
-    const event = new CustomEvent('floorConfigSaved', { detail: options });
+    const event = new CustomEvent('floorConfigSaved', { 
+      detail: {
+        suppressNotification: options.suppressNotification, 
+        timestamp: Date.now(),
+        id: `event-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+      }
+    });
     window.dispatchEvent(event);
+  }
+};
+
+// Global UI interaction tracking
+// This will be checked before any storage operation
+const uiInteractionTracker = {
+  interacting: false,
+  lastInteractionTime: 0,
+  COOLDOWN_PERIOD: 5000, // 5 seconds cooldown
+  
+  startInteraction() {
+    this.interacting = true;
+    this.lastInteractionTime = Date.now();
+    console.log("🔄 UI Interaction started in floor configurations");
+    
+    // Auto-reset after cooldown
+    setTimeout(() => {
+      if (Date.now() - this.lastInteractionTime >= this.COOLDOWN_PERIOD) {
+        this.resetInteraction();
+      }
+    }, this.COOLDOWN_PERIOD + 100);
+  },
+  
+  resetInteraction() {
+    this.interacting = false;
+    console.log("✅ UI Interaction reset in floor configurations");
+  },
+  
+  isInteracting() {
+    return this.interacting || Date.now() - this.lastInteractionTime < this.COOLDOWN_PERIOD;
   }
 };
 
@@ -64,7 +101,6 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const operationCountRef = useRef(0);
   const lastHashRef = useRef<string | null>(null);
-  const expandedFloorRef = useRef<Set<number>>(new Set());
   const MAX_OPS_PER_MINUTE = 10;
   const lastOpTimesRef = useRef<number[]>([]);
   
@@ -91,7 +127,7 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
 
   const [isInitialized, setIsInitialized] = useState(true);
   
-  // Enhanced localStorage persistence with strong rate limiting and version check
+  // Enhanced localStorage persistence with UI interaction awareness
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -100,6 +136,12 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     
     // Skip if not initialized
     if (!isInitialized) return;
+    
+    // Check if UI interaction is in progress - skip save if so
+    if (uiInteractionTracker.isInteracting()) {
+      console.log("Skipping floor configuration save due to active UI interaction");
+      return;
+    }
     
     // Generate hash for current state to compare with previous
     const currentHash = generateSimpleHash(floorConfigurations);
@@ -135,7 +177,7 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
       return;
     }
     
-    // Normal operation - debounced save
+    // Normal operation - debounced save with longer 2s delay
     saveTimerRef.current = setTimeout(() => {
       performSaveOperation(currentHash);
     }, 2000);
@@ -144,12 +186,24 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   
   // Separated save logic for better control
   const performSaveOperation = useCallback((newHash: string) => {
+    // Skip save if UI interaction is in progress
+    if (uiInteractionTracker.isInteracting()) {
+      console.log("Skipping floor configuration save due to active UI interaction");
+      return;
+    }
+    
     // Try to acquire mutex
     if (!storageMutex.acquire()) {
       console.log('Another storage operation is in progress, deferring save');
       
       // Retry after delay
       setTimeout(() => {
+        // Check again for UI interaction
+        if (uiInteractionTracker.isInteracting()) {
+          console.log("Skipping floor configuration retry save due to active UI interaction");
+          return;
+        }
+        
         if (storageMutex.acquire()) {
           try {
             console.log('Storage mutex acquired on retry, saving floor configurations');
@@ -194,8 +248,13 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     floorNumber: number, 
     field: keyof FloorConfiguration, 
     value: string | null | boolean | SpaceDefinition[] | BuildingSystemsConfig,
-    options: { suppressNotification?: boolean } = {}
+    options: { suppressNotification?: boolean, isUIOperation?: boolean } = {}
   ) => {
+    // If this is a UI operation, track it
+    if (options.isUIOperation) {
+      uiInteractionTracker.startInteraction();
+    }
+    
     console.log(`Updating floor ${floorNumber}, field ${String(field)}`, value);
     
     setFloorConfigurations(
@@ -210,7 +269,13 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     
     // Special case for spaces and buildingSystems - trigger immediate save
     if (field === 'spaces' || field === 'buildingSystems') {
-      if (storageMutex.acquire()) {
+      // Skip if this is a UI operation
+      if (options.isUIOperation) {
+        console.log("Skipping immediate save for UI operation");
+        return;
+      }
+      
+      if (!uiInteractionTracker.isInteracting() && storageMutex.acquire()) {
         try {
           const updatedConfigs = floorConfigurations.map(floor => 
             floor.floorNumber === floorNumber ? { ...floor, [field]: value } : floor
@@ -224,6 +289,8 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
         } finally {
           storageMutex.release();
         }
+      } else {
+        console.log("Storage mutex locked or UI interaction in progress, skipping immediate save");
       }
     }
   }, [floorConfigurations]);
@@ -364,6 +431,9 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
   }, [floorConfigurations]);
 
   const reorderFloor = useCallback((floorNumber: number, direction: "up" | "down") => {
+    // Mark this as a UI interaction
+    uiInteractionTracker.startInteraction();
+    
     const sortedFloors = [...floorConfigurations].sort((a, b) => b.floorNumber - a.floorNumber);
     const currentIndex = sortedFloors.findIndex(f => f.floorNumber === floorNumber);
     
@@ -385,18 +455,19 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     setFloorConfigurations([...sortedFloors]);
   }, [floorConfigurations]);
 
-  const updateFloorSpaces = useCallback((floorNumber: number, spaces: SpaceDefinition[], options: { suppressNotification?: boolean } = {}) => {
+  const updateFloorSpaces = useCallback((floorNumber: number, spaces: SpaceDefinition[], options: { suppressNotification?: boolean, isUIOperation?: boolean } = {}) => {
     const validatedSpaces = spaces.map(space => ({
       ...space,
       dimensions: space.dimensions || { width: "0", depth: "0" },
       subType: space.subType || null,
       percentage: typeof space.percentage === 'number' ? space.percentage : 0
     }));
+    
     console.log(`Updating spaces for floor ${floorNumber}`, validatedSpaces);
     updateFloorConfiguration(floorNumber, 'spaces', validatedSpaces, options);
   }, [updateFloorConfiguration]);
 
-  const updateFloorBuildingSystems = useCallback((floorNumber: number, systems: BuildingSystemsConfig, options: { suppressNotification?: boolean } = {}) => {
+  const updateFloorBuildingSystems = useCallback((floorNumber: number, systems: BuildingSystemsConfig, options: { suppressNotification?: boolean, isUIOperation?: boolean } = {}) => {
     const validatedSystems = {
       ...systems,
       elevators: systems.elevators || {
@@ -466,3 +537,6 @@ export const useFloorConfigurations = (floorTemplatesInput: FloorPlateTemplate[]
     resetAllData
   };
 };
+
+// Export the UI interaction tracker for use in other components
+export const floorUIInteractionTracker = uiInteractionTracker;

@@ -1,23 +1,22 @@
 
-import React, { memo, useCallback, useState } from "react";
+import React, { memo, useCallback } from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ChevronUp, ChevronDown, ArrowUpDown, Pencil, Trash } from "lucide-react";
+import { ChevronUp, ChevronDown, Pencil, Trash } from "lucide-react";
 import FloorDetailView from "./FloorDetailView";
 import { FloorConfiguration, FloorPlateTemplate } from "@/types/propertyTypes";
 import { useUnitAllocations } from "@/hooks/property/useUnitAllocations";
+import { useFloorExpansion } from "@/contexts/FloorExpansionContext";
 
 interface ExpandableFloorRowProps {
   floor: FloorConfiguration;
   floorTemplates: FloorPlateTemplate[];
   isSelected: boolean;
-  isExpanded: boolean;
   onSelect: (floorNumber: number) => void;
   onEdit: () => void;
   onDelete: (floorNumber: number) => void;
-  onToggleExpand: (floorNumber: number) => void;
   reorderFloor: (floorNumber: number, direction: "up" | "down") => void;
   updateFloorConfiguration: (floorNumber: number, field: keyof FloorConfiguration, value: any) => void;
   getTemplateName: (templateId: string | null) => string;
@@ -29,22 +28,19 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
   floor,
   floorTemplates,
   isSelected,
-  isExpanded: parentIsExpanded,
   onSelect,
   onEdit,
   onDelete,
-  onToggleExpand,
   reorderFloor,
   updateFloorConfiguration,
   getTemplateName,
   totalRows
 }) => {
-  // Local component state for expansion - completely separate from parent state
-  // This acts as a backup in case the parent state gets reset
-  const [localIsExpanded, setLocalIsExpanded] = useState(parentIsExpanded);
+  // Use the floor expansion context instead of local state or parent state
+  const { isFloorExpanded, toggleFloorExpansion } = useFloorExpansion();
   
-  // Use combined state - prefer local state but sync with parent
-  const effectiveIsExpanded = localIsExpanded || parentIsExpanded;
+  // Check if this floor is expanded from the context
+  const effectiveIsExpanded = isFloorExpanded(floor.floorNumber);
   
   const { getAllocationsByFloor } = useUnitAllocations();
   
@@ -59,12 +55,9 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
     e.preventDefault();
     e.stopPropagation();
     
-    // Update both local and parent state
-    setLocalIsExpanded(prev => !prev);
-    
-    // Only notify parent with explicit flag - this should be a UI-only update
-    onToggleExpand(floor.floorNumber);
-  }, [onToggleExpand, floor.floorNumber]);
+    // Use the context function directly
+    toggleFloorExpansion(floor.floorNumber);
+  }, [toggleFloorExpansion, floor.floorNumber]);
   
   const handleEdit = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -235,7 +228,6 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
   return (
     prevProps.floor.floorNumber === nextProps.floor.floorNumber &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.isExpanded === nextProps.isExpanded &&
     prevProps.floor.templateId === nextProps.floor.templateId &&
     prevProps.floor.primaryUse === nextProps.floor.primaryUse &&
     prevProps.totalRows === nextProps.totalRows

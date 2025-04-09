@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpaceDefinition, FloorPlateTemplate } from "@/types/propertyTypes";
 import { Toaster } from "@/components/ui/toaster";
 import { useEffect, useCallback, useRef } from "react";
+import { FloorExpansionProvider } from "@/contexts/FloorExpansionContext";
 
 const PropertyBreakdown = () => {
   
@@ -201,42 +202,44 @@ const PropertyBreakdown = () => {
         removeFloorTemplate={removeFloorTemplate}
       />
       
-      {/* Floor Configuration Manager */}
-      <FloorConfigurationManager 
-        floorConfigurations={floorConfigurations}
-        floorTemplates={floorTemplates}
-        updateFloorConfiguration={updateFloorConfiguration}
-        copyFloorConfiguration={copyFloorConfiguration}
-        bulkEditFloorConfigurations={bulkEditFloorConfigurations}
-        updateFloorSpaces={updateFloorSpaces}
-        addFloors={addFloors}
-        removeFloors={removeFloors}
-        reorderFloor={reorderFloor}
-        addFloorTemplate={adaptedAddFloorTemplate}
-        updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
-        removeFloorTemplate={removeFloorTemplate}
-      />
-      
-      {/* Visualizations Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <BuildingMassingVisualization 
-          buildingFootprint={buildingFootprintAsNumber}
-          numberOfFloors={aboveGroundFloorsCount}
-          numberOfUndergroundFloors={belowGroundFloorsCount}
-          spaceBreakdown={spaceBreakdown}
+      {/* Floor Configuration Manager wrapped with FloorExpansionProvider */}
+      <FloorExpansionProvider>
+        <FloorConfigurationManager 
           floorConfigurations={floorConfigurations}
           floorTemplates={floorTemplates}
+          updateFloorConfiguration={updateFloorConfiguration}
+          copyFloorConfiguration={copyFloorConfiguration}
+          bulkEditFloorConfigurations={bulkEditFloorConfigurations}
+          updateFloorSpaces={updateFloorSpaces}
+          addFloors={addFloors}
+          removeFloors={removeFloors}
+          reorderFloor={reorderFloor}
+          addFloorTemplate={adaptedAddFloorTemplate}
+          updateFloorTemplate={adaptedUpdateFloorTemplateForConfigManager}
+          removeFloorTemplate={removeFloorTemplate}
         />
         
-        <FloorStackingDiagram 
-          floors={floorsData}
-          spaceTypeColors={spaceTypeColors}
-          floorTemplates={floorTemplates}
-          floorConfigurations={floorConfigurations}
-          updateFloorConfiguration={updateFloorConfiguration}
-          reorderFloor={reorderFloor}
-        />
-      </div>
+        {/* Visualizations Row - also inside FloorExpansionProvider context */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <BuildingMassingVisualization 
+            buildingFootprint={buildingFootprintAsNumber}
+            numberOfFloors={aboveGroundFloorsCount}
+            numberOfUndergroundFloors={belowGroundFloorsCount}
+            spaceBreakdown={spaceBreakdown}
+            floorConfigurations={floorConfigurations}
+            floorTemplates={floorTemplates}
+          />
+          
+          <FloorStackingDiagram 
+            floors={floorsData}
+            spaceTypeColors={spaceTypeColors}
+            floorTemplates={floorTemplates}
+            floorConfigurations={floorConfigurations}
+            updateFloorConfiguration={updateFloorConfiguration}
+            reorderFloor={reorderFloor}
+          />
+        </div>
+      </FloorExpansionProvider>
       
       <Separator className="my-2" />
       

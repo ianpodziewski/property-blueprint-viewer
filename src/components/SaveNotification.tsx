@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Check, AlertCircle, Upload, Download, RefreshCw } from 'lucide-react';
 import { Toast, ToastProvider, ToastTitle, ToastViewport } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
+import { useFloorExpansion } from '@/contexts/FloorExpansionContext';
 
 interface SaveNotificationProps {
   status: 'saved' | 'error' | 'reset' | 'exported' | 'imported' | null;
@@ -84,10 +85,19 @@ const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) 
   // Use centralized toast system for notifications
   const { toast } = useToast();
   
+  // Access the floor expansion context to check if UI interaction is in progress
+  const { isInteracting } = useFloorExpansion();
+  
   // Only show important notifications as toasts with enhanced deduplication
   useEffect(() => {
     // Skip if no status, already processing, or couldn't acquire mutex
     if (!status) return;
+    
+    // Skip notifications during UI interactions to prevent feedback loops
+    if (isInteracting) {
+      console.log('UI interaction in progress - suppressing notification for:', status);
+      return;
+    }
     
     const processNotification = async () => {
       if (notificationTracker.isProcessing || !(await notificationMutex.acquire())) {
@@ -142,7 +152,7 @@ const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) 
     };
     
     processNotification();
-  }, [status, toast]);
+  }, [status, toast, isInteracting]);
   
   // Handle visibility of notification with debouncing
   useEffect(() => {
