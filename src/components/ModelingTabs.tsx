@@ -13,19 +13,52 @@ import Financing from "./sections/Financing";
 import Disposition from "./sections/Disposition";
 import SensitivityAnalysis from "./sections/SensitivityAnalysis";
 import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 const ModelingTabs = () => {
   // Add local state as a fallback in case context isn't available right away
   const [localActiveTab, setLocalActiveTab] = useState("property");
+  const [loadError, setLoadError] = useState<Error | null>(null);
   
   try {
     // Get context values
-    const { activeTab } = useModel();
+    const { activeTab, isLoading, error } = useModel();
     
     // Log successful context access
     useEffect(() => {
       console.log("ModelingTabs: Successfully connected to ModelContext, active tab:", activeTab);
     }, [activeTab]);
+    
+    if (isLoading) {
+      return (
+        <div className="w-full h-[70vh] flex flex-col items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-500 mb-4" />
+          <h3 className="text-xl font-medium mb-2">Loading your model</h3>
+          <p className="text-gray-500">Please wait while we load your project data...</p>
+        </div>
+      );
+    }
+    
+    if (error) {
+      return (
+        <div className="w-full p-8">
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle className="text-lg mb-2">Error Loading Model</AlertTitle>
+            <AlertDescription className="space-y-4">
+              <p>{error}</p>
+              <Button 
+                onClick={() => window.location.reload()}
+                className="mt-4"
+              >
+                Reload Page
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      );
+    }
     
     return (
       <div className="w-full space-y-4">
@@ -80,17 +113,33 @@ const ModelingTabs = () => {
       </div>
     );
   } catch (error) {
-    // Log error but provide fallback UI
-    console.error("Error in ModelingTabs:", error);
+    // If there was an error accessing the context or rendering the component
+    const err = error as Error;
+    
+    if (!loadError) {
+      setLoadError(err);
+      console.error("Error in ModelingTabs:", err);
+    }
     
     return (
       <div className="w-full p-6 text-center">
-        <div className="text-red-500 mb-4">
-          Error loading modeling tabs. Please check that ModelProvider is properly set up.
+        <div className="bg-red-50 border border-red-300 rounded-lg p-6 mx-auto max-w-2xl">
+          <h3 className="text-red-700 text-xl font-semibold mb-4">Error loading modeling tabs</h3>
+          <p className="text-red-600 mb-4">
+            There was a problem loading the application. This may be due to an issue with the context provider setup.
+          </p>
+          <div className="bg-gray-100 p-4 rounded text-left overflow-x-auto text-sm mb-4">
+            <code>
+              {err ? err.message : "Unknown error"}
+            </code>
+          </div>
+          <Button 
+            variant="destructive" 
+            onClick={() => window.location.reload()}
+          >
+            Reload Page
+          </Button>
         </div>
-        <pre className="bg-gray-100 p-4 rounded text-left overflow-x-auto">
-          {error instanceof Error ? error.message : "Unknown error"}
-        </pre>
       </div>
     );
   }

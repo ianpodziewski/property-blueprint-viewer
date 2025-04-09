@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -30,140 +30,155 @@ export function useSupabasePropertyData(projectId: string | null) {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [unitAllocations, setUnitAllocations] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loadAttempts, setLoadAttempts] = useState<number>(0);
 
-  // Load project data
-  useEffect(() => {
-    if (!projectId || !user) return;
-    
-    async function loadProjectData() {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Load project details
-        const { data: projectData, error: projectError } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', projectId)
-          .eq('user_id', user.id)
-          .single();
-          
-        if (projectError) throw projectError;
-        if (!projectData) throw new Error('Project not found');
-        
-        // Ensure all required properties exist with default values if not present
-        const completeProjectData: ProjectData = {
-          id: projectData.id,
-          name: projectData.name,
-          location: projectData.location,
-          project_type: projectData.project_type,
-          user_id: projectData.user_id,
-          far_allowance: projectData.far_allowance || 0,
-          lot_size: projectData.lot_size || 0,
-          max_buildable_area: projectData.max_buildable_area || 0,
-        };
-        
-        setProjectData(completeProjectData);
-        
-        // Load floor plate templates
-        const { data: templateData, error: templateError } = await supabase
-          .from('floor_plate_templates')
-          .select('*')
-          .eq('project_id', projectId);
-          
-        if (templateError) throw templateError;
-        
-        // Transform to match internal format
-        const transformedTemplates = (templateData || []).map(template => ({
-          id: template.id,
-          name: template.name,
-          grossArea: Number(template.area),
-        }));
-        
-        setFloorPlateTemplates(transformedTemplates);
-        
-        // Load unit types and organize by product
-        const { data: unitTypesData, error: unitTypesError } = await supabase
-          .from('unit_types')
-          .select('*')
-          .eq('project_id', projectId);
-          
-        if (unitTypesError) throw unitTypesError;
-        
-        // Group unit types by category (which serves as our "product")
-        const productMap = new Map<string, Product>();
-        (unitTypesData || []).forEach(unitType => {
-          const category = unitType.category;
-          
-          if (!productMap.has(category)) {
-            productMap.set(category, {
-              id: crypto.randomUUID(), // Create a client-side ID for the product
-              name: category,
-              unitTypes: [],
-            });
-          }
-          
-          const product = productMap.get(category)!;
-          product.unitTypes.push({
-            id: unitType.id,
-            unitType: unitType.name,
-            numberOfUnits: unitType.units,
-            grossArea: Number(unitType.area),
-          });
-        });
-        
-        setProducts(Array.from(productMap.values()));
-        
-        // Load floors
-        const { data: floorData, error: floorError } = await supabase
-          .from('floors')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('position', { ascending: false });
-          
-        if (floorError) throw floorError;
-        
-        // Transform to match internal format
-        const transformedFloors = (floorData || []).map(floor => ({
-          id: floor.id,
-          label: floor.label,
-          position: floor.position,
-          templateId: floor.template_id || '',
-        }));
-        
-        setFloors(transformedFloors);
-        
-        // Load unit allocations
-        const { data: unitAllocData, error: unitAllocError } = await supabase
-          .from('unit_allocations')
-          .select(`
-            id, quantity, floor_id, unit_type_id,
-            floors!inner(id, project_id)
-          `)
-          .eq('floors.project_id', projectId);
-          
-        if (unitAllocError) throw unitAllocError;
-        
-        setUnitAllocations(unitAllocData || []);
-      } catch (error) {
-        console.error("Error loading project data:", error);
-        setError(error instanceof Error ? error.message : "Failed to load project data");
-        toast({
-          title: "Error",
-          description: "Could not load project data. Please try again.",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
+  const loadProjectData = useCallback(async () => {
+    if (!projectId || !user) {
+      setLoading(false);
+      if (!projectId) setError("No project ID provided");
+      if (!user) setError("User not authenticated");
+      return;
     }
     
-    loadProjectData();
-  }, [projectId, user]);
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log(`Loading project data for project ${projectId}, attempt #${loadAttempts + 1}`);
+      
+      // Load project details
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', projectId)
+        .eq('user_id', user.id)
+        .single();
+        
+      if (projectError) throw projectError;
+      if (!projectData) throw new Error('Project not found');
+      
+      // Ensure all required properties exist with default values if not present
+      const completeProjectData: ProjectData = {
+        id: projectData.id,
+        name: projectData.name,
+        location: projectData.location,
+        project_type: projectData.project_type,
+        user_id: projectData.user_id,
+        far_allowance: projectData.far_allowance || 0,
+        lot_size: projectData.lot_size || 0,
+        max_buildable_area: projectData.max_buildable_area || 0,
+      };
+      
+      setProjectData(completeProjectData);
+      
+      // Load floor plate templates
+      const { data: templateData, error: templateError } = await supabase
+        .from('floor_plate_templates')
+        .select('*')
+        .eq('project_id', projectId);
+        
+      if (templateError) throw templateError;
+      
+      // Transform to match internal format
+      const transformedTemplates = (templateData || []).map(template => ({
+        id: template.id,
+        name: template.name,
+        grossArea: Number(template.area),
+        width: template.width ? Number(template.width) : undefined,
+        length: template.length ? Number(template.length) : undefined
+      }));
+      
+      setFloorPlateTemplates(transformedTemplates);
+      
+      // Load unit types and organize by product
+      const { data: unitTypesData, error: unitTypesError } = await supabase
+        .from('unit_types')
+        .select('*')
+        .eq('project_id', projectId);
+        
+      if (unitTypesError) throw unitTypesError;
+      
+      // Group unit types by category (which serves as our "product")
+      const productMap = new Map<string, Product>();
+      (unitTypesData || []).forEach(unitType => {
+        const category = unitType.category;
+        
+        if (!productMap.has(category)) {
+          productMap.set(category, {
+            id: crypto.randomUUID(), // Create a client-side ID for the product
+            name: category,
+            unitTypes: [],
+          });
+        }
+        
+        const product = productMap.get(category)!;
+        product.unitTypes.push({
+          id: unitType.id,
+          unitType: unitType.name,
+          numberOfUnits: unitType.units,
+          grossArea: Number(unitType.area),
+          width: unitType.width ? Number(unitType.width) : undefined,
+          length: unitType.length ? Number(unitType.length) : undefined
+        });
+      });
+      
+      setProducts(Array.from(productMap.values()));
+      
+      // Load floors
+      const { data: floorData, error: floorError } = await supabase
+        .from('floors')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('position', { ascending: false });
+        
+      if (floorError) throw floorError;
+      
+      // Transform to match internal format
+      const transformedFloors = (floorData || []).map(floor => ({
+        id: floor.id,
+        label: floor.label,
+        position: floor.position,
+        templateId: floor.template_id || '',
+      }));
+      
+      setFloors(transformedFloors);
+      
+      // Load unit allocations
+      const { data: unitAllocData, error: unitAllocError } = await supabase
+        .from('unit_allocations')
+        .select(`
+          id, quantity, floor_id, unit_type_id,
+          floors!inner(id, project_id)
+        `)
+        .eq('floors.project_id', projectId);
+        
+      if (unitAllocError) throw unitAllocError;
+      
+      setUnitAllocations(unitAllocData || []);
+      console.log("Project data loaded successfully");
+    } catch (error) {
+      console.error("Error loading project data:", error);
+      setError(error instanceof Error ? error.message : "Failed to load project data");
+      toast({
+        title: "Error",
+        description: "Could not load project data. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, user, loadAttempts]);
 
-  // Update project basic info
+  const reloadProjectData = () => {
+    setLoadAttempts(prev => prev + 1);
+  };
+
+  useEffect(() => {
+    loadProjectData();
+  }, [loadProjectData]);
+
   const updateProjectInfo = async (updates: Partial<ProjectData>) => {
-    if (!projectId || !user) return;
+    if (!projectId || !user || !projectData) return;
     
     setSaving(true);
     try {
@@ -176,9 +191,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       if (error) throw error;
       
       // Update local state
-      if (projectData) {
-        setProjectData({ ...projectData, ...updates });
-      }
+      setProjectData({ ...projectData, ...updates });
       
     } catch (error) {
       console.error("Error updating project:", error);
@@ -192,7 +205,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Add a new floor plate template
   const addFloorPlateTemplate = async (template: Omit<FloorPlateTemplate, 'id'>) => {
     if (!projectId || !user) return null;
     
@@ -202,6 +214,8 @@ export function useSupabasePropertyData(projectId: string | null) {
         project_id: projectId,
         name: template.name,
         area: template.grossArea,
+        width: template.width,
+        length: template.length
       };
       
       const { data, error } = await supabase
@@ -216,7 +230,9 @@ export function useSupabasePropertyData(projectId: string | null) {
       const newTemplate: FloorPlateTemplate = {
         id: data.id,
         name: data.name,
-        grossArea: Number(data.area)
+        grossArea: Number(data.area),
+        width: data.width ? Number(data.width) : undefined,
+        length: data.length ? Number(data.length) : undefined
       };
       
       // Update local state
@@ -234,7 +250,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Update a floor plate template
   const updateFloorPlateTemplate = async (id: string, updates: Partial<Omit<FloorPlateTemplate, 'id'>>) => {
     if (!projectId || !user) return false;
     
@@ -243,6 +258,8 @@ export function useSupabasePropertyData(projectId: string | null) {
       const dbUpdates: any = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.grossArea !== undefined) dbUpdates.area = updates.grossArea;
+      if (updates.width !== undefined) dbUpdates.width = updates.width;
+      if (updates.length !== undefined) dbUpdates.length = updates.length;
       
       const { error } = await supabase
         .from('floor_plate_templates')
@@ -270,7 +287,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Delete a floor plate template
   const deleteFloorPlateTemplate = async (id: string) => {
     if (!projectId || !user) return false;
     
@@ -297,10 +313,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Add a product category and return its client-side ID
   const addProduct = async (name: string) => {
-    // Since we're using categories in unit_types as products,
-    // we just create a client-side product and will use its name as category
     const newProduct: Product = {
       id: crypto.randomUUID(),
       name: name.trim(),
@@ -311,22 +324,16 @@ export function useSupabasePropertyData(projectId: string | null) {
     return newProduct;
   };
 
-  // Update a product name
   const updateProduct = async (id: string, name: string) => {
-    // Find the product to update
     const productToUpdate = products.find(product => product.id === id);
     if (!productToUpdate) return false;
     
-    // Since products are just groupings of unit types by category,
-    // we need to update all unit types with the old category to the new one
     try {
-      // Get all unit types with this product's name as category
       const updates = productToUpdate.unitTypes.map(unit => ({
         id: unit.id,
         category: name.trim()
       }));
       
-      // Update each unit type in the database
       if (updates.length > 0) {
         const promises = updates.map(update => 
           supabase
@@ -338,7 +345,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         await Promise.all(promises);
       }
       
-      // Update local state
       setProducts(prev => 
         prev.map(product => 
           product.id === id ? { ...product, name: name.trim() } : product
@@ -357,14 +363,11 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Delete a product and its unit types
   const deleteProduct = async (id: string) => {
-    // Find the product to delete
     const productToDelete = products.find(product => product.id === id);
     if (!productToDelete) return false;
     
     try {
-      // Delete all unit types with this category
       if (productToDelete.unitTypes.length > 0) {
         const unitTypeIds = productToDelete.unitTypes.map(unit => unit.id);
         const { error } = await supabase
@@ -375,7 +378,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         if (error) throw error;
       }
       
-      // Update local state
       setProducts(prev => prev.filter(product => product.id !== id));
       
       return true;
@@ -390,22 +392,21 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Add a unit type to a product
   const addUnitType = async (productId: string, unit: Omit<UnitType, 'id'>) => {
     if (!projectId || !user) return null;
     
-    // Find the product to add the unit type to
     const product = products.find(p => p.id === productId);
     if (!product) return null;
     
     try {
-      // Create the unit type in the database
       const dbUnitType = {
         project_id: projectId,
         category: product.name,
         name: unit.unitType.trim(),
         area: unit.grossArea,
-        units: unit.numberOfUnits
+        units: unit.numberOfUnits,
+        width: unit.width,
+        length: unit.length
       };
       
       const { data, error } = await supabase
@@ -416,15 +417,15 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Create new unit type with server-generated ID
       const newUnitType: UnitType = {
         id: data.id,
         unitType: data.name,
         numberOfUnits: data.units,
-        grossArea: Number(data.area)
+        grossArea: Number(data.area),
+        width: data.width ? Number(data.width) : undefined,
+        length: data.length ? Number(data.length) : undefined
       };
       
-      // Update local state
       setProducts(prev =>
         prev.map(p =>
           p.id === productId
@@ -446,16 +447,16 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Update a unit type
   const updateUnitType = async (productId: string, unitId: string, updates: Partial<Omit<UnitType, 'id'>>) => {
     if (!projectId || !user) return false;
     
     try {
-      // Convert from internal format to database format
       const dbUpdates: any = {};
       if (updates.unitType !== undefined) dbUpdates.name = updates.unitType.trim();
       if (updates.numberOfUnits !== undefined) dbUpdates.units = updates.numberOfUnits;
       if (updates.grossArea !== undefined) dbUpdates.area = updates.grossArea;
+      if (updates.width !== undefined) dbUpdates.width = updates.width;
+      if (updates.length !== undefined) dbUpdates.length = updates.length;
       
       const { error } = await supabase
         .from('unit_types')
@@ -464,7 +465,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Update local state
       setProducts(prev =>
         prev.map(product =>
           product.id === productId
@@ -491,7 +491,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Delete a unit type
   const deleteUnitType = async (productId: string, unitId: string) => {
     if (!projectId || !user) return false;
     
@@ -503,7 +502,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Update local state
       setProducts(prev =>
         prev.map(product =>
           product.id === productId
@@ -528,22 +526,18 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Add a floor
   const addFloor = async () => {
     if (!projectId || !user) return null;
     
     try {
-      // Calculate the new position
       const newPosition = floors.length > 0
         ? Math.max(...floors.map(floor => floor.position)) + 1
         : 1;
       
-      // Get the first template ID if available
       const defaultTemplateId = floorPlateTemplates.length > 0
         ? floorPlateTemplates[0].id
         : null;
       
-      // Create the floor in the database
       const dbFloor = {
         project_id: projectId,
         label: `Floor ${newPosition}`,
@@ -559,7 +553,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Create new floor with server-generated ID
       const newFloor: Floor = {
         id: data.id,
         label: data.label,
@@ -567,7 +560,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         templateId: data.template_id || ""
       };
       
-      // Update local state
       setFloors(prev => [...prev, newFloor]);
       return newFloor;
       
@@ -582,12 +574,10 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Update a floor
   const updateFloor = async (id: string, updates: Partial<Omit<Floor, 'id'>>) => {
     if (!projectId || !user) return false;
     
     try {
-      // Convert from internal format to database format
       const dbUpdates: any = {};
       if (updates.label !== undefined) dbUpdates.label = updates.label;
       if (updates.position !== undefined) dbUpdates.position = updates.position;
@@ -600,7 +590,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Update local state
       setFloors(prev =>
         prev.map(floor => floor.id === id ? { ...floor, ...updates } : floor)
       );
@@ -618,7 +607,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Delete a floor
   const deleteFloor = async (id: string) => {
     if (!projectId || !user) return false;
     
@@ -630,7 +618,6 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (error) throw error;
       
-      // Update local state
       setFloors(prev => prev.filter(floor => floor.id !== id));
       
       return true;
@@ -646,20 +633,16 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Update unit allocation for a floor and unit type
   const updateUnitAllocation = async (floorId: string, unitTypeId: string, quantity: number) => {
     if (!projectId || !user) return false;
     
     try {
-      // Check if allocation already exists
       const existingAllocation = unitAllocations.find(
         a => a.floor_id === floorId && a.unit_type_id === unitTypeId
       );
       
       if (existingAllocation) {
-        // Update existing allocation
         if (quantity === 0) {
-          // Delete if quantity is 0
           const { error } = await supabase
             .from('unit_allocations')
             .delete()
@@ -667,12 +650,10 @@ export function useSupabasePropertyData(projectId: string | null) {
             
           if (error) throw error;
           
-          // Update local state
           setUnitAllocations(prev => 
             prev.filter(a => a.id !== existingAllocation.id)
           );
         } else {
-          // Update quantity
           const { error } = await supabase
             .from('unit_allocations')
             .update({ quantity })
@@ -680,13 +661,11 @@ export function useSupabasePropertyData(projectId: string | null) {
             
           if (error) throw error;
           
-          // Update local state
           setUnitAllocations(prev => 
             prev.map(a => a.id === existingAllocation.id ? { ...a, quantity } : a)
           );
         }
       } else if (quantity > 0) {
-        // Create new allocation if quantity > 0
         const { data, error } = await supabase
           .from('unit_allocations')
           .insert({
@@ -699,7 +678,6 @@ export function useSupabasePropertyData(projectId: string | null) {
           
         if (error) throw error;
         
-        // Update local state
         setUnitAllocations(prev => [...prev, data]);
       }
       
@@ -716,7 +694,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  // Get unit allocation for a specific floor and unit type
   const getUnitAllocation = (floorId: string, unitTypeId: string): number => {
     const allocation = unitAllocations.find(
       a => a.floor_id === floorId && a.unit_type_id === unitTypeId
@@ -747,8 +724,8 @@ export function useSupabasePropertyData(projectId: string | null) {
     deleteFloor,
     updateUnitAllocation,
     getUnitAllocation,
+    reloadProjectData,
     
-    // Helper method to find a floor template by ID
     getFloorTemplateById: (templateId: string) => {
       return floorPlateTemplates.find(template => template.id === templateId);
     }

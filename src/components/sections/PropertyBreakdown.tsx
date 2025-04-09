@@ -3,14 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info, Loader2 } from "lucide-react";
+import { Info, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import FloorPlateTemplates from "./property/FloorPlateTemplates";
 import UnitMix from "./property/UnitMix";
 import BuildingLayout from "./property/BuildingLayout";
 import { useSupabasePropertyData } from "@/hooks/useSupabasePropertyData";
 import { useParams } from "react-router-dom";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { useModel } from "@/context/ModelContext";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
@@ -18,6 +20,8 @@ const formatNumber = (num: number): string => {
 
 const PropertyBreakdown = () => {
   const { id: projectId } = useParams<{ id: string }>();
+  const { setHasUnsavedChanges } = useModel();
+  
   const {
     loading,
     saving,
@@ -41,7 +45,8 @@ const PropertyBreakdown = () => {
     deleteFloor,
     updateUnitAllocation,
     getUnitAllocation,
-    getFloorTemplateById
+    getFloorTemplateById,
+    reloadProjectData
   } = useSupabasePropertyData(projectId || null);
   
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
@@ -72,13 +77,28 @@ const PropertyBreakdown = () => {
     const numericValue = rawValue === '' ? 0 : Number(rawValue);
     updateProjectInfo({ lot_size: numericValue });
     setFormattedLotSize(formatNumber(numericValue));
+    setHasUnsavedChanges(true);
+  };
+
+  // Handle user data change and mark as having unsaved changes
+  const handleDataChange = (updates: any) => {
+    updateProjectInfo(updates);
+    setHasUnsavedChanges(true);
+  };
+
+  // Handle retry loading
+  const handleRetry = () => {
+    reloadProjectData();
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-10">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        <span className="ml-2 text-lg">Loading project data...</span>
+      <div className="flex flex-col items-center justify-center py-16 space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
+        <div className="text-center">
+          <h3 className="text-lg font-medium mb-1">Loading project data...</h3>
+          <p className="text-gray-500 text-sm">Please wait while we fetch your project information</p>
+        </div>
       </div>
     );
   }
@@ -86,8 +106,18 @@ const PropertyBreakdown = () => {
   if (error) {
     return (
       <Alert variant="destructive" className="mt-6">
-        <AlertDescription>
-          {error} Please refresh the page or try again later.
+        <AlertTriangle className="h-5 w-5" />
+        <AlertTitle>Error Loading Project</AlertTitle>
+        <AlertDescription className="space-y-4">
+          <p>{error}</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2" 
+            onClick={handleRetry}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" /> Try Again
+          </Button>
         </AlertDescription>
       </Alert>
     );
@@ -96,8 +126,18 @@ const PropertyBreakdown = () => {
   if (!projectData) {
     return (
       <Alert variant="destructive" className="mt-6">
-        <AlertDescription>
-          Project not found. Please go back to your projects list and select a valid project.
+        <AlertTriangle className="h-5 w-5" />
+        <AlertTitle>Project Not Found</AlertTitle>
+        <AlertDescription className="space-y-4">
+          <p>Project not found. Please go back to your projects list and select a valid project.</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2" 
+            onClick={handleRetry}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" /> Try Again
+          </Button>
         </AlertDescription>
       </Alert>
     );
@@ -117,36 +157,51 @@ const PropertyBreakdown = () => {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
           <div className="space-y-2">
             <Label htmlFor="project-name">Project Name</Label>
-            <Input 
-              id="project-name" 
-              placeholder="Enter project name" 
-              value={projectData.name} 
-              onChange={e => {
-                updateProjectInfo({ name: e.target.value });
-              }} 
-            />
+            <div className="relative">
+              <Input 
+                id="project-name" 
+                placeholder="Enter project name" 
+                value={projectData.name} 
+                onChange={e => {
+                  handleDataChange({ name: e.target.value });
+                }} 
+              />
+              {saving && <div className="absolute right-3 top-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              </div>}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
-            <Input 
-              id="location" 
-              placeholder="City, State" 
-              value={projectData.location} 
-              onChange={e => {
-                updateProjectInfo({ location: e.target.value });
-              }} 
-            />
+            <div className="relative">
+              <Input 
+                id="location" 
+                placeholder="City, State" 
+                value={projectData.location} 
+                onChange={e => {
+                  handleDataChange({ location: e.target.value });
+                }} 
+              />
+              {saving && <div className="absolute right-3 top-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              </div>}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="project-type">Project Type</Label>
-            <Input 
-              id="project-type" 
-              placeholder="Mixed-use, Residential, etc." 
-              value={projectData.project_type} 
-              onChange={e => {
-                updateProjectInfo({ project_type: e.target.value });
-              }} 
-            />
+            <div className="relative">
+              <Input 
+                id="project-type" 
+                placeholder="Mixed-use, Residential, etc." 
+                value={projectData.project_type} 
+                onChange={e => {
+                  handleDataChange({ project_type: e.target.value });
+                }} 
+              />
+              {saving && <div className="absolute right-3 top-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              </div>}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -179,7 +234,7 @@ const PropertyBreakdown = () => {
                 onChange={e => {
                   const value = e.target.value.replace(/[^0-9.]/g, '');
                   const numericValue = value === '' ? 0 : Number(value);
-                  updateProjectInfo({ far_allowance: numericValue });
+                  handleDataChange({ far_allowance: numericValue });
                 }} 
                 type="text" 
                 className="pr-8" 
@@ -187,19 +242,27 @@ const PropertyBreakdown = () => {
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <span className="text-gray-500">%</span>
               </div>
+              {saving && <div className="absolute right-10 top-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              </div>}
             </div>
           </div>
           
           <div className="space-y-2">
             <Label htmlFor="lot-size">Lot Size (sf)</Label>
-            <Input 
-              id="lot-size" 
-              placeholder="Enter lot size" 
-              value={formattedLotSize} 
-              onChange={e => handleLotSizeChange(e.target.value)} 
-              type="text" 
-              className="pr-8" 
-            />
+            <div className="relative">
+              <Input 
+                id="lot-size" 
+                placeholder="Enter lot size" 
+                value={formattedLotSize} 
+                onChange={e => handleLotSizeChange(e.target.value)} 
+                type="text" 
+                className="pr-8" 
+              />
+              {saving && <div className="absolute right-3 top-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              </div>}
+            </div>
           </div>
           
           <div className="space-y-2">
