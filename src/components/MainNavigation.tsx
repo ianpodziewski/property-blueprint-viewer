@@ -76,35 +76,33 @@ export type ActiveTabProps = {
 const MainNavigation = ({ activeTab, setActiveTab }: ActiveTabProps) => {
   return (
     <NavigationMenu className="max-w-full w-full justify-center overflow-x-auto py-2">
-      <NavigationMenuList className="flex w-full px-4">
-        <div className="flex flex-grow justify-between">
-          {sections.map((section) => (
-            <NavigationMenuItem key={section.value}>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <NavigationMenuLink
-                      className={cn(
-                        navigationMenuTriggerStyle(),
-                        "flex items-center justify-center min-w-[110px] h-10 px-3 py-2 text-sm font-medium whitespace-nowrap",
-                        activeTab === section.value 
-                          ? "bg-blue-100 text-blue-700" 
-                          : "hover:bg-blue-50"
-                      )}
-                      onClick={() => setActiveTab(section.value)}
-                    >
-                      {section.icon}
-                      {section.title}
-                    </NavigationMenuLink>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="bg-blue-50 border-blue-200">
-                    <p>{section.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </NavigationMenuItem>
-          ))}
-        </div>
+      <NavigationMenuList className="flex w-full justify-between px-4">
+        {sections.map((section) => (
+          <NavigationMenuItem key={section.value}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <NavigationMenuLink
+                    className={cn(
+                      navigationMenuTriggerStyle(),
+                      "flex items-center justify-center min-w-[110px] h-10 px-3 py-2 text-sm font-medium whitespace-nowrap",
+                      activeTab === section.value 
+                        ? "bg-blue-100 text-blue-700" 
+                        : "hover:bg-blue-50"
+                    )}
+                    onClick={() => setActiveTab(section.value)}
+                  >
+                    {section.icon}
+                    {section.title}
+                  </NavigationMenuLink>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="bg-blue-50 border-blue-200">
+                  <p>{section.description}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </NavigationMenuItem>
+        ))}
       </NavigationMenuList>
     </NavigationMenu>
   );

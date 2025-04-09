@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 
 interface ContributionScheduleItem {
   id: string;
@@ -80,35 +80,6 @@ export const useFinancingState = () => {
   const [targetIrr, setTargetIrr] = useState<string>("");
   const [targetHoldPeriodYears, setTargetHoldPeriodYears] = useState<string>("");
   
-  // Input handlers
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
-    setter(e.target.value);
-  };
-  
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
-    const value = e.target.value;
-    // Allow empty string or valid non-negative numbers
-    if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
-      setter(value);
-    }
-  };
-  
-  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
-    const value = e.target.value;
-    // Allow empty string or valid percentages (0-100)
-    if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 100)) {
-      setter(value);
-    }
-  };
-  
-  const handleSelectChange = (value: string, setter: (value: string) => void) => {
-    setter(value);
-  };
-  
-  const handleLoanTypeChange = (value: "construction" | "permanent" | "both") => {
-    setLoanType(value);
-  };
-  
   const addContributionScheduleItem = () => {
     const newId = `contrib-${contributionSchedule.length + 1}`;
     setContributionSchedule([
@@ -118,99 +89,12 @@ export const useFinancingState = () => {
   };
   
   const updateContributionScheduleItem = (id: string, field: keyof ContributionScheduleItem, value: string) => {
-    // Validate number fields
-    if ((field === "amount" || field === "percentage") && value !== "") {
-      const numValue = Number(value);
-      if (isNaN(numValue) || numValue < 0) return;
-      
-      // Extra validation for percentage
-      if (field === "percentage" && numValue > 100) return;
-    }
-    
     setContributionSchedule(
       contributionSchedule.map(item => 
         item.id === id ? { ...item, [field]: value } : item
       )
     );
   };
-  
-  const removeContributionScheduleItem = (id: string) => {
-    if (contributionSchedule.length > 1) {
-      setContributionSchedule(contributionSchedule.filter(item => item.id !== id));
-    }
-  };
-  
-  const resetAllData = useCallback(() => {
-    // Loan Type
-    setLoanType("both");
-    
-    // Capital Stack
-    setTotalProjectCost("");
-    setDebtAmount("");
-    setEquityAmount("");
-    setLoanToCostRatio("");
-    setLoanToValueRatio("");
-    setDebtServiceCoverageRatio("");
-    
-    // Construction Loan
-    setConstructionLoanAmount("");
-    setConstructionInterestRate("");
-    setConstructionLoanTerm("");
-    setConstructionLoanFees("");
-    setConstructionDrawdownSchedule("monthly");
-    setConstructionInterestReserve("");
-    setConstructionRecourseType("full");
-    
-    // Permanent Loan
-    setPermanentLoanAmount("");
-    setPermanentInterestRate("");
-    setAmortizationYears("");
-    setPermanentLoanTerm("");
-    setPermanentLoanFees("");
-    setPrepaymentPenaltyType("none");
-    setInterestType("fixed");
-    setMinimumDscr("");
-    
-    // Additional Debt Terms
-    setDebtServiceReserve("");
-    setReserveDurationMonths("");
-    setAdditionalCovenants("");
-    
-    // Equity Structure
-    setGeneralPartnerPercentage("");
-    setLimitedPartnerPercentage("");
-    
-    // Preferred Return Structure
-    setPreferredReturnRate("");
-    setPreferredStructureType("cumulative");
-    setGpCatchupPercentage("");
-    setPreferredPaymentFrequency("quarterly");
-    
-    // Promote Structure
-    setTier1IrrThreshold("");
-    setTier1LpPercentage("");
-    setTier1GpPercentage("");
-    setTier2IrrThreshold("");
-    setTier2LpPercentage("");
-    setTier2GpPercentage("");
-    setTier3LpPercentage("");
-    setTier3GpPercentage("");
-    
-    // Equity Contribution Timing
-    setContributionMethod("upfront");
-    setInitialContributionPercentage("");
-    setCapitalCallNoticeDays("");
-    setContributionSchedule([
-      { id: "contrib-1", milestone: "Closing", amount: "", percentage: "" },
-      { id: "contrib-2", milestone: "Construction Start", amount: "", percentage: "" }
-    ]);
-    
-    // Additional Equity Terms
-    setMinimumInvestment("");
-    setTargetEquityMultiple("");
-    setTargetIrr("");
-    setTargetHoldPeriodYears("");
-  }, []);
   
   return {
     // Loan Type
@@ -276,22 +160,11 @@ export const useFinancingState = () => {
     contributionSchedule,
     addContributionScheduleItem,
     updateContributionScheduleItem,
-    removeContributionScheduleItem,
     
     // Additional Equity Terms
     minimumInvestment, setMinimumInvestment,
     targetEquityMultiple, setTargetEquityMultiple,
     targetIrr, setTargetIrr,
-    targetHoldPeriodYears, setTargetHoldPeriodYears,
-    
-    // Event handlers
-    handleTextChange,
-    handleNumberChange,
-    handlePercentageChange,
-    handleSelectChange,
-    handleLoanTypeChange,
-    
-    // Data persistence
-    resetAllData
+    targetHoldPeriodYears, setTargetHoldPeriodYears
   };
 };

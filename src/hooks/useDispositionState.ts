@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 
 export const useDispositionState = () => {
   // Exit Strategy
@@ -33,69 +33,6 @@ export const useDispositionState = () => {
   const [cashOnCash, setCashOnCash] = useState<string>("");
   const [paybackPeriod, setPaybackPeriod] = useState<string>("");
   
-  // Input handlers
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, setter: (value: string) => void) => {
-    setter(e.target.value);
-  };
-  
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
-    const value = e.target.value;
-    // Allow empty string or valid non-negative numbers
-    if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
-      setter(value);
-    }
-  };
-  
-  const handlePercentageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
-    const value = e.target.value;
-    // Allow empty string or valid percentages (0-100)
-    if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0 && Number(value) <= 100)) {
-      setter(value);
-    }
-  };
-  
-  const handleSelectChange = (value: string, setter: (value: string) => void) => {
-    setter(value);
-  };
-  
-  const handleExitStrategyChange = (value: string) => {
-    setExitStrategy(value);
-  };
-  
-  // Reset all data
-  const resetAllData = useCallback(() => {
-    // Exit Strategy
-    setExitStrategy("sale");
-    setExitPeriodType("year");
-    setExitPeriod("");
-    setExitCapRate("");
-    setSalesCostsPercentage("");
-    setExpectedSalePrice("");
-    
-    // Refinance Scenario
-    setRefinanceYear("");
-    setRefinanceLoanToValue("");
-    setRefinanceInterestRate("");
-    setRefinanceAmortizationYears("");
-    setRefinanceTermYears("");
-    setRefinanceCostsPercentage("");
-    
-    // Tax Implications
-    setCapitalGainsTaxRate("");
-    setDepreciationRecaptureRate("");
-    setCostBasis("");
-    setAccumulatedDepreciation("");
-    setTaxPlanningNotes("");
-    
-    // Returns Analysis (read-only calculated fields)
-    setProjectIrr("");
-    setEquityIrr("");
-    setEquityMultiple("");
-    setNetPresentValue("");
-    setCashOnCash("");
-    setPaybackPeriod("");
-  }, []);
-  
   return {
     // Exit Strategy
     exitStrategy, setExitStrategy,
@@ -126,16 +63,6 @@ export const useDispositionState = () => {
     equityMultiple, setEquityMultiple,
     netPresentValue, setNetPresentValue,
     cashOnCash, setCashOnCash,
-    paybackPeriod, setPaybackPeriod,
-    
-    // Event handlers
-    handleTextChange,
-    handleNumberChange,
-    handlePercentageChange,
-    handleSelectChange,
-    handleExitStrategyChange,
-    
-    // Data persistence
-    resetAllData
+    paybackPeriod, setPaybackPeriod
   };
 };

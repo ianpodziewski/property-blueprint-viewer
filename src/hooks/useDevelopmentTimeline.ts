@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+
+import { useState } from "react";
 
 interface ConstructionPhase {
   id: string;
@@ -53,27 +54,6 @@ export const useDevelopmentTimeline = () => {
   const [phasedEndMonth, setPhasedEndMonth] = useState<string>("");
   const [distributionPattern, setDistributionPattern] = useState<string>("even");
   
-  // Input handlers
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
-    setter(e.target.value);
-  };
-  
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (value: string) => void) => {
-    const value = e.target.value;
-    // Allow empty string or valid non-negative numbers
-    if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
-      setter(value);
-    }
-  };
-  
-  const handleSelectChange = (value: string, setter: (value: string) => void) => {
-    setter(value);
-  };
-  
-  const handleDateChange = (date: Date | undefined, setter: (date: Date | undefined) => void) => {
-    setter(date);
-  };
-  
   const addConstructionPhase = () => {
     const newId = `phase-${constructionPhases.length + 1}`;
     setConstructionPhases([
@@ -99,12 +79,6 @@ export const useDevelopmentTimeline = () => {
   };
   
   const updateCostCategory = (id: string, field: keyof CostCategory, value: string) => {
-    // Validate number fields
-    if ((field === "startMonth" || field === "endMonth") && value !== "") {
-      const numValue = Number(value);
-      if (isNaN(numValue) || numValue < 0) return;
-    }
-    
     setCostCategories(
       costCategories.map(category => 
         category.id === id ? { ...category, [field]: value } : category
@@ -121,51 +95,12 @@ export const useDevelopmentTimeline = () => {
   };
   
   const updateEquityMilestone = (id: string, field: keyof EquityMilestone, value: any) => {
-    // Validate percentage field if being updated
-    if (field === "percentage" && typeof value === "string" && value !== "") {
-      const numValue = Number(value);
-      if (isNaN(numValue) || numValue < 0 || numValue > 100) return;
-    }
-    
     setEquityMilestones(
       equityMilestones.map(milestone => 
         milestone.id === id ? { ...milestone, [field]: value } : milestone
       )
     );
   };
-  
-  const resetAllData = useCallback(() => {
-    // Project Schedule
-    setStartDate(undefined);
-    setCompletionDate(undefined);
-    
-    // Development Periods
-    setPreDevelopmentPeriod("");
-    setLeaseUpPeriod("");
-    setStabilizationPeriod("");
-    
-    // Construction Phases
-    setConstructionPhases([
-      { id: "phase-1", name: "Phase 1", startDate: undefined, endDate: undefined }
-    ]);
-    
-    // Cost Timing
-    setCostCategories([
-      { id: "cost-1", name: "Land Acquisition", startMonth: "", endMonth: "" },
-      { id: "cost-2", name: "Hard Costs", startMonth: "", endMonth: "" },
-      { id: "cost-3", name: "Soft Costs", startMonth: "", endMonth: "" }
-    ]);
-    
-    // Equity Contribution Timing
-    setEquityContributionType("upfront");
-    setEquityMilestones([
-      { id: "milestone-1", description: "Initial Investment", date: undefined, percentage: "25" }
-    ]);
-    
-    setPhasedStartMonth("");
-    setPhasedEndMonth("");
-    setDistributionPattern("even");
-  }, []);
   
   return {
     // Project Schedule
@@ -196,15 +131,6 @@ export const useDevelopmentTimeline = () => {
     // Phased Contribution
     phasedStartMonth, setPhasedStartMonth,
     phasedEndMonth, setPhasedEndMonth,
-    distributionPattern, setDistributionPattern,
-    
-    // Event handlers
-    handleTextChange,
-    handleNumberChange,
-    handleSelectChange,
-    handleDateChange,
-    
-    // Data persistence
-    resetAllData
+    distributionPattern, setDistributionPattern
   };
 };
