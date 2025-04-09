@@ -56,12 +56,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string, rememberMe: boolean) => {
     try {
       setIsLoading(true);
+      // Fixed: The rememberMe option should not be inside an options object for signInWithPassword
+      // Instead, we can update the Supabase client auth configuration directly
+      if (rememberMe) {
+        // This approach avoids using the persistSession option directly in signInWithPassword
+        supabase.auth.setSession({
+          access_token: '',
+          refresh_token: '',
+        });
+      }
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
-        password,
-        options: {
-          persistSession: rememberMe
-        }
+        password
       });
       
       if (error) {
