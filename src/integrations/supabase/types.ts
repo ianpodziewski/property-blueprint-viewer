@@ -9,6 +9,86 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      floor_plate_templates: {
+        Row: {
+          area: number
+          created_at: string
+          id: string
+          name: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          area: number
+          created_at?: string
+          id?: string
+          name: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          area?: number
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_plate_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      floors: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          position: number
+          project_id: string
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          position: number
+          project_id: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          position?: number
+          project_id?: string
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floors_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plate_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -59,6 +139,89 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      unit_allocations: {
+        Row: {
+          created_at: string
+          floor_id: string
+          id: string
+          quantity: number
+          unit_type_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          floor_id: string
+          id?: string
+          quantity?: number
+          unit_type_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          floor_id?: string
+          id?: string
+          quantity?: number
+          unit_type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_allocations_floor_id_fkey"
+            columns: ["floor_id"]
+            isOneToOne: false
+            referencedRelation: "floors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_allocations_unit_type_id_fkey"
+            columns: ["unit_type_id"]
+            isOneToOne: false
+            referencedRelation: "unit_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unit_types: {
+        Row: {
+          area: number
+          category: string
+          created_at: string
+          id: string
+          name: string
+          project_id: string
+          units: number
+          updated_at: string
+        }
+        Insert: {
+          area: number
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          project_id: string
+          units?: number
+          updated_at?: string
+        }
+        Update: {
+          area?: number
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string
+          units?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_types_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

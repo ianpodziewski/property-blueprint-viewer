@@ -46,16 +46,29 @@ const CreateProjectModal = ({ isOpen, onClose, onProjectCreated }: CreateProject
     
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      // Insert the new project
+      const { data: projectData, error: projectError } = await supabase
         .from("projects")
         .insert({
           name,
           location,
           project_type: projectType,
           user_id: user.id
-        });
+        })
+        .select();
       
-      if (error) throw error;
+      if (projectError) throw projectError;
+      
+      if (projectData && projectData.length > 0) {
+        const projectId = projectData[0].id;
+        
+        // For residential and mixed-use projects, create some initial templates
+        if (projectType === "Residential" || projectType === "Mixed-Use") {
+          await initializeResidentialProject(projectId);
+        } else if (projectType === "Commercial" || projectType === "Retail") {
+          await initializeCommercialProject(projectId);
+        }
+      }
       
       toast({
         title: "Project created",
@@ -76,6 +89,65 @@ const CreateProjectModal = ({ isOpen, onClose, onProjectCreated }: CreateProject
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Initialize a residential or mixed-use project with common floor plates and unit types
+  const initializeResidentialProject = async (projectId: string) => {
+    try {
+      // Create common floor plate templates
+      const { data: templateData, error: templateError } = await supabase
+        .from("floor_plate_templates")
+        .insert([
+          { project_id: projectId, name: "Residential Floor", area: 10000 },
+          { project_id: projectId, name: "Ground Floor Retail", area: 8000 },
+          { project_id: projectId, name: "Parking Level", area: 12000 }
+        ]);
+
+      if (templateError) throw templateError;
+
+      // Create common unit types
+      const { error: unitTypesError } = await supabase
+        .from("unit_types")
+        .insert([
+          { project_id: projectId, category: "Residential", name: "Studio", area: 500, units: 0 },
+          { project_id: projectId, category: "Residential", name: "1 Bed / 1 Bath", area: 700, units: 0 },
+          { project_id: projectId, category: "Residential", name: "2 Bed / 2 Bath", area: 1000, units: 0 },
+          { project_id: projectId, category: "Retail", name: "Retail Space", area: 2000, units: 0 }
+        ]);
+
+      if (unitTypesError) throw unitTypesError;
+    } catch (error) {
+      console.error("Error initializing residential project data:", error);
+    }
+  };
+
+  // Initialize a commercial or retail project with common floor plates and unit types
+  const initializeCommercialProject = async (projectId: string) => {
+    try {
+      // Create common floor plate templates
+      const { data: templateData, error: templateError } = await supabase
+        .from("floor_plate_templates")
+        .insert([
+          { project_id: projectId, name: "Office Floor", area: 15000 },
+          { project_id: projectId, name: "Lobby Floor", area: 8000 },
+          { project_id: projectId, name: "Parking Level", area: 20000 }
+        ]);
+
+      if (templateError) throw templateError;
+
+      // Create common unit types
+      const { error: unitTypesError } = await supabase
+        .from("unit_types")
+        .insert([
+          { project_id: projectId, category: "Office", name: "Open Office", area: 10000, units: 0 },
+          { project_id: projectId, category: "Office", name: "Executive Suite", area: 2000, units: 0 },
+          { project_id: projectId, category: "Retail", name: "Ground Floor Retail", area: 5000, units: 0 }
+        ]);
+
+      if (unitTypesError) throw unitTypesError;
+    } catch (error) {
+      console.error("Error initializing commercial project data:", error);
     }
   };
 
