@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useModelNavigation } from '../state/modelContext';
 import { toast } from '../components/ui/use-toast';
+import { Button } from '@/components/ui/button';
 
 export const useNavigationState = () => {
   const location = useLocation();
@@ -37,20 +38,20 @@ export const useNavigationState = () => {
         variant: "destructive",
         action: (
           <div className="flex gap-2">
-            <button
-              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+            <Button
+              variant="destructive"
               onClick={() => {
                 setActiveTab(newTab);
               }}
             >
               Continue
-            </button>
-            <button
-              className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => {}}
             >
               Cancel
-            </button>
+            </Button>
           </div>
         ),
       });
