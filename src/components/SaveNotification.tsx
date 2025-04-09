@@ -9,30 +9,70 @@ interface SaveNotificationProps {
   onClose: () => void;
 }
 
-// Global notification tracking with stronger deduplication
+// Enhanced notification tracking with longer cooldown periods
 const notificationTracker = {
   recentNotifications: new Map<string, number>(),
   isProcessing: false,
-  NOTIFICATION_EXPIRY: 5000, // 5 seconds
+  NOTIFICATION_EXPIRY: 10000, // Increased to 10 seconds
+  consecutiveNotifications: 0,
+  lastNotificationType: null as string | null,
+  CIRCUIT_BREAKER_THRESHOLD: 3, // Break after 3 consecutive notifications
   
-  // Check if notification is a duplicate
+  // Check if notification is a duplicate with enhanced logic
   isDuplicate(type: string): boolean {
+    // Circuit breaker logic - force suppression after threshold
+    if (this.consecutiveNotifications >= this.CIRCUIT_BREAKER_THRESHOLD) {
+      console.warn('Notification circuit breaker activated - suppressing notifications');
+      return true;
+    }
+    
     const now = Date.now();
     const lastShown = this.recentNotifications.get(type);
+    
+    // Track consecutive notifications of the same type
+    if (this.lastNotificationType === type) {
+      this.consecutiveNotifications++;
+    } else {
+      this.consecutiveNotifications = 1;
+      this.lastNotificationType = type;
+    }
+    
     return lastShown !== undefined && now - lastShown < this.NOTIFICATION_EXPIRY;
   },
   
-  // Record a notification
+  // Record a notification with console logging
   trackNotification(type: string): void {
-    this.recentNotifications.set(type, Date.now());
+    const now = Date.now();
+    this.recentNotifications.set(type, now);
+    console.log(`Notification tracked: ${type} at ${new Date(now).toISOString()}`);
     
     // Clean up old notifications
-    const now = Date.now();
     for (const [key, timestamp] of this.recentNotifications.entries()) {
       if (now - timestamp > this.NOTIFICATION_EXPIRY) {
         this.recentNotifications.delete(key);
       }
     }
+  },
+  
+  // Reset circuit breaker
+  resetCircuitBreaker(): void {
+    this.consecutiveNotifications = 0;
+    this.lastNotificationType = null;
+  }
+};
+
+// Mutex for synchronization
+const notificationMutex = {
+  locked: false,
+  
+  async acquire(): Promise<boolean> {
+    if (this.locked) return false;
+    this.locked = true;
+    return true;
+  },
+  
+  release(): void {
+    this.locked = false;
   }
 };
 
@@ -46,52 +86,62 @@ const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) 
   
   // Only show important notifications as toasts with enhanced deduplication
   useEffect(() => {
-    // Skip if no status or already processing a notification
-    if (!status || notificationTracker.isProcessing) return;
+    // Skip if no status, already processing, or couldn't acquire mutex
+    if (!status) return;
     
-    // Create a unique key for this notification type
-    const notificationKey = `notification-${status}`;
-    notificationIdRef.current = notificationKey;
-    
-    // Skip if this is a duplicate notification
-    if (notificationTracker.isDuplicate(status)) {
-      return;
-    }
-    
-    // Set processing flag to prevent overlapping notifications
-    notificationTracker.isProcessing = true;
-    
-    // Track this notification
-    notificationTracker.trackNotification(status);
-    
-    // Only show toast for important events
-    if (status === 'error' || status === 'reset' || status === 'exported' || status === 'imported') {
-      const title = {
-        error: 'Error',
-        reset: 'Reset Complete',
-        exported: 'Export Complete',
-        imported: 'Import Complete'
-      }[status];
+    const processNotification = async () => {
+      if (notificationTracker.isProcessing || !(await notificationMutex.acquire())) {
+        console.log('Skipping notification - mutex locked or already processing');
+        return;
+      }
       
-      const description = {
-        error: 'An error occurred while saving',
-        reset: 'All data has been reset',
-        exported: 'Data successfully exported',
-        imported: 'Data successfully imported'
-      }[status];
-      
-      toast({
-        title,
-        description,
-        variant: status === 'error' ? 'destructive' : 'default',
-        duration: 3000,
-      });
-    }
+      try {
+        // Create a unique key for this notification type
+        const notificationKey = `notification-${status}-${Date.now()}`;
+        notificationIdRef.current = notificationKey;
+        
+        // Skip if this is a duplicate notification
+        if (notificationTracker.isDuplicate(status)) {
+          console.log(`Suppressing duplicate notification: ${status}`);
+          return;
+        }
+        
+        // Track this notification
+        notificationTracker.trackNotification(status);
+        
+        // Only show toast for important events
+        if (status === 'error' || status === 'reset' || status === 'exported' || status === 'imported') {
+          const title = {
+            error: 'Error',
+            reset: 'Reset Complete',
+            exported: 'Export Complete',
+            imported: 'Import Complete'
+          }[status];
+          
+          const description = {
+            error: 'An error occurred while saving',
+            reset: 'All data has been reset',
+            exported: 'Data successfully exported',
+            imported: 'Data successfully imported'
+          }[status];
+          
+          toast({
+            title,
+            description,
+            variant: status === 'error' ? 'destructive' : 'default',
+            duration: 3000,
+          });
+        }
+      } finally {
+        // Always release mutex
+        setTimeout(() => {
+          notificationTracker.isProcessing = false;
+          notificationMutex.release();
+        }, 2000); // Force minimum 2s between operations
+      }
+    };
     
-    // Release processing lock after a delay
-    setTimeout(() => {
-      notificationTracker.isProcessing = false;
-    }, 1000);
+    processNotification();
   }, [status, toast]);
   
   // Handle visibility of notification with debouncing
@@ -104,13 +154,15 @@ const SaveNotification: React.FC<SaveNotificationProps> = ({ status, onClose }) 
         clearTimeout(timerRef.current);
       }
       
-      // Set auto-hide timer
+      // Set auto-hide timer with longer duration
       timerRef.current = setTimeout(() => {
         setVisible(false);
         setTimeout(() => {
           onClose();
+          // Reset circuit breaker when notification closes
+          notificationTracker.resetCircuitBreaker();
         }, 300); // Wait for fade out animation
-      }, 3000);
+      }, 5000); // Extended to 5s from 3s
     } else {
       setVisible(false);
     }

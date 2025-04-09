@@ -1,5 +1,5 @@
 
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useState } from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,12 +24,12 @@ interface ExpandableFloorRowProps {
   totalRows: number;
 }
 
-// Use React.memo to prevent unnecessary re-renders
+// Use React.memo with custom equality check to prevent unnecessary re-renders
 const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
   floor,
   floorTemplates,
   isSelected,
-  isExpanded,
+  isExpanded: parentIsExpanded,
   onSelect,
   onEdit,
   onDelete,
@@ -39,38 +39,62 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
   getTemplateName,
   totalRows
 }) => {
+  // Local component state for expansion - completely separate from parent state
+  // This acts as a backup in case the parent state gets reset
+  const [localIsExpanded, setLocalIsExpanded] = useState(parentIsExpanded);
+  
+  // Use combined state - prefer local state but sync with parent
+  const effectiveIsExpanded = localIsExpanded || parentIsExpanded;
+  
   const { getAllocationsByFloor } = useUnitAllocations();
   
-  // Create memoized event handlers to prevent rerenders
+  // Create memoized event handlers with explicit useCallback to prevent rerenders
   const handleSelect = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onSelect(floor.floorNumber);
   }, [onSelect, floor.floorNumber]);
   
   const handleToggleExpand = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
+    
+    // Update both local and parent state
+    setLocalIsExpanded(prev => !prev);
+    
+    // Only notify parent with explicit flag - this should be a UI-only update
     onToggleExpand(floor.floorNumber);
   }, [onToggleExpand, floor.floorNumber]);
   
   const handleEdit = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onEdit();
   }, [onEdit]);
   
   const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onDelete(floor.floorNumber);
   }, [onDelete, floor.floorNumber]);
   
   const handleReorderUp = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     reorderFloor(floor.floorNumber, "up");
   }, [reorderFloor, floor.floorNumber]);
   
   const handleReorderDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     reorderFloor(floor.floorNumber, "down");
   }, [reorderFloor, floor.floorNumber]);
+  
+  const handleRowClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleToggleExpand(e);
+  }, [handleToggleExpand]);
   
   const template = floorTemplates.find(t => t.id === floor.templateId);
   const floorArea = floor.customSquareFootage && floor.customSquareFootage !== ""
@@ -80,7 +104,11 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
   const spaceCount = floor.spaces?.length || 0;
   const floorAllocations = getAllocationsByFloor(floor.floorNumber);
   const unitCount = floorAllocations.reduce(
-    (sum, allocation) => sum + parseInt(allocation.count as string || "0"), 0
+    (sum, allocation) => {
+      // Safely parse the count or return 0
+      const count = allocation.count ? parseInt(allocation.count.toString()) : 0;
+      return sum + (isNaN(count) ? 0 : count);
+    }, 0
   );
   
   // Safe parsing to prevent toLocaleString errors
@@ -98,10 +126,10 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
   return (
     <>
       <TableRow 
-        className={isExpanded ? "bg-gray-50" : ""}
-        onClick={handleToggleExpand} // Main row click expands
+        className={effectiveIsExpanded ? "bg-gray-50" : ""}
+        onClick={handleRowClick} // Main row click expands
       >
-        <TableCell onClick={e => e.stopPropagation()}>
+        <TableCell className="relative" onClick={(e) => e.stopPropagation()}>
           <Checkbox 
             checked={isSelected} 
             onCheckedChange={() => onSelect(floor.floorNumber)}
@@ -115,7 +143,7 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
               className="h-6 w-6 mr-1 -ml-2"
               onClick={handleToggleExpand}
             >
-              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {effectiveIsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
             <Badge
               variant={floor.isUnderground ? "outline" : "secondary"}
@@ -189,7 +217,7 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
           </div>
         </TableCell>
       </TableRow>
-      {isExpanded && (
+      {effectiveIsExpanded && (
         <TableRow>
           <TableCell colSpan={7} className="p-4 bg-gray-50">
             <FloorDetailView
@@ -201,6 +229,17 @@ const ExpandableFloorRow: React.FC<ExpandableFloorRowProps> = memo(({
         </TableRow>
       )}
     </>
+  );
+}, (prevProps, nextProps) => {
+  // Custom equality check to prevent unnecessary renders
+  return (
+    prevProps.floor.floorNumber === nextProps.floor.floorNumber &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isExpanded === nextProps.isExpanded &&
+    prevProps.floor.templateId === nextProps.floor.templateId &&
+    prevProps.floor.primaryUse === nextProps.floor.primaryUse &&
+    prevProps.totalRows === nextProps.totalRows
+    // Intentionally not comparing complete floor objects to avoid deep equality checks
   );
 });
 
