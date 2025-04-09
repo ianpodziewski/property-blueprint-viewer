@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { usePropertyState } from '@/hooks/usePropertyState';
 import { useDevelopmentCosts } from '@/hooks/useDevelopmentCosts';
@@ -14,6 +15,7 @@ type ModelContextType = {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   saveModel: () => void;
+  resetModel: () => void;
   property: ReturnType<typeof usePropertyState>;
   developmentCosts: ReturnType<typeof useDevelopmentCosts>;
   timeline: ReturnType<typeof useDevelopmentTimeline>;
@@ -24,16 +26,22 @@ type ModelContextType = {
   sensitivity: ReturnType<typeof useSensitivityState>;
   hasUnsavedChanges: boolean;
   setHasUnsavedChanges: (value: boolean) => void;
+  lastSaved: Date | null;
+  isAutoSaving: boolean;
 };
 
 // Create the context
 const ModelContext = createContext<ModelContextType | null>(null);
+
+// Storage key constant
+const STORAGE_KEY = 'realEstateModel';
 
 // Create the provider component
 export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTab] = useState<string>("property");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
   
   // Initialize all section states
   const property = usePropertyState();
@@ -48,89 +56,193 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // Create a function to change tabs
   const handleTabChange = (tab: string) => {
     // Auto-save when changing tabs
-    saveToLocalStorage();
+    saveToLocalStorage(false);
     setActiveTab(tab);
   };
 
   // Load data from localStorage on initial load
   useEffect(() => {
-    const savedModel = localStorage.getItem('realEstateModel');
-    if (savedModel) {
-      try {
-        const parsedModel = JSON.parse(savedModel);
-        
-        // Load property state
-        if (parsedModel.property) {
-          if (parsedModel.property.projectName) property.setProjectName(parsedModel.property.projectName);
-          if (parsedModel.property.projectLocation) property.setProjectLocation(parsedModel.property.projectLocation);
-          if (parsedModel.property.projectType) property.setProjectType(parsedModel.property.projectType);
-          if (parsedModel.property.totalLandArea) property.setTotalLandArea(parsedModel.property.totalLandArea);
-          if (parsedModel.property.spaceTypes) {
-            // Instead of using setSpaceTypes, we need to properly update each space type
-            // This is a workaround since setSpaceTypes isn't available directly
-            parsedModel.property.spaceTypes.forEach((space: any, index: number) => {
-              if (index === 0 && property.spaceTypes[0]) {
-                // Update the first item if it exists
-                Object.keys(space).forEach(key => {
-                  if (key !== 'id') {
-                    property.updateSpaceType(property.spaceTypes[0].id, key as any, space[key]);
-                  }
-                });
-              } else {
-                // Add new items as needed
-                property.addSpaceType();
-                if (property.spaceTypes[index]) {
-                  Object.keys(space).forEach(key => {
-                    if (key !== 'id') {
-                      property.updateSpaceType(property.spaceTypes[index].id, key as any, space[key]);
-                    }
-                  });
-                }
-              }
-            });
-          }
-          
-          if (parsedModel.property.unitMixes) {
-            // Similar approach for unit mixes
-            parsedModel.property.unitMixes.forEach((unit: any, index: number) => {
-              if (index === 0 && property.unitMixes[0]) {
-                // Update the first item if it exists
-                Object.keys(unit).forEach(key => {
-                  if (key !== 'id') {
-                    property.updateUnitMix(property.unitMixes[0].id, key as any, unit[key]);
-                  }
-                });
-              } else {
-                // Add new items as needed
-                property.addUnitMix();
-                if (property.unitMixes[index]) {
-                  Object.keys(unit).forEach(key => {
-                    if (key !== 'id') {
-                      property.updateUnitMix(property.unitMixes[index].id, key as any, unit[key]);
-                    }
-                  });
-                }
-              }
-            });
-          }
-        }
-        
-        // Similar loading for other state sections would go here
-        // This is just a starting point - full implementation would load all state
-        
-        setLastSaved(new Date());
-        toast.success("Model loaded from local storage");
-      } catch (error) {
-        console.error("Failed to load model from local storage", error);
-        toast.error("Failed to load saved model");
-      }
-    }
+    loadFromLocalStorage();
   }, []);
 
-  // Save to localStorage
-  const saveToLocalStorage = () => {
+  // Auto-save timer
+  useEffect(() => {
+    const autoSaveInterval = setInterval(() => {
+      if (hasUnsavedChanges) {
+        saveToLocalStorage(true);
+      }
+    }, 30000); // Auto-save every 30 seconds
+    
+    return () => clearInterval(autoSaveInterval);
+  }, [hasUnsavedChanges]);
+
+  // Load from localStorage
+  const loadFromLocalStorage = () => {
     try {
+      const savedModel = localStorage.getItem(STORAGE_KEY);
+      if (!savedModel) {
+        console.log("No saved model found in localStorage");
+        return;
+      }
+      
+      const parsedModel = JSON.parse(savedModel);
+      console.log("Loading model data:", parsedModel);
+      
+      // Set last saved time if available
+      if (parsedModel.meta && parsedModel.meta.lastSaved) {
+        setLastSaved(new Date(parsedModel.meta.lastSaved));
+      }
+      
+      // Load property state
+      if (parsedModel.property) {
+        if (parsedModel.property.projectName) property.setProjectName(parsedModel.property.projectName);
+        if (parsedModel.property.projectLocation) property.setProjectLocation(parsedModel.property.projectLocation);
+        if (parsedModel.property.projectType) property.setProjectType(parsedModel.property.projectType);
+        if (parsedModel.property.totalLandArea) property.setTotalLandArea(parsedModel.property.totalLandArea);
+        if (parsedModel.property.spaceTypes) {
+          // Instead of using setSpaceTypes, we need to properly update each space type
+          // This is a workaround since setSpaceTypes isn't available directly
+          parsedModel.property.spaceTypes.forEach((space: any, index: number) => {
+            if (index === 0 && property.spaceTypes[0]) {
+              // Update the first item if it exists
+              Object.keys(space).forEach(key => {
+                if (key !== 'id') {
+                  property.updateSpaceType(property.spaceTypes[0].id, key as any, space[key]);
+                }
+              });
+            } else {
+              // Add new items as needed
+              property.addSpaceType();
+              if (property.spaceTypes[index]) {
+                Object.keys(space).forEach(key => {
+                  if (key !== 'id') {
+                    property.updateSpaceType(property.spaceTypes[index].id, key as any, space[key]);
+                  }
+                });
+              }
+            }
+          });
+        }
+        
+        if (parsedModel.property.unitMixes) {
+          // Similar approach for unit mixes
+          parsedModel.property.unitMixes.forEach((unit: any, index: number) => {
+            if (index === 0 && property.unitMixes[0]) {
+              // Update the first item if it exists
+              Object.keys(unit).forEach(key => {
+                if (key !== 'id') {
+                  property.updateUnitMix(property.unitMixes[0].id, key as any, unit[key]);
+                }
+              });
+            } else {
+              // Add new items as needed
+              property.addUnitMix();
+              if (property.unitMixes[index]) {
+                Object.keys(unit).forEach(key => {
+                  if (key !== 'id') {
+                    property.updateUnitMix(property.unitMixes[index].id, key as any, unit[key]);
+                  }
+                });
+              }
+            }
+          });
+        }
+      }
+      
+      // Load development costs
+      if (parsedModel.developmentCosts) {
+        // Similar pattern to property loading
+        // We would implement all the relevant setters here
+      }
+      
+      // Load timeline data
+      if (parsedModel.timeline) {
+        // Implementation for timeline loading
+      }
+      
+      // Load expenses data
+      if (parsedModel.expenses) {
+        // Load expense categories using similar pattern to spaceTypes
+        if (parsedModel.expenses.expenseGrowthRate) expenses.setExpenseGrowthRate(parsedModel.expenses.expenseGrowthRate);
+        if (parsedModel.expenses.operatingExpenseRatio) expenses.setOperatingExpenseRatio(parsedModel.expenses.operatingExpenseRatio);
+        if (parsedModel.expenses.fixedExpensePercentage) expenses.setFixedExpensePercentage(parsedModel.expenses.fixedExpensePercentage);
+        if (parsedModel.expenses.variableExpensePercentage) expenses.setVariableExpensePercentage(parsedModel.expenses.variableExpensePercentage);
+        if (parsedModel.expenses.replacementReserves) expenses.setReplacementReserves(parsedModel.expenses.replacementReserves);
+        if (parsedModel.expenses.reservesUnit) expenses.setReservesUnit(parsedModel.expenses.reservesUnit);
+        if (parsedModel.expenses.expensesBeforeStabilization) expenses.setExpensesBeforeStabilization(parsedModel.expenses.expensesBeforeStabilization);
+        
+        if (parsedModel.expenses.expenseCategories) {
+          parsedModel.expenses.expenseCategories.forEach((expense: any, index: number) => {
+            if (index === 0 && expenses.expenseCategories[0]) {
+              Object.keys(expense).forEach(key => {
+                if (key !== 'id') {
+                  expenses.updateExpenseCategory(expenses.expenseCategories[0].id, key as any, expense[key]);
+                }
+              });
+            } else {
+              expenses.addExpenseCategory();
+              if (expenses.expenseCategories[index]) {
+                Object.keys(expense).forEach(key => {
+                  if (key !== 'id') {
+                    expenses.updateExpenseCategory(expenses.expenseCategories[index].id, key as any, expense[key]);
+                  }
+                });
+              }
+            }
+          });
+        }
+      }
+      
+      // Load revenue data
+      if (parsedModel.revenue) {
+        // Implementation for revenue loading
+      }
+      
+      // Load financing data
+      if (parsedModel.financing) {
+        // Implementation for financing loading
+      }
+      
+      // Load disposition data
+      if (parsedModel.disposition) {
+        // Implementation for disposition loading
+      }
+      
+      // Load sensitivity data
+      if (parsedModel.sensitivity) {
+        // Implementation for sensitivity loading
+        if (parsedModel.sensitivity.sensitivityVariable1) sensitivity.setSensitivityVariable1(parsedModel.sensitivity.sensitivityVariable1);
+        if (parsedModel.sensitivity.variable1MinRange) sensitivity.setVariable1MinRange(parsedModel.sensitivity.variable1MinRange);
+        if (parsedModel.sensitivity.variable1MaxRange) sensitivity.setVariable1MaxRange(parsedModel.sensitivity.variable1MaxRange);
+        if (parsedModel.sensitivity.sensitivityVariable2) sensitivity.setSensitivityVariable2(parsedModel.sensitivity.sensitivityVariable2);
+        if (parsedModel.sensitivity.variable2MinRange) sensitivity.setVariable2MinRange(parsedModel.sensitivity.variable2MinRange);
+        if (parsedModel.sensitivity.variable2MaxRange) sensitivity.setVariable2MaxRange(parsedModel.sensitivity.variable2MaxRange);
+        if (parsedModel.sensitivity.outputMetric) sensitivity.setOutputMetric(parsedModel.sensitivity.outputMetric);
+      }
+      
+      setHasUnsavedChanges(false);
+      toast.success("Model loaded from local storage");
+      console.log("Model successfully loaded from localStorage");
+      
+      return true;
+    } catch (error) {
+      console.error("Failed to load model from local storage", error);
+      toast.error("Failed to load saved model");
+      return false;
+    }
+  };
+
+  // Save to localStorage
+  const saveToLocalStorage = (isAuto: boolean = false) => {
+    try {
+      setIsAutoSaving(isAuto);
+      const now = new Date();
+      
       const modelData = {
+        meta: {
+          lastSaved: now.toISOString(),
+          version: "1.0.0"
+        },
         property: {
           projectName: property.projectName,
           projectLocation: property.projectLocation,
@@ -139,30 +251,111 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           spaceTypes: property.spaceTypes,
           unitMixes: property.unitMixes
         },
-        // Add other state sections here in a similar pattern
         developmentCosts: {
-          // Relevant properties here
+          // Add development costs properties
         },
-        // Other sections following the same pattern
+        timeline: {
+          // Add timeline properties
+        },
+        expenses: {
+          expenseGrowthRate: expenses.expenseGrowthRate,
+          operatingExpenseRatio: expenses.operatingExpenseRatio,
+          fixedExpensePercentage: expenses.fixedExpensePercentage,
+          variableExpensePercentage: expenses.variableExpensePercentage,
+          expenseCategories: expenses.expenseCategories,
+          replacementReserves: expenses.replacementReserves,
+          reservesUnit: expenses.reservesUnit,
+          expensesBeforeStabilization: expenses.expensesBeforeStabilization
+        },
+        revenue: {
+          // Add revenue properties
+        },
+        financing: {
+          // Add financing properties
+        },
+        disposition: {
+          // Add disposition properties
+        },
+        sensitivity: {
+          sensitivityVariable1: sensitivity.sensitivityVariable1,
+          variable1MinRange: sensitivity.variable1MinRange,
+          variable1MaxRange: sensitivity.variable1MaxRange,
+          sensitivityVariable2: sensitivity.sensitivityVariable2,
+          variable2MinRange: sensitivity.variable2MinRange,
+          variable2MaxRange: sensitivity.variable2MaxRange,
+          outputMetric: sensitivity.outputMetric,
+          // Add more sensitivity properties
+        }
       };
       
-      localStorage.setItem('realEstateModel', JSON.stringify(modelData));
-      setLastSaved(new Date());
+      // Save to localStorage
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(modelData));
+      
+      // Update last saved time
+      setLastSaved(now);
       setHasUnsavedChanges(false);
-      return true;
+      
+      // Verify save was successful
+      const verifySave = verifyLocalStorageSave();
+      
+      console.log(`Model ${isAuto ? "auto-saved" : "saved"} successfully:`, modelData);
+      
+      // Only show toast for manual saves, not auto-saves
+      if (!isAuto) {
+        toast.success("Model saved successfully");
+      }
+      
+      setTimeout(() => {
+        setIsAutoSaving(false);
+      }, 1000);
+      
+      return verifySave;
     } catch (error) {
       console.error("Failed to save model", error);
+      if (!isAuto) {
+        toast.error("Failed to save model");
+      }
+      setIsAutoSaving(false);
+      return false;
+    }
+  };
+
+  // Verify localStorage save was successful
+  const verifyLocalStorageSave = () => {
+    try {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      if (!savedData) {
+        console.error("Verification failed: No data found in localStorage");
+        return false;
+      }
+      
+      // Parse the data to verify it's valid JSON
+      JSON.parse(savedData);
+      console.log("Verification successful: Data saved correctly to localStorage");
+      return true;
+    } catch (error) {
+      console.error("Verification failed: Data in localStorage is invalid", error);
+      return false;
+    }
+  };
+
+  // Reset model data
+  const resetModel = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      // Reload the page to reset all state
+      window.location.reload();
+      return true;
+    } catch (error) {
+      console.error("Failed to reset model", error);
+      toast.error("Failed to reset model");
       return false;
     }
   };
 
   // Explicit save function
   const saveModel = () => {
-    if (saveToLocalStorage()) {
-      toast.success("Model saved successfully");
-    } else {
-      toast.error("Failed to save model");
-    }
+    saveToLocalStorage(false);
   };
 
   // Set hasUnsavedChanges to true when any relevant state changes
@@ -173,8 +366,15 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     property.projectLocation,
     property.projectType,
     property.totalLandArea,
-    // Add more state dependencies here as needed
-    // This effect will run whenever any of these values change
+    property.spaceTypes,
+    property.unitMixes,
+    expenses.expenseGrowthRate,
+    expenses.operatingExpenseRatio,
+    expenses.expenseCategories,
+    sensitivity.sensitivityVariable1,
+    sensitivity.variable1MinRange,
+    sensitivity.outputMetric
+    // Add more dependencies as needed
   ]);
 
   // Aggregate value to provide
@@ -182,6 +382,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     activeTab,
     setActiveTab: handleTabChange,
     saveModel,
+    resetModel,
     property,
     developmentCosts,
     timeline,
@@ -191,7 +392,9 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     disposition,
     sensitivity,
     hasUnsavedChanges,
-    setHasUnsavedChanges
+    setHasUnsavedChanges,
+    lastSaved,
+    isAutoSaving
   };
 
   return (
