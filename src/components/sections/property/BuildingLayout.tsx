@@ -181,7 +181,7 @@ const BuildingLayout = () => {
   }, [unitAllocations, property.products]);
   
   // Calculate total building area and total units
-  const { totalArea, totalUnits } = useMemo(() => {
+  const buildingTotals = useMemo(() => {
     let area = 0;
     let units = 0;
     
@@ -196,8 +196,10 @@ const BuildingLayout = () => {
       units += allocation.quantity;
     });
     
-    return { totalArea, totalUnits: units };
+    return { totalArea: area, totalUnits: units };
   }, [sortedFloors, property.floorPlateTemplates, unitAllocations]);
+  
+  const { totalArea, totalUnits } = buildingTotals;
   
   return (
     <>
@@ -411,7 +413,7 @@ const BuildingLayout = () => {
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Total Units</Label>
-                    <p className="mt-1">{unitAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0)}</p>
+                    <p className="mt-1">{totalUnits}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Total Building Area</Label>
