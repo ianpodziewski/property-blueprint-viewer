@@ -14,25 +14,31 @@ export type Database = {
           area: number
           created_at: string
           id: string
+          length: number | null
           name: string
           project_id: string
           updated_at: string
+          width: number | null
         }
         Insert: {
           area: number
           created_at?: string
           id?: string
+          length?: number | null
           name: string
           project_id: string
           updated_at?: string
+          width?: number | null
         }
         Update: {
           area?: number
           created_at?: string
           id?: string
+          length?: number | null
           name?: string
           project_id?: string
           updated_at?: string
+          width?: number | null
         }
         Relationships: [
           {
@@ -197,30 +203,36 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          length: number | null
           name: string
           project_id: string
           units: number
           updated_at: string
+          width: number | null
         }
         Insert: {
           area: number
           category: string
           created_at?: string
           id?: string
+          length?: number | null
           name: string
           project_id: string
           units?: number
           updated_at?: string
+          width?: number | null
         }
         Update: {
           area?: number
           category?: string
           created_at?: string
           id?: string
+          length?: number | null
           name?: string
           project_id?: string
           units?: number
           updated_at?: string
+          width?: number | null
         }
         Relationships: [
           {
