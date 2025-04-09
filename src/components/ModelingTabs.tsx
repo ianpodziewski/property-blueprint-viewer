@@ -82,7 +82,7 @@ const ModelingTabs = () => {
   
   // Listen for floor config saved event with improved debounce
   useEffect(() => {
-    const debounceTimeoutRef = useRef<number | null>(null);
+    const debounceTimeoutRef = { current: null as number | null };
     
     const handleFloorConfigSaved = () => {
       // Clear previous timeout if exists
@@ -109,7 +109,7 @@ const ModelingTabs = () => {
 
   // Listen for unit types changed event with improved handling
   useEffect(() => {
-    const debounceTimeoutRef = useRef<number | null>(null);
+    const debounceTimeoutRef = { current: null as number | null };
     
     const handleUnitTypesChanged = (event: Event) => {
       // Skip if we have a custom detail with skipNotification flag
