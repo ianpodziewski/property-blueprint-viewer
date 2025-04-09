@@ -14,6 +14,11 @@ export type ModelTabType =
   | "disposition" 
   | "sensitivity";
 
+// Define the model meta information type
+export interface ModelMeta {
+  version?: string;
+}
+
 // Create a context to hold the model state
 interface ModelContextType {
   activeTab: ModelTabType;
@@ -31,6 +36,8 @@ interface ModelContextType {
   isAutoSaving: boolean;
   saveModel: () => void;
   resetModel: () => Promise<void>;
+  lastSaved?: Date | null;
+  meta?: ModelMeta;
 }
 
 // Initialize the context with default values
@@ -50,6 +57,8 @@ const ModelContext = createContext<ModelContextType>({
   isAutoSaving: false,
   saveModel: () => {},
   resetModel: async () => {},
+  lastSaved: null,
+  meta: { version: "1.0.0" }
 });
 
 // Provider component to wrap the app with
@@ -58,6 +67,8 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const modelState = useModelState();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [meta, setMeta] = useState<ModelMeta>({ version: "1.0.0" });
   
   // Validate and load floor plate templates from localStorage
   const validateAndLoadFloorPlateTemplates = (templates: any[]): FloorPlateTemplate[] => {
@@ -162,6 +173,16 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const parsedModel = JSON.parse(savedModel);
       console.log("Parsed model from localStorage:", parsedModel);
       
+      // Load meta information
+      if (parsedModel.meta) {
+        setMeta(parsedModel.meta);
+      }
+      
+      // Load lastSaved timestamp
+      if (parsedModel.lastSaved) {
+        setLastSaved(new Date(parsedModel.lastSaved));
+      }
+      
       // Load property section data
       if (parsedModel.property) {
         const property = parsedModel.property;
@@ -235,6 +256,9 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsAutoSaving(true);
       console.log("Saving model to localStorage");
       
+      const currentTime = new Date();
+      setLastSaved(currentTime);
+      
       // Construct the model object
       const modelToSave = {
         property: {
@@ -246,7 +270,9 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           floorPlateTemplates: modelState.property.floorPlateTemplates,
           products: modelState.property.products,
           buildingFloors: modelState.property.buildingFloors
-        }
+        },
+        lastSaved: currentTime.toISOString(),
+        meta: meta
         // Other sections will be added here
       };
       
@@ -269,6 +295,7 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     modelState.property.floorPlateTemplates,
     modelState.property.products,
     modelState.property.buildingFloors,
+    meta
     // Dependencies for other sections will be added here
   ]);
   
@@ -348,7 +375,9 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setHasUnsavedChanges,
     isAutoSaving,
     saveModel,
-    resetModel
+    resetModel,
+    lastSaved,
+    meta
   };
   
   return (
