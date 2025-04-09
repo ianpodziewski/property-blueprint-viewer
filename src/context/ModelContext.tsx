@@ -1,10 +1,11 @@
+
 import React, { createContext, useState, useContext, useCallback, useEffect } from "react";
 import { useModelState } from "@/hooks/useModelState";
 
-// Define the type for the active tab
-export type ModelTabType = "property" | "development" | "timeline" | "expenses" | "revenue" | "financing" | "disposition" | "sensitivity";
+// Define the type for the active tab - updated to include all tab values used in the navigation
+export type ModelTabType = "property" | "devCosts" | "timeline" | "opex" | "oprev" | "capex" | "financing" | "disposition" | "sensitivity";
 
-// Define the context type
+// Define the context type - adding missing properties
 type ModelContextType = {
   activeTab: ModelTabType;
   setActiveTab: (tab: ModelTabType) => void;
@@ -13,9 +14,12 @@ type ModelContextType = {
   setHasUnsavedChanges: (hasChanges: boolean) => void;
   
   isSaving: boolean;
+  isAutoSaving?: boolean; // Added this property
   lastSaved: Date | null;
+  meta?: { version: string }; // Added this property
   
   saveModel: () => void;
+  resetModel?: () => void; // Added this property
   
   // Model state from hooks
   property: ReturnType<typeof useModelState>["property"];
@@ -35,13 +39,25 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeTab, setActiveTab] = useState<ModelTabType>("property");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false); // Added this state
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [meta, setMeta] = useState<{ version: string } | undefined>(); // Added meta state
   
   // Create model state using all our hooks
   const modelState = useModelState();
   
   // Log initial state for debugging
   console.log("ModelProvider initializing with default activeTab:", activeTab);
+
+  // Reset the model data
+  const resetModel = useCallback(() => {
+    // Clear localStorage
+    localStorage.removeItem("realEstateModel");
+    
+    // Reset all state
+    // We'll just reload the page to get a fresh state
+    window.location.reload();
+  }, []);
   
   // Save the model state to localStorage
   const saveModel = useCallback(() => {
@@ -53,6 +69,7 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       setIsSaving(true);
+      setIsAutoSaving(true);
       
       // Create the model object to save
       const modelToSave = {
@@ -71,66 +88,68 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           products: modelState.property.products, // Save the products array with unit types
         },
         expenses: {
-          operatingExpenses: modelState.expenses.operatingExpenses,
-          expenseGrowth: modelState.expenses.expenseGrowth,
-          managementFeePercent: modelState.expenses.managementFeePercent,
-          replacementReservePerUnit: modelState.expenses.replacementReservePerUnit,
-          propertyTaxRate: modelState.expenses.propertyTaxRate,
-          propertyInsuranceRate: modelState.expenses.propertyInsuranceRate,
-          utilities: modelState.expenses.utilities,
-          generalAndAdministrative: modelState.expenses.generalAndAdministrative,
-          payroll: modelState.expenses.payroll,
-          repairs: modelState.expenses.repairs,
-          landscaping: modelState.expenses.landscaping,
-          marketing: modelState.expenses.marketing,
-          other: modelState.expenses.other,
+          expenseGrowthRate: modelState.expenses.expenseGrowthRate,
+          operatingExpenseRatio: modelState.expenses.operatingExpenseRatio,
+          replacementReserves: modelState.expenses.replacementReserves,
+          // Updated property names to match the actual state variables
+          // in useExpensesState
+          propertyTaxes: modelState.expenses.propertyTaxes,
+          propertyInsurance: modelState.expenses.propertyInsurance,
+          utilitiesExpense: modelState.expenses.utilitiesExpense,
+          gaExpense: modelState.expenses.gaExpense,
+          payrollExpense: modelState.expenses.payrollExpense,
+          repairsExpense: modelState.expenses.repairsExpense,
+          landscapingExpense: modelState.expenses.landscapingExpense,
+          marketingExpense: modelState.expenses.marketingExpense,
+          otherExpense: modelState.expenses.otherExpense,
         },
         financing: {
-          loanAmount: modelState.financing.loanAmount,
-          loanToValue: modelState.financing.loanToValue,
-          interestRate: modelState.financing.interestRate,
-          amortizationYears: modelState.financing.amortizationYears,
-          loanTerm: modelState.financing.loanTerm,
-          loanFees: modelState.financing.loanFees,
+          debtAmount: modelState.financing.debtAmount,
+          loanToCost: modelState.financing.loanToCost,
+          permanentInterestRate: modelState.financing.permanentInterestRate,
+          permanentTerm: modelState.financing.permanentTerm,
+          permanentAmortization: modelState.financing.permanentAmortization,
+          permanentLoanFees: modelState.financing.permanentLoanFees,
           constructionLoanAmount: modelState.financing.constructionLoanAmount,
-          constructionLoanInterestRate: modelState.financing.constructionLoanInterestRate,
-          constructionLoanTerm: modelState.financing.constructionLoanTerm,
+          constructionInterestRate: modelState.financing.constructionInterestRate,
+          constructionTerm: modelState.financing.constructionTerm,
           constructionLoanFees: modelState.financing.constructionLoanFees,
         },
         timeline: {
-          constructionStartDate: modelState.timeline.constructionStartDate?.toISOString(),
-          constructionDuration: modelState.timeline.constructionDuration,
-          leaseupStartDate: modelState.timeline.leaseupStartDate?.toISOString(),
-          leaseupDuration: modelState.timeline.leaseupDuration,
-          stabilizedStartDate: modelState.timeline.stabilizedStartDate?.toISOString(),
-          stabilizedDuration: modelState.timeline.stabilizedDuration,
-          holdPeriod: modelState.timeline.holdPeriod,
+          startDate: modelState.timeline.startDate?.toISOString(),
+          completionDate: modelState.timeline.completionDate?.toISOString(),
+          // Using the actual property names from the timeline state
+          phaseCount: modelState.timeline.phaseCount,
+          phaseDuration: modelState.timeline.phaseDuration,
+          stabilizationPeriod: modelState.timeline.stabilizationPeriod,
+          holdingPeriod: modelState.timeline.holdingPeriod,
         },
         developmentCosts: {
-          landCost: modelState.developmentCosts.landCost,
-          hardCostsPerSF: modelState.developmentCosts.hardCostsPerSF,
-          softCostsPerSF: modelState.developmentCosts.softCostsPerSF,
-          ffeCostsPerSF: modelState.developmentCosts.ffeCostsPerSF,
-          contingencyPercentage: modelState.developmentCosts.contingencyPercentage,
-          developerFeePercentage: modelState.developmentCosts.developerFeePercentage,
+          purchasePrice: modelState.developmentCosts.purchasePrice,
+          purchasePriceMetric: modelState.developmentCosts.purchasePriceMetric,
+          hardCosts: modelState.developmentCosts.hardCosts, 
+          softCosts: modelState.developmentCosts.softCosts,
+          ffeCosts: modelState.developmentCosts.ffeCosts,
+          contingency: modelState.developmentCosts.contingency,
+          developerFee: modelState.developmentCosts.developerFee,
         },
         revenue: {
-          rentalRates: modelState.revenue.rentalRates,
-          otherIncome: modelState.revenue.otherIncome,
-          vacancyRate: modelState.revenue.vacancyRate,
-          badDebtRate: modelState.revenue.badDebtRate,
-          concessions: modelState.revenue.concessions,
-          rentalGrowth: modelState.revenue.rentalGrowth,
-          leaseupPeriod: modelState.revenue.leaseupPeriod,
-          leaseupPerMonth: modelState.revenue.leaseupPerMonth,
+          annualRevenueGrowthRate: modelState.revenue.annualRevenueGrowthRate,
+          stabilizedOccupancyRate: modelState.revenue.stabilizedOccupancyRate,
+          vacancyAllowance: modelState.revenue.vacancyAllowance,
+          badDebtAllowance: modelState.revenue.badDebtAllowance,
+          concessionsAllowance: modelState.revenue.concessionsAllowance,
+          rentalRateGrowth: modelState.revenue.rentalRateGrowth,
+          absorptionPeriod: modelState.revenue.absorptionPeriod,
+          absorptionRatePerMonth: modelState.revenue.absorptionRatePerMonth,
         },
         disposition: {
-          capRate: modelState.disposition.capRate,
-          salesCosts: modelState.disposition.salesCosts,
+          exitCapRate: modelState.disposition.exitCapRate,
+          salesExpenses: modelState.disposition.salesExpenses,
         },
         sensitivity: {
-          variables: modelState.sensitivity.variables,
-          ranges: modelState.sensitivity.ranges,
+          sensitivityVariable1: modelState.sensitivity.sensitivityVariable1,
+          sensitivityVariable2: modelState.sensitivity.sensitivityVariable2,
         },
       };
       
@@ -140,6 +159,7 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Update state to reflect save
       setHasUnsavedChanges(false);
       setLastSaved(new Date());
+      setMeta({ version: "1.1.0" });
       
       console.log("Model saved successfully:", modelToSave);
       
@@ -153,39 +173,43 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error("Error saving model:", error);
     } finally {
       setIsSaving(false);
+      // Turn off auto-saving indicator after a short delay
+      setTimeout(() => {
+        setIsAutoSaving(false);
+      }, 800);
     }
   }, [
-    modelState.developmentCosts.contingencyPercentage,
-    modelState.developmentCosts.developerFeePercentage,
-    modelState.developmentCosts.ffeCostsPerSF,
-    modelState.developmentCosts.hardCostsPerSF,
-    modelState.developmentCosts.landCost,
-    modelState.developmentCosts.softCostsPerSF,
-    modelState.disposition.capRate,
-    modelState.disposition.salesCosts,
-    modelState.expenses.expenseGrowth,
-    modelState.expenses.generalAndAdministrative,
-    modelState.expenses.landscaping,
-    modelState.expenses.managementFeePercent,
-    modelState.expenses.marketing,
-    modelState.expenses.operatingExpenses,
-    modelState.expenses.other,
-    modelState.expenses.payroll,
-    modelState.expenses.propertyInsuranceRate,
-    modelState.expenses.propertyTaxRate,
-    modelState.expenses.repairs,
-    modelState.expenses.replacementReservePerUnit,
-    modelState.expenses.utilities,
-    modelState.financing.amortizationYears,
+    modelState.developmentCosts.contingency,
+    modelState.developmentCosts.developerFee,
+    modelState.developmentCosts.ffeCosts,
+    modelState.developmentCosts.hardCosts,
+    modelState.developmentCosts.purchasePrice,
+    modelState.developmentCosts.purchasePriceMetric,
+    modelState.developmentCosts.softCosts,
+    modelState.disposition.exitCapRate,
+    modelState.disposition.salesExpenses,
+    modelState.expenses.expenseGrowthRate,
+    modelState.expenses.gaExpense,
+    modelState.expenses.landscapingExpense,
+    modelState.expenses.operatingExpenseRatio,
+    modelState.expenses.marketingExpense,
+    modelState.expenses.otherExpense,
+    modelState.expenses.payrollExpense,
+    modelState.expenses.propertyInsurance,
+    modelState.expenses.propertyTaxes,
+    modelState.expenses.repairsExpense,
+    modelState.expenses.replacementReserves,
+    modelState.expenses.utilitiesExpense,
+    modelState.financing.constructionInterestRate,
     modelState.financing.constructionLoanAmount,
     modelState.financing.constructionLoanFees,
-    modelState.financing.constructionLoanInterestRate,
-    modelState.financing.constructionLoanTerm,
-    modelState.financing.interestRate,
-    modelState.financing.loanAmount,
-    modelState.financing.loanFees,
-    modelState.financing.loanTerm,
-    modelState.financing.loanToValue,
+    modelState.financing.constructionTerm,
+    modelState.financing.debtAmount,
+    modelState.financing.loanToCost,
+    modelState.financing.permanentAmortization,
+    modelState.financing.permanentInterestRate,
+    modelState.financing.permanentLoanFees,
+    modelState.financing.permanentTerm,
     modelState.property.farAllowance,
     modelState.property.floorPlateTemplates,
     modelState.property.lotSize,
@@ -194,23 +218,22 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     modelState.property.projectType,
     modelState.property.products,
     modelState.property.initialLoadComplete,
-    modelState.revenue.badDebtRate,
-    modelState.revenue.concessions,
-    modelState.revenue.leaseupPeriod,
-    modelState.revenue.leaseupPerMonth,
-    modelState.revenue.otherIncome,
-    modelState.revenue.rentalGrowth,
-    modelState.revenue.rentalRates,
-    modelState.revenue.vacancyRate,
-    modelState.sensitivity.ranges,
-    modelState.sensitivity.variables,
-    modelState.timeline.constructionDuration,
-    modelState.timeline.constructionStartDate,
-    modelState.timeline.holdPeriod,
-    modelState.timeline.leaseupDuration,
-    modelState.timeline.leaseupStartDate,
-    modelState.timeline.stabilizedDuration,
-    modelState.timeline.stabilizedStartDate,
+    modelState.revenue.absorptionPeriod,
+    modelState.revenue.absorptionRatePerMonth,
+    modelState.revenue.annualRevenueGrowthRate,
+    modelState.revenue.badDebtAllowance,
+    modelState.revenue.concessionsAllowance,
+    modelState.revenue.rentalRateGrowth,
+    modelState.revenue.stabilizedOccupancyRate,
+    modelState.revenue.vacancyAllowance,
+    modelState.sensitivity.sensitivityVariable1,
+    modelState.sensitivity.sensitivityVariable2,
+    modelState.timeline.completionDate,
+    modelState.timeline.holdingPeriod,
+    modelState.timeline.phaseCount,
+    modelState.timeline.phaseDuration,
+    modelState.timeline.stabilizationPeriod,
+    modelState.timeline.startDate,
   ]);
   
   // Auto-save whenever the model state changes
@@ -238,9 +261,12 @@ export const ModelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setHasUnsavedChanges,
     
     isSaving,
+    isAutoSaving,
     lastSaved,
+    meta,
     
     saveModel,
+    resetModel,
     
     // Expose all the model state
     property: modelState.property,

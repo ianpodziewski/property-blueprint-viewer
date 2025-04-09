@@ -10,6 +10,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useModel } from "@/context/ModelContext";
+import { ModelTabType } from "@/context/ModelContext";
 import { BookOpen, BarChart3, Building2, CalendarDays, DollarSign, FileText, LineChart, Percent, Workflow } from "lucide-react";
 
 const sections = [
@@ -17,55 +18,55 @@ const sections = [
     title: "Property",
     icon: <Building2 className="mr-2 h-4 w-4" />,
     description: "Property characteristics and breakdown",
-    value: "property"
+    value: "property" as ModelTabType
   },
   {
     title: "Development Costs",
     icon: <DollarSign className="mr-2 h-4 w-4" />,
     description: "Hard and soft development costs",
-    value: "devCosts"
+    value: "devCosts" as ModelTabType
   },
   {
     title: "Timeline",
     icon: <CalendarDays className="mr-2 h-4 w-4" />,
     description: "Development and operational timeline",
-    value: "timeline"
+    value: "timeline" as ModelTabType
   },
   {
     title: "OpEx",
     icon: <FileText className="mr-2 h-4 w-4" />,
     description: "Operating expense assumptions",
-    value: "opex"
+    value: "opex" as ModelTabType
   },
   {
     title: "OpRev",
     icon: <BarChart3 className="mr-2 h-4 w-4" />,
     description: "Operating revenue projections",
-    value: "oprev"
+    value: "oprev" as ModelTabType
   },
   {
     title: "CapEx",
     icon: <Workflow className="mr-2 h-4 w-4" />,
     description: "Capital expenditure planning",
-    value: "capex"
+    value: "capex" as ModelTabType
   },
   {
     title: "Financing",
     icon: <BookOpen className="mr-2 h-4 w-4" />,
     description: "Debt and equity structure",
-    value: "financing"
+    value: "financing" as ModelTabType
   },
   {
     title: "Disposition",
     icon: <Percent className="mr-2 h-4 w-4" />,
     description: "Exit strategy and returns",
-    value: "disposition"
+    value: "disposition" as ModelTabType
   },
   {
     title: "Sensitivity",
     icon: <LineChart className="mr-2 h-4 w-4" />,
     description: "Scenario and sensitivity analysis",
-    value: "sensitivity"
+    value: "sensitivity" as ModelTabType
   }
 ];
 
