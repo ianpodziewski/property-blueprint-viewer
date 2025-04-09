@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,7 +92,7 @@ const PropertyBreakdown = () => {
     reloadProjectData();
   };
 
-  const handleDataRefresh = async () => {
+  const handleDataRefresh = async (): Promise<void> => {
     console.log("PropertyBreakdown: Manual data refresh requested");
     try {
       await reloadProjectData();

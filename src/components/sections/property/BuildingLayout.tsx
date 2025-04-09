@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback, MouseEvent, KeyboardEvent } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ import ApplyFloorToRangeModal from "./ApplyFloorToRangeModal";
 import SaveAsTemplateModal from "./SaveAsTemplateModal";
 import BulkAddFloorsModal from "./BulkAddFloorsModal";
 import FloorUsageTemplates from "./FloorUsageTemplates";
+import BuildingSummaryPanel from "./BuildingSummaryPanel";
 import { toast } from "sonner";
 
 const formatNumber = (num: number | undefined): string => {
