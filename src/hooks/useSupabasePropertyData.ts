@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -18,6 +19,32 @@ export interface ProjectData {
   lot_size: number;
   max_buildable_area: number;
   user_id: string;
+}
+
+// Define the shape of floor plate template data from Supabase
+interface FloorPlateTemplateData {
+  area: number;
+  created_at: string;
+  id: string;
+  name: string;
+  project_id: string;
+  updated_at: string;
+  width?: number | null;
+  length?: number | null;
+}
+
+// Define the shape of unit type data from Supabase
+interface UnitTypeData {
+  area: number;
+  category: string;
+  created_at: string;
+  id: string;
+  name: string;
+  project_id: string;
+  units: number;
+  updated_at: string;
+  width?: number | null;
+  length?: number | null;
 }
 
 export function useSupabasePropertyData(projectId: string | null) {
@@ -80,7 +107,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       if (templateError) throw templateError;
       
       // Transform to match internal format
-      const transformedTemplates = (templateData || []).map(template => ({
+      const transformedTemplates = (templateData || []).map((template: FloorPlateTemplateData) => ({
         id: template.id,
         name: template.name,
         grossArea: Number(template.area),
@@ -100,7 +127,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       // Group unit types by category (which serves as our "product")
       const productMap = new Map<string, Product>();
-      (unitTypesData || []).forEach(unitType => {
+      (unitTypesData || []).forEach((unitType: UnitTypeData) => {
         const category = unitType.category;
         
         if (!productMap.has(category)) {

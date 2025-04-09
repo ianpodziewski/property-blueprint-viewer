@@ -31,6 +31,8 @@ type ModelContextType = {
   lastSaved: Date | null;
   isLoading: boolean;
   error: string | null;
+  isAutoSaving: boolean;
+  meta?: { version?: string };
 };
 
 const ModelContext = createContext<ModelContextType | null>(null);
@@ -42,6 +44,8 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAutoSaving, setIsAutoSaving] = useState<boolean>(false);
+  const [meta, setMeta] = useState<{ version?: string }>({});
   
   const property = usePropertyState();
   const developmentCosts = useDevelopmentCosts();
@@ -72,9 +76,13 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // Simplified save function that just updates the lastSaved timestamp
   // Real saving happens in the useSupabasePropertyData hook
   const saveModel = () => {
-    setLastSaved(new Date());
-    setHasUnsavedChanges(false);
-    toast.success("Model saved successfully");
+    setIsAutoSaving(true);
+    setTimeout(() => {
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
+      setIsAutoSaving(false);
+      toast.success("Model saved successfully");
+    }, 500);
     return true;
   };
 
@@ -137,7 +145,9 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setHasUnsavedChanges,
     lastSaved,
     isLoading,
-    error
+    error,
+    isAutoSaving,
+    meta
   };
 
   return (

@@ -62,7 +62,7 @@ const StateInspector = () => {
     
     // Use formatted property state for the property section
     const displayData = sectionName === "property" ? 
-      formattedPropertyState : model[sectionName];
+      formattedPropertyState : model[sectionName as keyof typeof model];
     
     return (
       <div className="mb-4">
