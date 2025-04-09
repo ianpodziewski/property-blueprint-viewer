@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from "react";
+import { safeNumberConversion } from "@/utils/modelValidation";
 
 // Helper to safely retrieve saved values from localStorage
 const getSavedValue = (key: string, defaultValue: string): string => {
@@ -8,7 +9,7 @@ const getSavedValue = (key: string, defaultValue: string): string => {
     if (savedModel) {
       const parsedModel = JSON.parse(savedModel);
       if (parsedModel.property && parsedModel.property[key] !== undefined) {
-        return parsedModel.property[key];
+        return parsedModel.property[key] || defaultValue;
       }
     }
   } catch (error) {
@@ -60,6 +61,8 @@ export interface FloorPlateTemplate {
 }
 
 export const usePropertyState = () => {
+  console.log("Initializing usePropertyState hook");
+  
   // Project Information with initial values from localStorage
   const [projectName, setProjectName] = useState<string>(getSavedValue('projectName', ""));
   const [projectLocation, setProjectLocation] = useState<string>(getSavedValue('projectLocation', ""));
@@ -81,22 +84,34 @@ export const usePropertyState = () => {
   const addFloorPlateTemplate = (template: Omit<FloorPlateTemplate, 'id'>) => {
     const newTemplate: FloorPlateTemplate = {
       ...template,
-      id: crypto.randomUUID()
+      id: crypto.randomUUID(),
+      width: template.width !== undefined ? safeNumberConversion(template.width) : undefined,
+      length: template.length !== undefined ? safeNumberConversion(template.length) : undefined,
+      grossArea: safeNumberConversion(template.grossArea)
     };
-    setFloorPlateTemplates([...floorPlateTemplates, newTemplate]);
+    console.log("Adding new template:", newTemplate);
+    setFloorPlateTemplates(prev => [...prev, newTemplate]);
   };
   
   // Update an existing floor plate template
   const updateFloorPlateTemplate = (id: string, updates: Partial<Omit<FloorPlateTemplate, 'id'>>) => {
+    console.log(`Updating template ${id} with:`, updates);
     setFloorPlateTemplates(
       floorPlateTemplates.map(template => 
-        template.id === id ? { ...template, ...updates } : template
+        template.id === id ? { 
+          ...template, 
+          ...updates,
+          width: updates.width !== undefined ? safeNumberConversion(updates.width) : template.width,
+          length: updates.length !== undefined ? safeNumberConversion(updates.length) : template.length,
+          grossArea: updates.grossArea !== undefined ? safeNumberConversion(updates.grossArea) : template.grossArea
+        } : template
       )
     );
   };
   
   // Delete a floor plate template
   const deleteFloorPlateTemplate = (id: string) => {
+    console.log(`Deleting template ${id}`);
     setFloorPlateTemplates(floorPlateTemplates.filter(template => template.id !== id));
   };
   

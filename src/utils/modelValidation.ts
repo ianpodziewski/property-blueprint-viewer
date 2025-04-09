@@ -127,3 +127,24 @@ export const findInvalidValues = (obj: any, path: string = ''): string[] => {
   
   return issues;
 };
+
+// Utility function to safely convert string values to numbers
+export const safeNumberConversion = (value: any): number => {
+  if (value === undefined || value === null || value === '') return 0;
+  
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
+};
+
+// Utility function to parse floor plate templates ensuring type safety
+export const parseFloorPlateTemplates = (templates: any[]): any[] => {
+  if (!Array.isArray(templates)) return [];
+  
+  return templates.map(template => ({
+    id: template.id || crypto.randomUUID(),
+    name: template.name || '',
+    width: safeNumberConversion(template.width),
+    length: safeNumberConversion(template.length),
+    grossArea: safeNumberConversion(template.grossArea)
+  }));
+};

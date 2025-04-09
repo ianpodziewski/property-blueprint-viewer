@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { usePropertyState } from '@/hooks/usePropertyState';
 import { useDevelopmentCosts } from '@/hooks/useDevelopmentCosts';
@@ -9,8 +10,10 @@ import { useDispositionState } from '@/hooks/useDispositionState';
 import { useSensitivityState } from '@/hooks/useSensitivityState';
 import { toast } from "sonner";
 import { debounce } from 'lodash';
+import { validateModelData, findInvalidValues } from '@/utils/modelValidation';
 
 const STORAGE_KEY = 'realEstateModel';
+const MODEL_VERSION = '1.1.0'; // Add versioning for future compatibility
 
 type ModelContextType = {
   activeTab: string;
@@ -49,6 +52,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const sensitivity = useSensitivityState();
 
   const handleTabChange = (tab: string) => {
+    // Auto-save when changing tabs
     saveToLocalStorage(false);
     setActiveTab(tab);
   };
@@ -101,90 +105,174 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setLastSaved(new Date(parsedModel.meta.lastSaved));
       }
       
+      // Load property section data
       if (parsedModel.property) {
-        if (parsedModel.property.projectName) property.setProjectName(parsedModel.property.projectName);
-        if (parsedModel.property.projectLocation) property.setProjectLocation(parsedModel.property.projectLocation);
-        if (parsedModel.property.projectType) property.setProjectType(parsedModel.property.projectType);
+        console.log("Loading property section data:", parsedModel.property);
+        if (parsedModel.property.projectName !== undefined) {
+          property.setProjectName(parsedModel.property.projectName);
+          console.log("Loaded projectName:", parsedModel.property.projectName);
+        }
         
+        if (parsedModel.property.projectLocation !== undefined) {
+          property.setProjectLocation(parsedModel.property.projectLocation);
+          console.log("Loaded projectLocation:", parsedModel.property.projectLocation);
+        }
+        
+        if (parsedModel.property.projectType !== undefined) {
+          property.setProjectType(parsedModel.property.projectType);
+          console.log("Loaded projectType:", parsedModel.property.projectType);
+        }
+        
+        // Load numeric building parameters with proper type conversion
         if (parsedModel.property.farAllowance !== undefined) {
-          property.setFarAllowance(Number(parsedModel.property.farAllowance));
-        }
-        if (parsedModel.property.lotSize !== undefined) {
-          property.setLotSize(Number(parsedModel.property.lotSize));
+          const farValue = Number(parsedModel.property.farAllowance);
+          if (!isNaN(farValue)) {
+            property.setFarAllowance(farValue);
+            console.log("Loaded farAllowance:", farValue);
+          }
         }
         
+        if (parsedModel.property.lotSize !== undefined) {
+          const lotSizeValue = Number(parsedModel.property.lotSize);
+          if (!isNaN(lotSizeValue)) {
+            property.setLotSize(lotSizeValue);
+            console.log("Loaded lotSize:", lotSizeValue);
+          }
+        }
+        
+        // Load floor plate templates with validation
         if (Array.isArray(parsedModel.property.floorPlateTemplates)) {
-          const templates = [...parsedModel.property.floorPlateTemplates];
+          console.log("Loading floorPlateTemplates:", parsedModel.property.floorPlateTemplates);
+          
+          // Clear existing templates
           property.floorPlateTemplates = [];
-          templates.forEach(template => {
-            if (template.id && template.name && template.grossArea !== undefined) {
-              property.addFloorPlateTemplate({
-                name: template.name,
-                width: template.width,
-                length: template.length,
-                grossArea: Number(template.grossArea)
-              });
+          
+          // Add each template with proper validation
+          parsedModel.property.floorPlateTemplates.forEach(template => {
+            if (template.id && template.name) {
+              try {
+                property.addFloorPlateTemplate({
+                  name: template.name,
+                  width: template.width !== undefined ? Number(template.width) : undefined,
+                  length: template.length !== undefined ? Number(template.length) : undefined,
+                  grossArea: Number(template.grossArea || 0)
+                });
+                console.log("Successfully loaded template:", template.name);
+              } catch (err) {
+                console.error("Error loading template:", template, err);
+              }
+            } else {
+              console.warn("Skipping invalid template:", template);
             }
           });
         }
       }
       
+      // Load financing section
       if (parsedModel.financing) {
-        if (parsedModel.financing.totalProjectCost) financing.setTotalProjectCost(parsedModel.financing.totalProjectCost);
-        if (parsedModel.financing.debtAmount) financing.setDebtAmount(parsedModel.financing.debtAmount);
-        if (parsedModel.financing.equityAmount) financing.setEquityAmount(parsedModel.financing.equityAmount);
-        if (parsedModel.financing.loanToCost) financing.setLoanToCost(parsedModel.financing.loanToCost);
-        if (parsedModel.financing.loanToValue) financing.setLoanToValue(parsedModel.financing.loanToValue);
-        if (parsedModel.financing.dscr) financing.setDscr(parsedModel.financing.dscr);
+        console.log("Loading financing section data");
+        const financingFields = [
+          'totalProjectCost', 'debtAmount', 'equityAmount', 'loanToCost', 
+          'loanToValue', 'dscr', 'constructionLoanAmount', 'constructionInterestRate',
+          'constructionTerm', 'constructionLoanFees', 'constructionDrawdownSchedule',
+          'constructionInterestReserve', 'constructionRecourse'
+        ];
         
-        if (parsedModel.financing.constructionLoanAmount) financing.setConstructionLoanAmount(parsedModel.financing.constructionLoanAmount);
-        if (parsedModel.financing.constructionInterestRate) financing.setConstructionInterestRate(parsedModel.financing.constructionInterestRate);
-        if (parsedModel.financing.constructionTerm) financing.setConstructionTerm(parsedModel.financing.constructionTerm);
-        if (parsedModel.financing.constructionLoanFees) financing.setConstructionLoanFees(parsedModel.financing.constructionLoanFees);
-        if (parsedModel.financing.constructionDrawdownSchedule) financing.setConstructionDrawdownSchedule(parsedModel.financing.constructionDrawdownSchedule);
-        if (parsedModel.financing.constructionInterestReserve) financing.setConstructionInterestReserve(parsedModel.financing.constructionInterestReserve);
-        if (parsedModel.financing.constructionRecourse) financing.setConstructionRecourse(parsedModel.financing.constructionRecourse);
+        financingFields.forEach(field => {
+          if (parsedModel.financing[field] !== undefined) {
+            const setter = `set${field.charAt(0).toUpperCase() + field.slice(1)}` as keyof typeof financing;
+            if (typeof financing[setter] === 'function') {
+              try {
+                (financing[setter] as Function)(parsedModel.financing[field]);
+                console.log(`Loaded financing.${field}:`, parsedModel.financing[field]);
+              } catch (err) {
+                console.error(`Error setting financing.${field}:`, err);
+              }
+            }
+          }
+        });
       }
       
+      // Load expenses section
       if (parsedModel.expenses) {
-        if (parsedModel.expenses.expenseGrowthRate) expenses.setExpenseGrowthRate(parsedModel.expenses.expenseGrowthRate);
-        if (parsedModel.expenses.operatingExpenseRatio) expenses.setOperatingExpenseRatio(parsedModel.expenses.operatingExpenseRatio);
-        if (parsedModel.expenses.fixedExpensePercentage) expenses.setFixedExpensePercentage(parsedModel.expenses.fixedExpensePercentage);
-        if (parsedModel.expenses.variableExpensePercentage) expenses.setVariableExpensePercentage(parsedModel.expenses.variableExpensePercentage);
-        if (parsedModel.expenses.replacementReserves) expenses.setReplacementReserves(parsedModel.expenses.replacementReserves);
-        if (parsedModel.expenses.reservesUnit) expenses.setReservesUnit(parsedModel.expenses.reservesUnit);
-        if (parsedModel.expenses.expensesBeforeStabilization) expenses.setExpensesBeforeStabilization(parsedModel.expenses.expensesBeforeStabilization);
+        console.log("Loading expenses section data");
+        const expenseFields = [
+          'expenseGrowthRate', 'operatingExpenseRatio', 'fixedExpensePercentage',
+          'variableExpensePercentage', 'replacementReserves', 'reservesUnit',
+          'expensesBeforeStabilization'
+        ];
         
-        if (parsedModel.expenses.expenseCategories && Array.isArray(parsedModel.expenses.expenseCategories)) {
+        expenseFields.forEach(field => {
+          if (parsedModel.expenses[field] !== undefined) {
+            const setter = `set${field.charAt(0).toUpperCase() + field.slice(1)}` as keyof typeof expenses;
+            if (typeof expenses[setter] === 'function') {
+              try {
+                (expenses[setter] as Function)(parsedModel.expenses[field]);
+                console.log(`Loaded expenses.${field}:`, parsedModel.expenses[field]);
+              } catch (err) {
+                console.error(`Error setting expenses.${field}:`, err);
+              }
+            }
+          }
+        });
+        
+        // Load expense categories
+        if (Array.isArray(parsedModel.expenses.expenseCategories)) {
+          console.log("Loading expense categories:", parsedModel.expenses.expenseCategories);
+          
           parsedModel.expenses.expenseCategories.forEach((expense: any, index: number) => {
             if (index < expenses.expenseCategories.length) {
+              // Update existing expense category
               Object.keys(expense).forEach(key => {
-                if (key !== 'id') {
-                  expenses.updateExpenseCategory(expenses.expenseCategories[index].id, key as any, expense[key]);
+                if (key !== 'id' && expenses.expenseCategories[index]) {
+                  try {
+                    expenses.updateExpenseCategory(expenses.expenseCategories[index].id, key as any, expense[key]);
+                  } catch (err) {
+                    console.error(`Error updating expense category ${index}.${key}:`, err);
+                  }
                 }
               });
             } else {
-              expenses.addExpenseCategory();
-              if (expenses.expenseCategories[index]) {
-                Object.keys(expense).forEach(key => {
-                  if (key !== 'id') {
-                    expenses.updateExpenseCategory(expenses.expenseCategories[index].id, key as any, expense[key]);
-                  }
-                });
+              // Add new expense category
+              try {
+                expenses.addExpenseCategory();
+                if (expenses.expenseCategories[index]) {
+                  Object.keys(expense).forEach(key => {
+                    if (key !== 'id') {
+                      expenses.updateExpenseCategory(expenses.expenseCategories[index].id, key as any, expense[key]);
+                    }
+                  });
+                }
+              } catch (err) {
+                console.error(`Error adding expense category at index ${index}:`, err);
               }
             }
           });
         }
       }
       
+      // Load sensitivity section
       if (parsedModel.sensitivity) {
-        if (parsedModel.sensitivity.sensitivityVariable1) sensitivity.setSensitivityVariable1(parsedModel.sensitivity.sensitivityVariable1);
-        if (parsedModel.sensitivity.variable1MinRange) sensitivity.setVariable1MinRange(parsedModel.sensitivity.variable1MinRange);
-        if (parsedModel.sensitivity.variable1MaxRange) sensitivity.setVariable1MaxRange(parsedModel.sensitivity.variable1MaxRange);
-        if (parsedModel.sensitivity.sensitivityVariable2) sensitivity.setSensitivityVariable2(parsedModel.sensitivity.sensitivityVariable2);
-        if (parsedModel.sensitivity.variable2MinRange) sensitivity.setVariable2MinRange(parsedModel.sensitivity.variable2MinRange);
-        if (parsedModel.sensitivity.variable2MaxRange) sensitivity.setVariable2MaxRange(parsedModel.sensitivity.variable2MaxRange);
-        if (parsedModel.sensitivity.outputMetric) sensitivity.setOutputMetric(parsedModel.sensitivity.outputMetric);
+        console.log("Loading sensitivity section data");
+        const sensitivityFields = [
+          'sensitivityVariable1', 'variable1MinRange', 'variable1MaxRange',
+          'sensitivityVariable2', 'variable2MinRange', 'variable2MaxRange', 
+          'outputMetric'
+        ];
+        
+        sensitivityFields.forEach(field => {
+          if (parsedModel.sensitivity[field] !== undefined) {
+            const setter = `set${field.charAt(0).toUpperCase() + field.slice(1)}` as keyof typeof sensitivity;
+            if (typeof sensitivity[setter] === 'function') {
+              try {
+                (sensitivity[setter] as Function)(parsedModel.sensitivity[field]);
+                console.log(`Loaded sensitivity.${field}:`, parsedModel.sensitivity[field]);
+              } catch (err) {
+                console.error(`Error setting sensitivity.${field}:`, err);
+              }
+            }
+          }
+        });
       }
       
       setHasUnsavedChanges(false);
@@ -204,19 +292,29 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setIsAutoSaving(isAuto);
       const now = new Date();
       
+      // Create the model data structure with all sections
       const modelData = {
         meta: {
           lastSaved: now.toISOString(),
-          version: "1.0.0"
+          version: MODEL_VERSION
         },
+        // Property section with all fields
         property: {
           projectName: property.projectName,
           projectLocation: property.projectLocation,
           projectType: property.projectType,
           farAllowance: property.farAllowance,
           lotSize: property.lotSize,
-          floorPlateTemplates: property.floorPlateTemplates
+          maxBuildableArea: property.maxBuildableArea,
+          floorPlateTemplates: property.floorPlateTemplates.map(template => ({
+            id: template.id,
+            name: template.name,
+            width: template.width,
+            length: template.length,
+            grossArea: template.grossArea
+          }))
         },
+        // Expenses section
         expenses: {
           expenseGrowthRate: expenses.expenseGrowthRate,
           operatingExpenseRatio: expenses.operatingExpenseRatio,
@@ -227,6 +325,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           reservesUnit: expenses.reservesUnit,
           expensesBeforeStabilization: expenses.expensesBeforeStabilization
         },
+        // Financing section
         financing: {
           totalProjectCost: financing.totalProjectCost,
           debtAmount: financing.debtAmount,
@@ -242,6 +341,23 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           constructionInterestReserve: financing.constructionInterestReserve,
           constructionRecourse: financing.constructionRecourse
         },
+        // Timeline section
+        timeline: {
+          // Add timeline fields here as needed
+        },
+        // Development costs section 
+        developmentCosts: {
+          // Add development costs fields here as needed
+        },
+        // Revenue section
+        revenue: {
+          // Add revenue fields here as needed
+        },
+        // Disposition section
+        disposition: {
+          // Add disposition fields here as needed
+        },
+        // Sensitivity section
         sensitivity: {
           sensitivityVariable1: sensitivity.sensitivityVariable1,
           variable1MinRange: sensitivity.variable1MinRange,
@@ -252,6 +368,20 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           outputMetric: sensitivity.outputMetric
         }
       };
+      
+      // Validate model structure before saving
+      const validationResult = validateModelData(modelData);
+      if (!validationResult.valid) {
+        console.warn("Model validation warnings:", validationResult.errors);
+      }
+      
+      // Check for invalid values (null/undefined)
+      const invalidValues = findInvalidValues(modelData);
+      if (invalidValues.length > 0) {
+        console.warn("Found invalid values in model:", invalidValues);
+      }
+      
+      console.log("Saving complete model data to localStorage:", modelData);
       
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(modelData));
@@ -303,8 +433,20 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       
       const parsedData = JSON.parse(savedData);
       
+      // Check that all required sections exist
       if (!parsedData.meta || !parsedData.property || !parsedData.expenses || !parsedData.sensitivity) {
         console.error("Verification failed: Saved data is missing required sections");
+        return false;
+      }
+      
+      // Verify property section has required data
+      if (!parsedData.property.projectName && parsedData.property.projectName !== "") {
+        console.error("Verification failed: Property section missing projectName");
+        return false;
+      }
+      
+      if (!Array.isArray(parsedData.property.floorPlateTemplates)) {
+        console.error("Verification failed: Property section floorPlateTemplates is not an array");
         return false;
       }
       
@@ -321,9 +463,15 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       localStorage.removeItem(STORAGE_KEY);
       console.log("Model data cleared from localStorage");
       
+      // Reset property section
       property.setProjectName("");
       property.setProjectLocation("");
       property.setProjectType("");
+      property.setFarAllowance(0);
+      property.setLotSize(0);
+      property.floorPlateTemplates = [];
+      
+      // Reset other sections as needed
       
       toast.success("Model data reset successfully");
       setLastSaved(null);
@@ -341,6 +489,7 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return saveToLocalStorage(false);
   };
 
+  // Track changes to important state properties
   useEffect(() => {
     setHasUnsavedChanges(true);
     console.log("Marked as having unsaved changes");
