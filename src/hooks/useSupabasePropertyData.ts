@@ -54,7 +54,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
-  const [unitAllocations, setUnitAllocations] = useState<Record<string, Record<string, number>>>({});
+  const [unitAllocations, setUnitAllocations] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState<number>(0);
 
@@ -196,19 +196,7 @@ export function useSupabasePropertyData(projectId: string | null) {
         
       if (unitAllocError) throw unitAllocError;
       
-      const allocationMap: Record<string, Record<string, number>> = {};
-      
-      (unitAllocData || []).forEach(allocation => {
-        const { floor_id, unit_type_id, quantity } = allocation;
-        
-        if (!allocationMap[floor_id]) {
-          allocationMap[floor_id] = {};
-        }
-        
-        allocationMap[floor_id][unit_type_id] = quantity;
-      });
-      
-      setUnitAllocations(allocationMap);
+      setUnitAllocations(unitAllocData || []);
       console.log("Project data loaded successfully");
       console.log("========= LOADING PROJECT DATA END =========");
     } catch (error) {
@@ -638,63 +626,33 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
-      const existingAllocation = unitAllocations[floorId]?.[unitTypeId];
+      const existingAllocation = unitAllocations.find(
+        a => a.floor_id === floorId && a.unit_type_id === unitTypeId
+      );
       
-      if (existingAllocation !== undefined) {
+      if (existingAllocation) {
         if (quantity === 0) {
-          const { data, error: findError } = await supabase
-            .from('unit_allocations')
-            .select('id')
-            .eq('floor_id', floorId)
-            .eq('unit_type_id', unitTypeId)
-            .single();
-            
-          if (findError) throw findError;
-          
           const { error } = await supabase
             .from('unit_allocations')
             .delete()
-            .eq('id', data.id);
+            .eq('id', existingAllocation.id);
             
           if (error) throw error;
           
-          setUnitAllocations(prev => {
-            const newAllocations = { ...prev };
-            if (newAllocations[floorId]) {
-              const floorAllocations = { ...newAllocations[floorId] };
-              delete floorAllocations[unitTypeId];
-              newAllocations[floorId] = floorAllocations;
-            }
-            return newAllocations;
-          });
+          setUnitAllocations(prev => 
+            prev.filter(a => a.id !== existingAllocation.id)
+          );
         } else {
-          const { data, error: findError } = await supabase
-            .from('unit_allocations')
-            .select('id')
-            .eq('floor_id', floorId)
-            .eq('unit_type_id', unitTypeId)
-            .single();
-            
-          if (findError) throw findError;
-          
           const { error } = await supabase
             .from('unit_allocations')
             .update({ quantity })
-            .eq('id', data.id);
+            .eq('id', existingAllocation.id);
             
           if (error) throw error;
           
-          setUnitAllocations(prev => {
-            const newAllocations = { ...prev };
-            if (!newAllocations[floorId]) {
-              newAllocations[floorId] = {};
-            }
-            newAllocations[floorId] = { 
-              ...newAllocations[floorId], 
-              [unitTypeId]: quantity 
-            };
-            return newAllocations;
-          });
+          setUnitAllocations(prev => 
+            prev.map(a => a.id === existingAllocation.id ? { ...a, quantity } : a)
+          );
         }
       } else if (quantity > 0) {
         const { data, error } = await supabase
@@ -709,17 +667,7 @@ export function useSupabasePropertyData(projectId: string | null) {
           
         if (error) throw error;
         
-        setUnitAllocations(prev => {
-          const newAllocations = { ...prev };
-          if (!newAllocations[floorId]) {
-            newAllocations[floorId] = {};
-          }
-          newAllocations[floorId] = { 
-            ...newAllocations[floorId], 
-            [unitTypeId]: quantity 
-          };
-          return newAllocations;
-        });
+        setUnitAllocations(prev => [...prev, data]);
       }
       
       return true;
@@ -732,7 +680,10 @@ export function useSupabasePropertyData(projectId: string | null) {
   };
 
   const getUnitAllocation = (floorId: string, unitTypeId: string): number => {
-    return unitAllocations[floorId]?.[unitTypeId] || 0;
+    const allocation = unitAllocations.find(
+      a => a.floor_id === floorId && a.unit_type_id === unitTypeId
+    );
+    return allocation ? allocation.quantity : 0;
   };
 
   return {
@@ -743,7 +694,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     floorPlateTemplates,
     products,
     floors,
-    unitAllocations,
     updateProjectInfo,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,

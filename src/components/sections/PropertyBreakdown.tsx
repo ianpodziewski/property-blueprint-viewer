@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,14 +7,12 @@ import { useEffect, useState } from "react";
 import FloorPlateTemplates from "./property/FloorPlateTemplates";
 import UnitMix from "./property/UnitMix";
 import BuildingLayout from "./property/BuildingLayout";
-import BuildingSummaryPanel from "./property/BuildingSummaryPanel";
 import { useSupabasePropertyData } from "@/hooks/useSupabasePropertyData";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useModel } from "@/context/ModelContext";
 import { toast } from "sonner";
-import { calculateBuildingSummary } from "@/utils/buildingSummary";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
@@ -23,7 +20,7 @@ const formatNumber = (num: number): string => {
 
 const PropertyBreakdown = () => {
   const { id: projectId } = useParams<{ id: string }>();
-  const { setHasUnsavedChanges, hasUnsavedChanges } = useModel();
+  const { setHasUnsavedChanges } = useModel();
   
   const {
     loading,
@@ -34,7 +31,6 @@ const PropertyBreakdown = () => {
     floorPlateTemplates,
     products,
     floors,
-    unitAllocations,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
     deleteFloorPlateTemplate,
@@ -54,17 +50,6 @@ const PropertyBreakdown = () => {
   } = useSupabasePropertyData(projectId || null);
   
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  
-  // Calculate building summary
-  const buildingSummary = calculateBuildingSummary(
-    floors,
-    floorPlateTemplates,
-    products,
-    unitAllocations,
-    lastSaved,
-    hasUnsavedChanges
-  );
   
   useEffect(() => {
     console.log("PropertyBreakdown: Floors data updated:", floors);
@@ -88,13 +73,6 @@ const PropertyBreakdown = () => {
     }
   }, [projectData?.lot_size]);
 
-  // Update last saved time when saving completes
-  useEffect(() => {
-    if (!saving && !hasUnsavedChanges) {
-      setLastSaved(new Date());
-    }
-  }, [saving, hasUnsavedChanges]);
-
   const handleLotSizeChange = (value: string) => {
     const rawValue = value.replace(/[^0-9]/g, '');
     const numericValue = rawValue === '' ? 0 : Number(rawValue);
@@ -113,7 +91,6 @@ const PropertyBreakdown = () => {
     reloadProjectData();
   };
 
-  // Fix: Update the function to return a Promise by making it async 
   const handleDataRefresh = async () => {
     console.log("PropertyBreakdown: Manual data refresh requested");
     try {
@@ -345,15 +322,7 @@ const PropertyBreakdown = () => {
             onUpdateUnitAllocation={updateUnitAllocation}
             getUnitAllocation={getUnitAllocation}
             getFloorTemplateById={getFloorTemplateById}
-            onRefreshData={reloadProjectData}
-          />
-          
-          <BuildingSummaryPanel
-            summary={buildingSummary}
-            floors={floors}
-            templates={floorPlateTemplates}
-            products={products}
-            unitAllocations={unitAllocations}
+            onRefreshData={handleDataRefresh}
           />
         </CardContent>
       </Card>
