@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const NavigationControls = () => {
-  const { resetModel, isAutoSaving } = useModel();
+  const { activeTab, resetModel, isAutoSaving } = useModel();
   
   return (
     <div className="flex items-center gap-2">

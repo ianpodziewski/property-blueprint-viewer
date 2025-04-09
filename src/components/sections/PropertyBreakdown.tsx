@@ -28,10 +28,7 @@ const PropertyBreakdown = () => {
       projectType: property.projectType,
       farAllowance: property.farAllowance,
       lotSize: property.lotSize,
-      maxBuildableArea: property.maxBuildableArea,
-      initialLoadComplete: property.initialLoadComplete,
-      floorPlateTemplatesCount: property.floorPlateTemplates.length,
-      productsCount: property.products.length
+      maxBuildableArea: property.maxBuildableArea
     });
   }, [property]);
 
