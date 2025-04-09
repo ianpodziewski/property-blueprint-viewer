@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -185,11 +186,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     } catch (error) {
       console.error("Error loading project data:", error);
       setError(error instanceof Error ? error.message : "Failed to load project data");
-      toast({
-        title: "Error",
-        description: "Could not load project data. Please try again.",
-        variant: "destructive"
-      });
+      toast.error("Could not load project data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -221,11 +218,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error updating project:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save project information",
-        variant: "destructive"
-      });
+      toast.error("Failed to save project information");
     } finally {
       setSaving(false);
     }
@@ -267,11 +260,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error adding template:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add floor plate template",
-        variant: "destructive"
-      });
+      toast.error("Failed to add floor plate template");
       return null;
     }
   };
@@ -304,11 +293,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error updating template:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update floor plate template",
-        variant: "destructive"
-      });
+      toast.error("Failed to update floor plate template");
       return false;
     }
   };
@@ -330,11 +315,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error deleting template:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete floor plate template",
-        variant: "destructive"
-      });
+      toast.error("Failed to delete floor plate template");
       return false;
     }
   };
@@ -380,11 +361,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       return true;
     } catch (error) {
       console.error("Error updating product category:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update product category",
-        variant: "destructive"
-      });
+      toast.error("Failed to update product category");
       return false;
     }
   };
@@ -409,11 +386,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       return true;
     } catch (error) {
       console.error("Error deleting product:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete product and its unit types",
-        variant: "destructive"
-      });
+      toast.error("Failed to delete product and its unit types");
       return false;
     }
   };
@@ -464,11 +437,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error adding unit type:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add unit type",
-        variant: "destructive"
-      });
+      toast.error("Failed to add unit type");
       return null;
     }
   };
@@ -508,11 +477,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error updating unit type:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update unit type",
-        variant: "destructive"
-      });
+      toast.error("Failed to update unit type");
       return false;
     }
   };
@@ -543,11 +508,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error deleting unit type:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete unit type",
-        variant: "destructive"
-      });
+      toast.error("Failed to delete unit type");
       return false;
     }
   };
@@ -591,11 +552,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error adding floor:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add floor",
-        variant: "destructive"
-      });
+      toast.error("Failed to add floor");
       return null;
     }
   };
@@ -624,11 +581,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error updating floor:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update floor",
-        variant: "destructive"
-      });
+      toast.error("Failed to update floor");
       return false;
     }
   };
@@ -650,11 +603,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error deleting floor:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete floor",
-        variant: "destructive"
-      });
+      toast.error("Failed to delete floor");
       return false;
     }
   };
@@ -711,11 +660,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error updating unit allocation:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update unit allocation",
-        variant: "destructive"
-      });
+      toast.error("Failed to update unit allocation");
       return false;
     }
   };
