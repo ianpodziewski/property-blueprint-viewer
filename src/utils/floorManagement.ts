@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -286,7 +285,7 @@ export async function createFloorUsageTemplate(
     if (allocations && allocations.length > 0) {
       // Create allocation records for the template
       const templateAllocations = allocations.map(alloc => ({
-        floor_usage_template_id: templateId,
+        template_id: templateId,
         unit_type_id: alloc.unit_type_id,
         quantity: alloc.quantity
       }));
@@ -347,7 +346,7 @@ export async function applyTemplateToFloors(
     const { data: templateAllocations, error: fetchError } = await supabase
       .from('floor_usage_template_allocations')
       .select('unit_type_id, quantity')
-      .eq('floor_usage_template_id', templateId);
+      .eq('template_id', templateId);
     
     if (fetchError) {
       console.error("Error fetching template allocations:", fetchError);
@@ -407,7 +406,7 @@ export async function deleteFloorUsageTemplate(templateId: string): Promise<void
     const { error: allocDeleteError } = await supabase
       .from('floor_usage_template_allocations')
       .delete()
-      .eq('floor_usage_template_id', templateId);
+      .eq('template_id', templateId);
     
     if (allocDeleteError) {
       console.error("Error deleting template allocations:", allocDeleteError);
