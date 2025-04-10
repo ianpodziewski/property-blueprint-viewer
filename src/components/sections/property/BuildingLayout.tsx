@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -29,6 +30,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
+import { useProject } from '@/context/ProjectContext';
 
 interface UnitAllocation {
   unitTypeId: string;
@@ -84,6 +86,7 @@ const SortableFloorRow = ({
   onAllocationChange,
   floorAllocationData
 }: SortableFloorRowProps & { floorAllocationData?: FloorAllocationData }) => {
+  // Always call hooks at the top level, regardless of props or state
   const {
     attributes,
     listeners,
@@ -93,6 +96,10 @@ const SortableFloorRow = ({
     isDragging
   } = useSortable({ id: floor.id });
 
+  const [allocations, setAllocations] = useState<Record<string, number>>({});
+  const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
+  
+  // Define style here (after all hooks are called) to ensure consistent hook calls
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -100,9 +107,6 @@ const SortableFloorRow = ({
     zIndex: isDragging ? 1 : 0,
     position: 'relative' as const
   };
-
-  const [allocations, setAllocations] = useState<Record<string, number>>({});
-  const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
   
   useEffect(() => {
     const loadAllocations = async () => {
@@ -187,26 +191,36 @@ const SortableFloorRow = ({
     }
   }, [floor.id, onDeleteFloor]);
   
+  // Calculate derived values from props - no early returns or conditionals that would skip hooks
   const floorTemplate = getFloorTemplateById(floor.templateId);
   const floorArea = floorTemplate?.grossArea || 0;
   
-  const allocatedArea = floorAllocationData ? floorAllocationData.allocatedArea : useMemo(() => {
+  // Use a consistent approach to calculate allocatedArea whether floorAllocationData is provided or not
+  const allocatedArea = useMemo(() => {
+    if (floorAllocationData) {
+      return floorAllocationData.allocatedArea;
+    }
+    
     let total = 0;
     for (const product of products) {
       for (const unitType of product.unitTypes) {
-        const quantity = allocations[unitType.id] || 0;
+        const quantity = allocations[unitTypeId] || 0;
         total += quantity * unitType.grossArea;
       }
     }
     return total;
-  }, [products, allocations, floorAllocationData]);
+  }, [floorAllocationData, products, allocations]);
   
-  const utilization = floorAllocationData 
-    ? floorAllocationData.utilization 
-    : (floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0);
-    
+  const utilization = useMemo(() => {
+    if (floorAllocationData) {
+      return floorAllocationData.utilization;
+    }
+    return floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0;
+  }, [floorAllocationData, floorArea, allocatedArea]);
+  
   const isOverallocated = utilization > 100;
   
+  // Move this function outside render to avoid recreating it on each render
   const getUtilizationVariant = () => {
     if (utilization > 100) return "red";
     if (utilization >= 67) return "green";
@@ -214,7 +228,7 @@ const SortableFloorRow = ({
     return "red";
   };
   
-  const getUnitAvailability = (unitType) => {
+  const getUnitAvailability = useCallback((unitType: any) => {
     const globallyAllocated = globalAllocations[unitType.id] || 0;
     const total = unitType.numberOfUnits;
     const available = total - globallyAllocated;
@@ -222,10 +236,11 @@ const SortableFloorRow = ({
     const hasAllocationOnThisFloor = (allocations[unitType.id] || 0) > 0;
     
     return { available, total, hasAllocationOnThisFloor };
-  };
+  }, [globalAllocations, allocations]);
   
   const floorType = floor.floorType || 'aboveground';
 
+  // Return the JSX - no early returns before this point
   return (
     <>
       <TableRow ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
@@ -387,6 +402,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   getFloorTemplateById,
   onRefreshData
 }) => {
+  const { currentProjectId } = useProject();
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [isLoadingInitialAllocations, setIsLoadingInitialAllocations] = useState(true);
@@ -555,10 +571,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     }
   }, [sortedFloors, onUpdateFloor, onRefreshData]);
   
-  const projectId = useMemo(() => 
-    floors.length > 0 ? floors[0].projectId || "" : "", 
-    [floors]
-  );
+  const projectId = currentProjectId || '';
   
   return (
     <div className="space-y-6">
