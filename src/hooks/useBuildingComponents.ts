@@ -7,22 +7,26 @@ export interface BuildingComponent {
   id: string;
   projectId: string;
   name: string;
-  componentType: string;
+  componentType?: string; // Now optional
   isPercentage: boolean;
   percentage: number;
   squareFootage: number;
   floorId: string | null;
+  parentId: string | null; // New field
+  isContainer: boolean; // New field
   createdAt: string;
   updatedAt: string;
 }
 
 export interface BuildingComponentFormData {
   name: string;
-  componentType: string;
+  componentType?: string; // Now optional
   isPercentage: boolean;
   percentage?: number;
   squareFootage?: number;
   floorId: string | null;
+  parentId: string | null; // New field
+  isContainer: boolean; // New field
 }
 
 export const componentTypes = [
@@ -64,6 +68,8 @@ export function useBuildingComponents(projectId: string | null) {
         percentage: Number(item.percentage) || 0,
         squareFootage: Number(item.square_footage) || 0,
         floorId: item.floor_id,
+        parentId: item.parent_id,
+        isContainer: item.is_container,
         createdAt: item.created_at,
         updatedAt: item.updated_at
       }));
@@ -89,7 +95,9 @@ export function useBuildingComponents(projectId: string | null) {
         is_percentage: componentData.isPercentage,
         percentage: componentData.isPercentage ? componentData.percentage : 0,
         square_footage: !componentData.isPercentage ? componentData.squareFootage : 0,
-        floor_id: componentData.floorId
+        floor_id: componentData.floorId,
+        parent_id: componentData.parentId,
+        is_container: componentData.isContainer
       };
 
       // Use "any" type to bypass TypeScript errors
@@ -110,6 +118,8 @@ export function useBuildingComponents(projectId: string | null) {
         percentage: Number(data.percentage) || 0,
         squareFootage: Number(data.square_footage) || 0,
         floorId: data.floor_id,
+        parentId: data.parent_id,
+        isContainer: data.is_container,
         createdAt: data.created_at,
         updatedAt: data.updated_at
       };
@@ -142,6 +152,8 @@ export function useBuildingComponents(projectId: string | null) {
       if (componentData.percentage !== undefined) dbUpdates.percentage = componentData.percentage;
       if (componentData.squareFootage !== undefined) dbUpdates.square_footage = componentData.squareFootage;
       if (componentData.floorId !== undefined) dbUpdates.floor_id = componentData.floorId;
+      if (componentData.parentId !== undefined) dbUpdates.parent_id = componentData.parentId;
+      if (componentData.isContainer !== undefined) dbUpdates.is_container = componentData.isContainer;
 
       // Use "any" type to bypass TypeScript errors
       const { error } = await supabase
@@ -158,11 +170,13 @@ export function useBuildingComponents(projectId: string | null) {
                 ...component, 
                 ...componentData,
                 name: componentData.name || component.name,
-                componentType: componentData.componentType || component.componentType,
+                componentType: componentData.componentType !== undefined ? componentData.componentType : component.componentType,
                 isPercentage: componentData.isPercentage !== undefined ? componentData.isPercentage : component.isPercentage,
                 percentage: componentData.percentage !== undefined ? componentData.percentage : component.percentage,
                 squareFootage: componentData.squareFootage !== undefined ? componentData.squareFootage : component.squareFootage,
                 floorId: componentData.floorId !== undefined ? componentData.floorId : component.floorId,
+                parentId: componentData.parentId !== undefined ? componentData.parentId : component.parentId,
+                isContainer: componentData.isContainer !== undefined ? componentData.isContainer : component.isContainer,
               } 
             : component
         )
@@ -179,7 +193,21 @@ export function useBuildingComponents(projectId: string | null) {
 
   const deleteBuildingComponent = useCallback(async (id: string): Promise<boolean> => {
     try {
-      // Use "any" type to bypass TypeScript errors
+      // First check if this is a container with children
+      const children = buildingComponents.filter(component => component.parentId === id);
+      
+      // If it has children, delete them first
+      if (children.length > 0) {
+        // Use "any" type to bypass TypeScript errors
+        const { error: childrenError } = await supabase
+          .from('building_components')
+          .delete()
+          .in('id', children.map(child => child.id)) as { error: any };
+          
+        if (childrenError) throw childrenError;
+      }
+      
+      // Now delete the component itself
       const { error } = await supabase
         .from('building_components')
         .delete()
@@ -187,7 +215,11 @@ export function useBuildingComponents(projectId: string | null) {
 
       if (error) throw error;
 
-      setBuildingComponents(prev => prev.filter(component => component.id !== id));
+      // Remove both the component and its children from state
+      setBuildingComponents(prev => prev.filter(component => 
+        component.id !== id && component.parentId !== id
+      ));
+      
       toast.success('Building component deleted successfully');
       return true;
     } catch (err) {
@@ -195,7 +227,7 @@ export function useBuildingComponents(projectId: string | null) {
       toast.error('Failed to delete building component');
       return false;
     }
-  }, []);
+  }, [buildingComponents]);
 
   const getComponentsByFloorId = useCallback((floorId: string | null): BuildingComponent[] => {
     if (!floorId) return [];
@@ -212,6 +244,20 @@ export function useBuildingComponents(projectId: string | null) {
     return component.squareFootage;
   }, []);
 
+  const getContainerComponents = useCallback((): BuildingComponent[] => {
+    return buildingComponents.filter(component => component.isContainer);
+  }, [buildingComponents]);
+
+  const getChildComponents = useCallback((parentId: string): BuildingComponent[] => {
+    return buildingComponents.filter(component => component.parentId === parentId);
+  }, [buildingComponents]);
+
+  const calculateTotalComponentArea = useCallback((floorArea: number): number => {
+    return buildingComponents
+      .filter(component => !component.isContainer)
+      .reduce((total, component) => total + calculateComponentArea(component, floorArea), 0);
+  }, [buildingComponents, calculateComponentArea]);
+
   return {
     buildingComponents,
     loading,
@@ -221,6 +267,9 @@ export function useBuildingComponents(projectId: string | null) {
     updateBuildingComponent,
     deleteBuildingComponent,
     getComponentsByFloorId,
-    calculateComponentArea
+    calculateComponentArea,
+    getContainerComponents,
+    getChildComponents,
+    calculateTotalComponentArea
   };
 }
