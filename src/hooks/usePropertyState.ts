@@ -76,21 +76,21 @@ export interface Product {
   unitTypes: UnitType[];
 }
 
-// Define AllocationMethod as an enum for type safety
-export type AllocationMethod = 'uniform' | 'specific' | 'percentage';
+// Simplified allocation method to just percentage or fixed
+export type AllocationMethod = 'percentage' | 'fixed';
 
-// Interface for non-rentable space type
+// Interface for non-rentable space type - simplified
 export interface NonRentableType {
   id: string;
   name: string;
   squareFootage: number;
-  percentage?: number; // New field for percentage-based allocation
+  percentage?: number;
   allocationMethod: AllocationMethod;
-  floorConstraints?: any; // Changed from Record<string, any> to any to match Json type
-  isPercentageBased?: boolean; // For uniform allocation method to toggle between fixed area and percentage
+  isPercentageBased?: boolean; // Kept for backward compatibility
+  floorConstraints?: any; // Kept for backward compatibility
 }
 
-// Interface for floor - updated to include floorType property
+// Interface for floor - kept unchanged
 export interface Floor {
   id: string;
   label: string;
@@ -129,7 +129,7 @@ export const usePropertyState = () => {
   // Calculate maximum buildable area
   const maxBuildableArea = farAllowance > 0 && lotSize > 0 ? (lotSize * farAllowance / 100) : 0;
   
-  // Add a new floor plate template
+  // Floor plate template functions
   const addFloorPlateTemplate = (template: Omit<FloorPlateTemplate, 'id'>) => {
     const newTemplate: FloorPlateTemplate = {
       ...template,
@@ -142,7 +142,6 @@ export const usePropertyState = () => {
     setFloorPlateTemplates(prev => [...prev, newTemplate]);
   };
   
-  // Update an existing floor plate template
   const updateFloorPlateTemplate = (id: string, updates: Partial<Omit<FloorPlateTemplate, 'id'>>) => {
     console.log(`Updating template ${id} with:`, updates);
     setFloorPlateTemplates(
@@ -158,19 +157,17 @@ export const usePropertyState = () => {
     );
   };
   
-  // Delete a floor plate template
   const deleteFloorPlateTemplate = (id: string) => {
     console.log(`Deleting template ${id}`);
     setFloorPlateTemplates(floorPlateTemplates.filter(template => template.id !== id));
   };
   
-  // Set all floor plate templates at once (used during initial load)
   const setAllFloorPlateTemplates = (templates: FloorPlateTemplate[]) => {
     console.log("Setting all floor plate templates:", templates);
     setFloorPlateTemplates(templates);
   };
   
-  // Add a new product
+  // Product and unit type functions
   const addProduct = (name: string) => {
     const newProduct: Product = {
       id: crypto.randomUUID(),
@@ -181,7 +178,6 @@ export const usePropertyState = () => {
     setProducts(prev => [...prev, newProduct]);
   };
   
-  // Update an existing product
   const updateProduct = (id: string, name: string) => {
     console.log(`Updating product ${id} with name:`, name);
     setProducts(
@@ -194,13 +190,11 @@ export const usePropertyState = () => {
     );
   };
   
-  // Delete a product
   const deleteProduct = (id: string) => {
     console.log(`Deleting product ${id}`);
     setProducts(products.filter(product => product.id !== id));
   };
   
-  // Add a new unit type to a product
   const addUnitType = (productId: string, unit: Omit<UnitType, 'id'>) => {
     const newUnit: UnitType = {
       ...unit,
@@ -224,7 +218,6 @@ export const usePropertyState = () => {
     );
   };
   
-  // Update an existing unit type
   const updateUnitType = (productId: string, unitId: string, updates: Partial<Omit<UnitType, 'id'>>) => {
     console.log(`Updating unit type ${unitId} in product ${productId} with:`, updates);
     
@@ -248,7 +241,6 @@ export const usePropertyState = () => {
     );
   };
   
-  // Delete a unit type
   const deleteUnitType = (productId: string, unitId: string) => {
     console.log(`Deleting unit type ${unitId} from product ${productId}`);
     
@@ -262,39 +254,45 @@ export const usePropertyState = () => {
     );
   };
   
-  // Set all products at once (used during initial load)
   const setAllProducts = (newProducts: Product[]) => {
     console.log("Setting all products:", newProducts);
     setProducts(newProducts);
   };
   
-  // Add a new non-rentable space type
+  // Add a new non-rentable space type - simplified
   const addNonRentableType = (nonRentable: Omit<NonRentableType, 'id'>) => {
+    const isPercentageBased = nonRentable.allocationMethod === 'percentage';
+    
     const newNonRentable: NonRentableType = {
       ...nonRentable,
       id: crypto.randomUUID(),
-      squareFootage: nonRentable.isPercentageBased ? 0 : safeNumberConversion(nonRentable.squareFootage),
-      percentage: nonRentable.isPercentageBased ? safeNumberConversion(nonRentable.percentage || 0) : undefined,
-      floorConstraints: nonRentable.floorConstraints || {}
+      squareFootage: isPercentageBased ? 0 : safeNumberConversion(nonRentable.squareFootage),
+      percentage: isPercentageBased ? safeNumberConversion(nonRentable.percentage || 0) : undefined,
+      allocationMethod: nonRentable.allocationMethod,
+      isPercentageBased: isPercentageBased, // For backward compatibility
+      floorConstraints: nonRentable.floorConstraints || {} // For backward compatibility
     };
     
     console.log("Adding new non-rentable space type:", newNonRentable);
     setNonRentableTypes(prev => [...prev, newNonRentable]);
   };
   
-  // Update an existing non-rentable space type
+  // Update an existing non-rentable space type - simplified
   const updateNonRentableType = (id: string, updates: Partial<Omit<NonRentableType, 'id'>>) => {
     console.log(`Updating non-rentable space type ${id} with:`, updates);
+    
+    const isPercentageBased = updates.allocationMethod === 'percentage';
     
     setNonRentableTypes(
       nonRentableTypes.map(type => 
         type.id === id ? { 
           ...type, 
           ...updates,
-          squareFootage: updates.isPercentageBased ? 0 : 
+          squareFootage: isPercentageBased ? 0 : 
                       (updates.squareFootage !== undefined ? safeNumberConversion(updates.squareFootage) : type.squareFootage),
-          percentage: updates.isPercentageBased ? 
-                   (updates.percentage !== undefined ? safeNumberConversion(updates.percentage) : type.percentage) : undefined
+          percentage: isPercentageBased ? 
+                   (updates.percentage !== undefined ? safeNumberConversion(updates.percentage) : type.percentage) : undefined,
+          isPercentageBased: isPercentageBased // For backward compatibility
         } : type
       )
     );
@@ -312,7 +310,7 @@ export const usePropertyState = () => {
     setNonRentableTypes(types);
   };
   
-  // Add a new floor
+  // Floor management functions
   const addFloor = () => {
     const newPosition = floors.length > 0 
       ? Math.max(...floors.map(floor => floor.position)) + 1 
@@ -332,7 +330,6 @@ export const usePropertyState = () => {
     return newFloor;
   };
   
-  // Update an existing floor
   const updateFloor = (id: string, updates: Partial<Omit<Floor, 'id'>>) => {
     console.log(`Updating floor ${id} with:`, updates);
     setFloors(
@@ -342,13 +339,11 @@ export const usePropertyState = () => {
     );
   };
   
-  // Delete a floor
   const deleteFloor = (id: string) => {
     console.log(`Deleting floor ${id}`);
     setFloors(floors.filter(floor => floor.id !== id));
   };
   
-  // Set all floors at once (used during initial load)
   const setAllFloors = (newFloors: Floor[]) => {
     console.log("Setting all floors:", newFloors);
     setFloors(newFloors);

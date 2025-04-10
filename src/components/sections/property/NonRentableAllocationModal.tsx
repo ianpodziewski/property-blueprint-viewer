@@ -41,9 +41,10 @@ const NonRentableAllocationModal = ({
       if (selectedType) {
         let suggestedArea = 0;
         
-        if (selectedType.isPercentageBased && selectedType.percentage) {
+        if (selectedType.isPercentageBased || selectedType.allocationMethod === 'percentage') {
           // Calculate based on percentage
-          suggestedArea = (selectedType.percentage / 100) * floorArea;
+          const percentage = selectedType.percentage || 0;
+          suggestedArea = (percentage / 100) * floorArea;
         } else {
           // Use the defined square footage
           suggestedArea = selectedType.squareFootage;
@@ -101,7 +102,7 @@ const NonRentableAllocationModal = ({
                 ) : (
                   availableTypes.map(type => (
                     <SelectItem key={type.id} value={type.id}>
-                      {type.name} ({type.allocationMethod})
+                      {type.name} ({type.isPercentageBased || type.allocationMethod === 'percentage' ? 'Percentage' : 'Fixed'})
                     </SelectItem>
                   ))
                 )}
@@ -121,7 +122,8 @@ const NonRentableAllocationModal = ({
             />
             {selectedTypeId && (
               <p className="text-xs text-gray-500 mt-1">
-                {nonRentableTypes.find(t => t.id === selectedTypeId)?.isPercentageBased 
+                {nonRentableTypes.find(t => t.id === selectedTypeId)?.isPercentageBased || 
+                 nonRentableTypes.find(t => t.id === selectedTypeId)?.allocationMethod === 'percentage'
                   ? 'Calculated from percentage of floor area'
                   : 'Suggested value from non-rentable space definition'}
               </p>
