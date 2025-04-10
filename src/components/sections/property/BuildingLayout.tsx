@@ -49,6 +49,8 @@ interface BulkAddFloorsModalProps {
   onClose: () => void;
   templates: FloorPlateTemplate[];
   onComplete: () => void;
+  onAddFloor: () => Promise<Floor | null>;
+  onUpdateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
 }
 
 const BuildingLayout = ({
@@ -373,6 +375,8 @@ const BuildingLayout = ({
         onClose={() => setIsBulkAddModalOpen(false)}
         templates={templates}
         onComplete={handleBulkAddComplete}
+        onAddFloor={onAddFloor}
+        onUpdateFloor={onUpdateFloor}
       />
 
       <FloorComponentsPanel
@@ -390,9 +394,11 @@ interface BulkAddFloorsModalProps {
   onClose: () => void;
   templates: FloorPlateTemplate[];
   onComplete: () => void;
+  onAddFloor: () => Promise<Floor | null>;
+  onUpdateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
 }
 
-const BulkAddFloorsModal: React.FC<BulkAddFloorsModalProps> = ({ isOpen, onClose, templates, onComplete }) => {
+const BulkAddFloorsModal: React.FC<BulkAddFloorsModalProps> = ({ isOpen, onClose, templates, onComplete, onAddFloor, onUpdateFloor }) => {
   const [numberOfFloors, setNumberOfFloors] = useState<number>(1);
   const [startingFloorNumber, setStartingFloorNumber] = useState<number>(1);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(templates.length > 0 ? templates[0].id : null);
