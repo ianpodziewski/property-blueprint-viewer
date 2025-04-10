@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useModel } from "@/context/ModelContext";
+import { PropertyTypeHardCosts } from "./costs/PropertyTypeHardCosts";
+import { CalculationMethod, PropertyType } from "@/hooks/useDevelopmentCosts";
 
 type CostMetricType = "psf" | "per_unit" | "lump_sum";
 type CustomCostItem = {
@@ -16,10 +20,13 @@ type CustomCostItem = {
 };
 
 const DevelopmentCosts = () => {
+  const { developmentCosts } = useModel();
   const [landCustomCosts, setLandCustomCosts] = useState<CustomCostItem[]>([]);
   const [hardCustomCosts, setHardCustomCosts] = useState<CustomCostItem[]>([]);
   const [softCustomCosts, setSoftCustomCosts] = useState<CustomCostItem[]>([]);
   const [otherCustomCosts, setOtherCustomCosts] = useState<CustomCostItem[]>([]);
+  
+  const propertyTypes: PropertyType[] = ["apartments", "retail", "r&d", "common"];
   
   const addCustomCost = (section: string) => {
     const newCost: CustomCostItem = {
@@ -148,6 +155,15 @@ const DevelopmentCosts = () => {
     ));
   };
 
+  // Format currency for display
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -165,11 +181,20 @@ const DevelopmentCosts = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="purchase-price">Purchase Price ($)</Label>
-              <Input id="purchase-price" placeholder="0" type="number" />
+              <Input 
+                id="purchase-price" 
+                placeholder="0" 
+                type="number" 
+                value={developmentCosts.purchasePrice}
+                onChange={(e) => developmentCosts.setPurchasePrice(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="price-metric">Metric</Label>
-              <Select defaultValue="lump_sum">
+              <Select 
+                value={developmentCosts.purchasePriceMetric}
+                onValueChange={developmentCosts.setPurchasePriceMetric}
+              >
                 <SelectTrigger id="price-metric">
                   <SelectValue placeholder="Select metric" />
                 </SelectTrigger>
@@ -185,11 +210,20 @@ const DevelopmentCosts = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="closing-costs">Closing Costs ($)</Label>
-              <Input id="closing-costs" placeholder="0" type="number" />
+              <Input 
+                id="closing-costs" 
+                placeholder="0" 
+                type="number"
+                value={developmentCosts.closingCosts}
+                onChange={(e) => developmentCosts.setClosingCosts(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="closing-metric">Metric</Label>
-              <Select defaultValue="lump_sum">
+              <Select 
+                value={developmentCosts.closingCostsMetric}
+                onValueChange={developmentCosts.setClosingCostsMetric}
+              >
                 <SelectTrigger id="closing-metric">
                   <SelectValue placeholder="Select metric" />
                 </SelectTrigger>
@@ -206,7 +240,7 @@ const DevelopmentCosts = () => {
           
           <Button 
             variant="outline" 
-            onClick={() => addCustomCost("land")} 
+            onClick={() => developmentCosts.addCustomCost("land")} 
             className="mt-4"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -219,112 +253,81 @@ const DevelopmentCosts = () => {
       <Card>
         <CardHeader>
           <CardTitle>Hard Costs</CardTitle>
-          <CardDescription>Construction and materials costs</CardDescription>
+          <CardDescription>Construction and materials costs by property type</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="shell-cost">Shell Cost</Label>
-              <Input id="shell-cost" placeholder="0" type="number" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="shell-metric">Metric</Label>
-              <Select defaultValue="psf">
-                <SelectTrigger id="shell-metric">
-                  <SelectValue placeholder="Select metric" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="psf">Per Square Foot</SelectItem>
-                  <SelectItem value="per_unit">Per Unit</SelectItem>
-                  <SelectItem value="lump_sum">Lump Sum</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {/* Property type sections */}
+          {propertyTypes.map((propertyType) => (
+            <PropertyTypeHardCosts
+              key={propertyType}
+              propertyType={propertyType}
+              costs={developmentCosts.getHardCostsByPropertyType(propertyType)}
+              onAddCost={developmentCosts.addHardCost}
+              onUpdateCost={developmentCosts.updateHardCost}
+              onDeleteCost={developmentCosts.deleteHardCost}
+              subtotal={developmentCosts.calculatePropertyTypeSubtotal(propertyType)}
+            />
+          ))}
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="ti-cost">Tenant Improvement (TI) Cost</Label>
-              <Input id="ti-cost" placeholder="0" type="number" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ti-metric">Metric</Label>
-              <Select defaultValue="psf">
-                <SelectTrigger id="ti-metric">
-                  <SelectValue placeholder="Select metric" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="psf">Per Square Foot</SelectItem>
-                  <SelectItem value="per_unit">Per Unit</SelectItem>
-                  <SelectItem value="lump_sum">Lump Sum</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="sustainability-costs">Sustainability Costs</Label>
-              <Input id="sustainability-costs" placeholder="0" type="number" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sustainability-metric">Metric</Label>
-              <Select defaultValue="psf">
-                <SelectTrigger id="sustainability-metric">
-                  <SelectValue placeholder="Select metric" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="psf">Per Square Foot</SelectItem>
-                  <SelectItem value="per_unit">Per Unit</SelectItem>
-                  <SelectItem value="lump_sum">Lump Sum</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          
-          <Collapsible>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="flex items-center text-blue-600 p-0 hover:bg-transparent">
-                <span className="underline">Show sustainability details</span>
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-4 pl-4 border-l-2 border-blue-100">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="leed-certification">LEED Certification</Label>
-                    <Input id="leed-certification" placeholder="0" type="number" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="solar-panels">Solar Panels</Label>
-                    <Input id="solar-panels" placeholder="0" type="number" />
+          {/* Sustainability Costs Section */}
+          <div className="mt-8">
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="flex items-center text-blue-600 p-0 hover:bg-transparent">
+                  <span className="underline">Show sustainability details</span>
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4 pl-4 border-l-2 border-blue-100">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="leed-certification">LEED Certification</Label>
+                      <Input 
+                        id="leed-certification" 
+                        placeholder="0" 
+                        type="number"
+                        value={developmentCosts.leedCertificationCost}
+                        onChange={(e) => developmentCosts.setLeedCertificationCost(e.target.value)} 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="solar-panels">Solar Panels</Label>
+                      <Input 
+                        id="solar-panels" 
+                        placeholder="0" 
+                        type="number"
+                        value={developmentCosts.solarPanelsCost}
+                        onChange={(e) => developmentCosts.setSolarPanelsCost(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="site-work">Site Work</Label>
-              <Input id="site-work" placeholder="0" type="number" />
-            </div>
+          {/* Hard costs contingency */}
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mt-6">
             <div className="space-y-2">
               <Label htmlFor="contingency">Contingency (%)</Label>
-              <Input id="contingency" placeholder="0" type="number" />
+              <Input 
+                id="contingency" 
+                placeholder="0" 
+                type="number"
+                max="100"
+                value={developmentCosts.contingencyPercentage}
+                onChange={(e) => developmentCosts.setContingencyPercentage(e.target.value)}
+              />
             </div>
           </div>
           
-          {renderCustomCostFields(hardCustomCosts, "hard")}
-          
-          <Button 
-            variant="outline" 
-            onClick={() => addCustomCost("hard")} 
-            className="mt-4"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Custom Hard Cost
-          </Button>
+          {/* Hard costs total */}
+          <div className="mt-8 flex justify-between items-center pt-6 border-t border-t-2">
+            <span className="text-lg font-semibold">Total Hard Costs</span>
+            <span className="text-lg font-bold">
+              {formatCurrency(developmentCosts.calculateTotalHardCosts())}
+            </span>
+          </div>
         </CardContent>
       </Card>
       
@@ -338,30 +341,66 @@ const DevelopmentCosts = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <Label htmlFor="architecture">Architecture & Engineering ($)</Label>
-              <Input id="architecture" placeholder="0" type="number" />
+              <Input 
+                id="architecture" 
+                placeholder="0" 
+                type="number"
+                value={developmentCosts.architectureCost}
+                onChange={(e) => developmentCosts.setArchitectureCost(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="permit-fees">Permit Fees ($)</Label>
-              <Input id="permit-fees" placeholder="0" type="number" />
+              <Input 
+                id="permit-fees" 
+                placeholder="0" 
+                type="number"
+                value={developmentCosts.permitFees}
+                onChange={(e) => developmentCosts.setPermitFees(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="legal-fees">Legal & Accounting ($)</Label>
-              <Input id="legal-fees" placeholder="0" type="number" />
+              <Input 
+                id="legal-fees" 
+                placeholder="0" 
+                type="number"
+                value={developmentCosts.legalFees}
+                onChange={(e) => developmentCosts.setLegalFees(e.target.value)}
+              />
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <Label htmlFor="marketing">Marketing & Leasing ($)</Label>
-              <Input id="marketing" placeholder="0" type="number" />
+              <Input 
+                id="marketing" 
+                placeholder="0" 
+                type="number"
+                value={developmentCosts.marketingCost}
+                onChange={(e) => developmentCosts.setMarketingCost(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="developer-fee">Developer Fee ($)</Label>
-              <Input id="developer-fee" placeholder="0" type="number" />
+              <Input 
+                id="developer-fee" 
+                placeholder="0" 
+                type="number"
+                value={developmentCosts.developerFee}
+                onChange={(e) => developmentCosts.setDeveloperFee(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="property-taxes">Property Taxes During Construction ($)</Label>
-              <Input id="property-taxes" placeholder="0" type="number" />
+              <Input 
+                id="property-taxes" 
+                placeholder="0" 
+                type="number"
+                value={developmentCosts.constructionPropertyTaxes}
+                onChange={(e) => developmentCosts.setConstructionPropertyTaxes(e.target.value)}
+              />
             </div>
           </div>
           
@@ -369,7 +408,7 @@ const DevelopmentCosts = () => {
           
           <Button 
             variant="outline" 
-            onClick={() => addCustomCost("soft")} 
+            onClick={() => developmentCosts.addCustomCost("soft")} 
             className="mt-4"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -388,11 +427,23 @@ const DevelopmentCosts = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="financing-fees">Financing Fees</Label>
-              <Input id="financing-fees" placeholder="0" type="number" />
+              <Input 
+                id="financing-fees" 
+                placeholder="0" 
+                type="number"
+                value={developmentCosts.financingFees}
+                onChange={(e) => developmentCosts.setFinancingFees(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="interest-reserve">Interest Reserve</Label>
-              <Input id="interest-reserve" placeholder="0" type="number" />
+              <Input 
+                id="interest-reserve" 
+                placeholder="0" 
+                type="number"
+                value={developmentCosts.interestReserve}
+                onChange={(e) => developmentCosts.setInterestReserve(e.target.value)}
+              />
             </div>
           </div>
           
@@ -400,7 +451,7 @@ const DevelopmentCosts = () => {
           
           <Button 
             variant="outline" 
-            onClick={() => addCustomCost("other")} 
+            onClick={() => developmentCosts.addCustomCost("other")} 
             className="mt-4"
           >
             <PlusCircle className="mr-2 h-4 w-4" />

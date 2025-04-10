@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useProject } from "@/context/ProjectContext";
+import { supabase } from "@/integrations/supabase/client";
+import { usePropertyState } from "@/hooks/usePropertyState";
+import { toast } from "sonner";
 
 interface CustomCost {
   id: string;
@@ -7,7 +11,25 @@ interface CustomCost {
   metric: string;
 }
 
+export type CalculationMethod = "area_based" | "unit_based" | "custom";
+export type PropertyType = "apartments" | "retail" | "r&d" | "common";
+
+export interface HardCost {
+  id: string;
+  projectId: string;
+  propertyType: PropertyType;
+  costCategory: string;
+  calculationMethod: CalculationMethod;
+  rate: number | null;
+  total: number | null;
+}
+
 export const useDevelopmentCosts = () => {
+  const { currentProjectId } = useProject();
+  const { products } = usePropertyState();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   // Land Costs
   const [purchasePrice, setPurchasePrice] = useState<string>("");
   const [purchasePriceMetric, setPurchasePriceMetric] = useState<string>("psf");
@@ -18,6 +40,7 @@ export const useDevelopmentCosts = () => {
   ]);
   
   // Hard Costs
+  const [hardCosts, setHardCosts] = useState<HardCost[]>([]);
   const [shellCost, setShellCost] = useState<string>("");
   const [shellCostMetric, setShellCostMetric] = useState<string>("psf");
   const [tenantImprovementCost, setTenantImprovementCost] = useState<string>("");
@@ -49,7 +72,188 @@ export const useDevelopmentCosts = () => {
   const [otherCustomCosts, setOtherCustomCosts] = useState<CustomCost[]>([
     { id: "other-cost-1", name: "", amount: "", metric: "psf" }
   ]);
+
+  // Fetch hard costs from database
+  useEffect(() => {
+    if (!currentProjectId) return;
+    
+    const fetchHardCosts = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('hard_costs')
+          .select('*')
+          .eq('project_id', currentProjectId);
+          
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const formattedData: HardCost[] = data.map(item => ({
+            id: item.id,
+            projectId: item.project_id,
+            propertyType: item.property_type as PropertyType,
+            costCategory: item.cost_category,
+            calculationMethod: item.calculation_method as CalculationMethod,
+            rate: item.rate,
+            total: item.total
+          }));
+          
+          setHardCosts(formattedData);
+        } else {
+          // Initialize with default hard costs for each property type
+          const defaultCosts: HardCost[] = [];
+          
+          // Add default shell and TI costs for each property type
+          const propertyTypes: PropertyType[] = ["apartments", "retail", "r&d", "common"];
+          propertyTypes.forEach(type => {
+            defaultCosts.push({
+              id: crypto.randomUUID(),
+              projectId: currentProjectId,
+              propertyType: type,
+              costCategory: "shell",
+              calculationMethod: "area_based",
+              rate: null,
+              total: null
+            });
+            
+            defaultCosts.push({
+              id: crypto.randomUUID(),
+              projectId: currentProjectId,
+              propertyType: type,
+              costCategory: "ti",
+              calculationMethod: "area_based",
+              rate: null,
+              total: null
+            });
+          });
+          
+          setHardCosts(defaultCosts);
+        }
+      } catch (err) {
+        console.error("Error fetching hard costs:", err);
+        setError("Failed to load hard costs");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchHardCosts();
+  }, [currentProjectId]);
+
+  // Save hard cost to database
+  const saveHardCost = async (hardCost: HardCost) => {
+    if (!currentProjectId) return;
+    
+    try {
+      // Check if the hard cost already exists
+      const existingIndex = hardCosts.findIndex(cost => cost.id === hardCost.id);
+      
+      if (existingIndex !== -1) {
+        // Update existing hard cost
+        const { error } = await supabase
+          .from('hard_costs')
+          .update({
+            property_type: hardCost.propertyType,
+            cost_category: hardCost.costCategory,
+            calculation_method: hardCost.calculationMethod,
+            rate: hardCost.rate,
+            total: hardCost.total
+          })
+          .eq('id', hardCost.id);
+          
+        if (error) throw error;
+        
+        // Update local state
+        setHardCosts(prevCosts => 
+          prevCosts.map(cost => 
+            cost.id === hardCost.id ? hardCost : cost
+          )
+        );
+      } else {
+        // Insert new hard cost
+        const { data, error } = await supabase
+          .from('hard_costs')
+          .insert({
+            project_id: currentProjectId,
+            property_type: hardCost.propertyType,
+            cost_category: hardCost.costCategory,
+            calculation_method: hardCost.calculationMethod,
+            rate: hardCost.rate,
+            total: hardCost.total
+          })
+          .select()
+          .single();
+          
+        if (error) throw error;
+        
+        // Update local state with new ID from the database
+        const newHardCost: HardCost = {
+          ...hardCost,
+          id: data.id,
+          projectId: data.project_id
+        };
+        
+        setHardCosts(prevCosts => [...prevCosts, newHardCost]);
+      }
+    } catch (err) {
+      console.error("Error saving hard cost:", err);
+      toast.error("Failed to save hard cost");
+    }
+  };
+
+  // Add a new hard cost
+  const addHardCost = (propertyType: PropertyType, costCategory: string) => {
+    const newHardCost: HardCost = {
+      id: crypto.randomUUID(),
+      projectId: currentProjectId || "",
+      propertyType,
+      costCategory,
+      calculationMethod: "area_based",
+      rate: null,
+      total: null
+    };
+    
+    setHardCosts(prevCosts => [...prevCosts, newHardCost]);
+    return newHardCost;
+  };
+
+  // Update hard cost
+  const updateHardCost = (id: string, updates: Partial<Omit<HardCost, 'id' | 'projectId'>>) => {
+    setHardCosts(prevCosts => 
+      prevCosts.map(cost => 
+        cost.id === id 
+          ? { ...cost, ...updates } 
+          : cost
+      )
+    );
+    
+    // Find the updated cost to save
+    const updatedCost = hardCosts.find(cost => cost.id === id);
+    if (updatedCost) {
+      saveHardCost({ ...updatedCost, ...updates });
+    }
+  };
+
+  // Delete hard cost
+  const deleteHardCost = async (id: string) => {
+    if (!currentProjectId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('hard_costs')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setHardCosts(prevCosts => prevCosts.filter(cost => cost.id !== id));
+    } catch (err) {
+      console.error("Error deleting hard cost:", err);
+      toast.error("Failed to delete hard cost");
+    }
+  };
   
+  // Original code for custom costs
   const addCustomCost = (category: string) => {
     switch (category) {
       case "land":
@@ -141,6 +345,22 @@ export const useDevelopmentCosts = () => {
     }
   };
   
+  // Get hard costs for a specific property type
+  const getHardCostsByPropertyType = (propertyType: PropertyType) => {
+    return hardCosts.filter(cost => cost.propertyType === propertyType);
+  };
+  
+  // Calculate subtotal for a property type
+  const calculatePropertyTypeSubtotal = (propertyType: PropertyType) => {
+    const costs = getHardCostsByPropertyType(propertyType);
+    return costs.reduce((sum, cost) => sum + (cost.total || 0), 0);
+  };
+  
+  // Calculate total hard costs across all property types
+  const calculateTotalHardCosts = () => {
+    return hardCosts.reduce((sum, cost) => sum + (cost.total || 0), 0);
+  };
+  
   return {
     // Land Costs
     purchasePrice, setPurchasePrice,
@@ -150,6 +370,7 @@ export const useDevelopmentCosts = () => {
     landCustomCosts,
     
     // Hard Costs
+    hardCosts,
     shellCost, setShellCost,
     shellCostMetric, setShellCostMetric,
     tenantImprovementCost, setTenantImprovementCost,
@@ -161,6 +382,14 @@ export const useDevelopmentCosts = () => {
     siteWorkCost, setSiteWorkCost,
     contingencyPercentage, setContingencyPercentage,
     hardCustomCosts,
+    
+    // New Hard Costs functionality
+    addHardCost,
+    updateHardCost,
+    deleteHardCost,
+    getHardCostsByPropertyType,
+    calculatePropertyTypeSubtotal,
+    calculateTotalHardCosts,
     
     // Soft Costs
     architectureCost, setArchitectureCost,
@@ -179,6 +408,10 @@ export const useDevelopmentCosts = () => {
     // Functions
     addCustomCost,
     updateCustomCost,
-    removeCustomCost
+    removeCustomCost,
+    
+    // Status
+    loading,
+    error
   };
 };

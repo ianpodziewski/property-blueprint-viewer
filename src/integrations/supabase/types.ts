@@ -182,6 +182,50 @@ export type Database = {
           },
         ]
       }
+      hard_costs: {
+        Row: {
+          calculation_method: string
+          cost_category: string
+          created_at: string
+          id: string
+          project_id: string
+          property_type: string
+          rate: number | null
+          total: number | null
+          updated_at: string
+        }
+        Insert: {
+          calculation_method: string
+          cost_category: string
+          created_at?: string
+          id?: string
+          project_id: string
+          property_type: string
+          rate?: number | null
+          total?: number | null
+          updated_at?: string
+        }
+        Update: {
+          calculation_method?: string
+          cost_category?: string
+          created_at?: string
+          id?: string
+          project_id?: string
+          property_type?: string
+          rate?: number | null
+          total?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hard_costs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       non_rentable_allocations: {
         Row: {
           created_at: string

@@ -1,0 +1,276 @@
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PlusCircle, Trash2 } from "lucide-react";
+import { HardCost, CalculationMethod, PropertyType } from "@/hooks/useDevelopmentCosts";
+import { usePropertyState } from "@/hooks/usePropertyState";
+
+interface PropertyTypeHardCostsProps {
+  propertyType: PropertyType;
+  costs: HardCost[];
+  onAddCost: (propertyType: PropertyType, costCategory: string) => void;
+  onUpdateCost: (id: string, updates: Partial<Omit<HardCost, 'id' | 'projectId'>>) => void;
+  onDeleteCost: (id: string) => void;
+  subtotal: number;
+}
+
+export const PropertyTypeHardCosts = ({
+  propertyType,
+  costs,
+  onAddCost,
+  onUpdateCost,
+  onDeleteCost,
+  subtotal
+}: PropertyTypeHardCostsProps) => {
+  const { products, floorPlateTemplates, floors } = usePropertyState();
+  const [propertyArea, setPropertyArea] = useState<number>(0);
+  const [propertyUnits, setPropertyUnits] = useState<number>(0);
+  
+  // Calculate total area and units for this property type
+  useEffect(() => {
+    // This is a simplified approach - in a real application, you would
+    // calculate this from the actual floor allocations and unit mix
+    let area = 0;
+    let units = 0;
+    
+    if (propertyType === "apartments") {
+      // Find residential units
+      const residentialProducts = products.filter(p => 
+        p.name.toLowerCase().includes("residential") || 
+        p.name.toLowerCase().includes("apartment")
+      );
+      
+      for (const product of residentialProducts) {
+        for (const unitType of product.unitTypes) {
+          area += unitType.grossArea * unitType.numberOfUnits;
+          units += unitType.numberOfUnits;
+        }
+      }
+    } else if (propertyType === "retail") {
+      // Find retail units
+      const retailProducts = products.filter(p => 
+        p.name.toLowerCase().includes("retail") || 
+        p.name.toLowerCase().includes("commercial")
+      );
+      
+      for (const product of retailProducts) {
+        for (const unitType of product.unitTypes) {
+          area += unitType.grossArea * unitType.numberOfUnits;
+          units += unitType.numberOfUnits;
+        }
+      }
+    } else if (propertyType === "r&d") {
+      // Find R&D units
+      const rdProducts = products.filter(p => 
+        p.name.toLowerCase().includes("r&d") || 
+        p.name.toLowerCase().includes("office")
+      );
+      
+      for (const product of rdProducts) {
+        for (const unitType of product.unitTypes) {
+          area += unitType.grossArea * unitType.numberOfUnits;
+          units += unitType.numberOfUnits;
+        }
+      }
+    } else if (propertyType === "common") {
+      // For common areas, use a percentage of total building area
+      let totalBuildingArea = 0;
+      for (const floor of floors) {
+        const template = floorPlateTemplates.find(t => t.id === floor.templateId);
+        if (template) {
+          totalBuildingArea += template.grossArea;
+        }
+      }
+      
+      // Assuming common areas are roughly 15% of the building
+      area = totalBuildingArea * 0.15;
+    }
+    
+    setPropertyArea(area);
+    setPropertyUnits(units);
+  }, [propertyType, products, floorPlateTemplates, floors]);
+  
+  // Helper to format currency
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null) return "$0";
+    return new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+  
+  // Get property type display name
+  const getPropertyTypeDisplay = (type: PropertyType) => {
+    switch (type) {
+      case "apartments": return "Apartments";
+      case "retail": return "Retail";
+      case "r&d": return "R&D";
+      case "common": return "Common Elements";
+      default: return type;
+    }
+  };
+  
+  // Calculate total based on rate and area/units
+  const calculateTotal = (rate: number | null, calculationMethod: CalculationMethod) => {
+    if (rate === null) return null;
+    
+    switch (calculationMethod) {
+      case "area_based":
+        return rate * propertyArea;
+      case "unit_based":
+        return rate * propertyUnits;
+      case "custom":
+        return rate;
+      default:
+        return 0;
+    }
+  };
+  
+  // Get calculation display text
+  const getCalculationDisplay = (cost: HardCost) => {
+    if (cost.rate === null) return "Enter a rate to calculate";
+    
+    switch (cost.calculationMethod) {
+      case "area_based":
+        return `${formatCurrency(cost.rate)}/SF × ${propertyArea.toLocaleString()} SF = ${formatCurrency(cost.total)}`;
+      case "unit_based":
+        return `${formatCurrency(cost.rate)}/Unit × ${propertyUnits} Units = ${formatCurrency(cost.total)}`;
+      case "custom":
+        return formatCurrency(cost.total);
+      default:
+        return "";
+    }
+  };
+  
+  // When rate or calculation method changes, update the total
+  const handleRateChange = (id: string, newRate: string, calculationMethod: CalculationMethod) => {
+    const rate = newRate === "" ? null : parseFloat(newRate);
+    const total = calculateTotal(rate, calculationMethod);
+    onUpdateCost(id, { rate, total });
+  };
+  
+  const handleCalculationMethodChange = (id: string, newMethod: CalculationMethod, currentRate: number | null) => {
+    const total = calculateTotal(currentRate, newMethod);
+    onUpdateCost(id, { calculationMethod: newMethod, total });
+  };
+  
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>{getPropertyTypeDisplay(propertyType)}</CardTitle>
+        <CardDescription>
+          {propertyType === "common" 
+            ? "Building-wide costs" 
+            : `${propertyArea.toLocaleString()} SF${propertyUnits > 0 ? `, ${propertyUnits} Units` : ""}`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {costs.map((cost) => (
+          <div key={cost.id} className="border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-2 items-end">
+              <div className="space-y-2 md:col-span-3">
+                <Label htmlFor={`${cost.id}-category`}>Cost Category</Label>
+                <Input 
+                  id={`${cost.id}-category`}
+                  value={cost.costCategory}
+                  onChange={(e) => onUpdateCost(cost.id, { costCategory: e.target.value })}
+                  placeholder="e.g., Shell, TI, etc."
+                />
+              </div>
+              
+              <div className="space-y-2 md:col-span-3">
+                <Label htmlFor={`${cost.id}-calculation`}>Calculation Method</Label>
+                <Select 
+                  value={cost.calculationMethod} 
+                  onValueChange={(value) => handleCalculationMethodChange(
+                    cost.id, 
+                    value as CalculationMethod, 
+                    cost.rate
+                  )}
+                >
+                  <SelectTrigger id={`${cost.id}-calculation`}>
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="area_based">Area-Based</SelectItem>
+                    {propertyType === "apartments" && (
+                      <SelectItem value="unit_based">Unit-Based</SelectItem>
+                    )}
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2 md:col-span-3">
+                <Label htmlFor={`${cost.id}-rate`}>
+                  {cost.calculationMethod === "area_based" ? "Rate (per SF)" : 
+                   cost.calculationMethod === "unit_based" ? "Rate (per Unit)" : 
+                   "Amount ($)"}
+                </Label>
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">$</span>
+                  <Input 
+                    id={`${cost.id}-rate`}
+                    value={cost.rate === null ? "" : cost.rate}
+                    onChange={(e) => handleRateChange(
+                      cost.id, 
+                      e.target.value, 
+                      cost.calculationMethod
+                    )}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="rounded-l-none"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2 md:col-span-2">
+                <Label>Total</Label>
+                <div className="h-10 flex items-center text-base md:text-sm font-medium">
+                  {cost.total === null ? "-" : formatCurrency(cost.total)}
+                </div>
+              </div>
+              
+              <div className="md:col-span-1 flex justify-end">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => onDeleteCost(cost.id)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-5 w-5" />
+                  <span className="sr-only">Remove</span>
+                </Button>
+              </div>
+            </div>
+            
+            <div className="text-sm text-gray-500 mt-1">
+              {getCalculationDisplay(cost)}
+            </div>
+          </div>
+        ))}
+        
+        <Button 
+          variant="outline" 
+          onClick={() => onAddCost(propertyType, "")} 
+          className="mt-4"
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add Cost Item
+        </Button>
+        
+        <div className="mt-6 flex justify-between items-center pt-4 border-t">
+          <span className="font-medium">Subtotal</span>
+          <span className="font-semibold">{formatCurrency(subtotal)}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
