@@ -59,6 +59,32 @@ export interface ExtendedDatabase extends Database {
           updated_at?: string;
         };
       };
+      non_rentable_allocations: {
+        Row: {
+          id: string;
+          floor_id: string;
+          non_rentable_type_id: string;
+          square_footage: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          floor_id: string;
+          non_rentable_type_id: string;
+          square_footage: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          floor_id?: string;
+          non_rentable_type_id?: string;
+          square_footage?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 }
