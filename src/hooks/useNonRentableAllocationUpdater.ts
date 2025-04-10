@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { NonRentableType, Floor } from '@/hooks/usePropertyState';
 import { NonRentableAllocation } from '@/hooks/useSupabasePropertyData';
-import { toast } from 'sonner';
 
 interface UseNonRentableAllocationUpdaterProps {
   floors: Floor[];
@@ -23,85 +22,6 @@ export const useNonRentableAllocationUpdater = ({
   addNonRentableAllocation,
   getNonRentableAllocationsForFloor,
 }: UseNonRentableAllocationUpdaterProps) => {
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [lastUpdatedAllocationIds, setLastUpdatedAllocationIds] = useState<string[]>([]);
-
-  // Track changes to nonRentableTypes to detect when they're updated
-  useEffect(() => {
-    if (nonRentableTypes.length === 0 || floors.length === 0 || isUpdating) return;
-
-    const updateDynamicAllocations = async () => {
-      setIsUpdating(true);
-      const updatedIds: string[] = [];
-      
-      try {
-        // Process each non-rentable type that uses percentage-based allocation
-        for (const nonRentableType of nonRentableTypes) {
-          // Skip types that need to be manually allocated (fixed square footage without percentage)
-          if (nonRentableType.allocationMethod === 'fixed') continue;
-
-          // For percentage-based allocations
-          if (nonRentableType.allocationMethod === 'percentage' && nonRentableType.percentage !== undefined) {
-            for (const floor of floors) {
-              const template = getFloorTemplateById(floor.templateId);
-              if (!template) continue;
-
-              const floorArea = template.grossArea;
-              const targetSquareFootage = (floorArea * nonRentableType.percentage) / 100;
-              
-              // Find existing allocation for this floor and non-rentable type
-              const existingAllocation = nonRentableAllocations.find(
-                alloc => alloc.floorId === floor.id && alloc.nonRentableTypeId === nonRentableType.id
-              );
-
-              if (existingAllocation) {
-                // Update if square footage is different (with a small tolerance for floating point)
-                if (Math.abs(existingAllocation.squareFootage - targetSquareFootage) > 0.01) {
-                  await updateNonRentableAllocation(existingAllocation.id, {
-                    squareFootage: targetSquareFootage
-                  });
-                  updatedIds.push(existingAllocation.id);
-                }
-              } else {
-                // Create new allocation if doesn't exist
-                const newAllocation = await addNonRentableAllocation({
-                  floorId: floor.id,
-                  nonRentableTypeId: nonRentableType.id,
-                  squareFootage: targetSquareFootage
-                });
-                if (newAllocation) {
-                  updatedIds.push(newAllocation.id);
-                }
-              }
-            }
-          }
-        }
-        
-        if (updatedIds.length > 0) {
-          toast.success(`Updated ${updatedIds.length} non-rentable space allocations`);
-          setLastUpdatedAllocationIds(updatedIds);
-        }
-      } catch (error) {
-        console.error("Error updating non-rentable allocations:", error);
-        toast.error("Failed to update non-rentable space allocations");
-      } finally {
-        setIsUpdating(false);
-      }
-    };
-
-    updateDynamicAllocations();
-  }, [
-    nonRentableTypes, 
-    floors, 
-    nonRentableAllocations, 
-    getFloorTemplateById, 
-    updateNonRentableAllocation, 
-    addNonRentableAllocation
-  ]);
-
-  return {
-    isUpdating,
-    lastUpdatedAllocationIds,
-    highlightedAllocations: lastUpdatedAllocationIds
-  };
+  // This hook now returns an empty object since we're removing the automatic allocation functionality
+  return {};
 };

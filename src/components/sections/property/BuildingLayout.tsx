@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -14,7 +15,6 @@ import FloorUsageTemplates from './FloorUsageTemplates';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NonRentableAllocation } from '@/hooks/useSupabasePropertyData';
 import NonRentableAllocationModal from './NonRentableAllocationModal';
-import { useNonRentableAllocationUpdater } from '@/hooks/useNonRentableAllocationUpdater';
 import {
   DndContext,
   closestCenter,
@@ -76,7 +76,6 @@ interface SortableFloorRowProps {
   addNonRentableAllocation: (allocation: Omit<NonRentableAllocation, 'id'>) => Promise<NonRentableAllocation | null>;
   updateNonRentableAllocation: (id: string, updates: Partial<Omit<NonRentableAllocation, 'id'>>) => Promise<boolean>;
   deleteNonRentableAllocation: (id: string) => Promise<boolean>;
-  highlightedAllocations?: string[];
 }
 
 interface FloorAllocationData {
@@ -104,8 +103,7 @@ const SortableFloorRow = ({
   addNonRentableAllocation,
   updateNonRentableAllocation,
   deleteNonRentableAllocation,
-  highlightedAllocations = []
-}: SortableFloorRowProps & { highlightedAllocations?: string[] }) => {
+}: SortableFloorRowProps) => {
   const {
     attributes,
     listeners,
@@ -296,15 +294,9 @@ const SortableFloorRow = ({
     return type ? type.name : 'Unknown';
   };
 
-  const hasHighlightedAllocations = useMemo(() => {
-    return nonRentableAllocations.some(alloc => 
-      highlightedAllocations.includes(alloc.id)
-    );
-  }, [nonRentableAllocations, highlightedAllocations]);
-
   return (
     <>
-      <TableRow ref={setNodeRef} style={style} className={`${isDragging ? 'opacity-50' : ''} ${hasHighlightedAllocations ? 'bg-yellow-50 transition-colors duration-1000' : ''}`}>
+      <TableRow ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
         
         <TableCell className="w-8">
           <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 flex justify-center">
@@ -373,7 +365,7 @@ const SortableFloorRow = ({
             variant={getUtilizationVariant()}
             showValue={true}
             size="sm"
-            className={`${isOverallocated ? "opacity-80" : ""} ${hasHighlightedAllocations ? 'animate-pulse' : ''}`}
+            className={isOverallocated ? "opacity-80" : ""}
           />
           {isOverallocated && (
             <div className="text-xs text-red-600 text-center font-semibold mt-1">
@@ -397,7 +389,7 @@ const SortableFloorRow = ({
       </TableRow>
       
       {isExpanded && (
-        <TableRow className={`bg-gray-50/70 border-b-0 ${hasHighlightedAllocations ? 'bg-yellow-50/50' : ''}`}>
+        <TableRow className="bg-gray-50/70 border-b-0">
           <TableCell colSpan={7} className="p-0">
             <div className="p-4">
               
@@ -484,45 +476,42 @@ const SortableFloorRow = ({
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3">
-                    {nonRentableAllocations.map(allocation => {
-                      const isHighlighted = highlightedAllocations.includes(allocation.id);
-                      return (
-                        <div 
-                          key={allocation.id} 
-                          className={`p-3 bg-white border rounded shadow-sm flex justify-between items-center transition-all duration-1000 ${isHighlighted ? 'bg-yellow-50 border-yellow-400' : ''}`}
-                        >
-                          <div>
-                            <div className="font-medium text-sm">
-                              {getNonRentableTypeName(allocation.nonRentableTypeId)}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {allocation.squareFootage.toLocaleString()} sf
-                            </div>
+                    {nonRentableAllocations.map(allocation => (
+                      <div 
+                        key={allocation.id} 
+                        className="p-3 bg-white border rounded shadow-sm flex justify-between items-center"
+                      >
+                        <div>
+                          <div className="font-medium text-sm">
+                            {getNonRentableTypeName(allocation.nonRentableTypeId)}
                           </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => {
-                                setEditingNonRentableId(allocation.id);
-                                setShowNonRentableModal(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4 text-gray-500 hover:text-blue-500" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleDeleteNonRentableAllocation(allocation.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
-                            </Button>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {allocation.squareFootage.toLocaleString()} sf
                           </div>
                         </div>
-                      );
-                    })}
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              setEditingNonRentableId(allocation.id);
+                              setShowNonRentableModal(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 text-gray-500 hover:text-blue-500" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDeleteNonRentableAllocation(allocation.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -578,16 +567,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   const [isLoadingInitialAllocations, setIsLoadingInitialAllocations] = useState(true);
   const [globalAllocations, setGlobalAllocations] = useState<Record<string, number>>({});
   const [floorAllocations, setFloorAllocations] = useState<Record<string, FloorAllocationData>>({});
-
-  const { highlightedAllocations, isUpdating } = useNonRentableAllocationUpdater({
-    floors,
-    nonRentableTypes,
-    nonRentableAllocations,
-    getFloorTemplateById,
-    updateNonRentableAllocation,
-    addNonRentableAllocation,
-    getNonRentableAllocationsForFloor
-  });
   
   useEffect(() => {
     const calculateGlobalAllocations = async () => {
@@ -773,12 +752,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
         </div>
         
         <div className="flex flex-wrap gap-2">
-          {isUpdating && (
-            <div className="flex items-center text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-md">
-              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-              Updating allocations...
-            </div>
-          )}
           <Button
             variant="outline"
             size="sm"
@@ -868,7 +841,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
                             addNonRentableAllocation={addNonRentableAllocation}
                             updateNonRentableAllocation={updateNonRentableAllocation}
                             deleteNonRentableAllocation={deleteNonRentableAllocation}
-                            highlightedAllocations={highlightedAllocations}
                           />
                         ))}
                       </SortableContext>
