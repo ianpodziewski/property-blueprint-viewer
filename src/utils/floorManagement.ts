@@ -33,36 +33,20 @@ export async function createBulkFloors(
     console.log("Existing floors data:", existingFloors);
     
     // Determine starting position
-    let nextPosition = 1;
+    let startPosition = 1;
     if (existingFloors && existingFloors.length > 0) {
-      nextPosition = existingFloors[0].position + 1;
+      startPosition = existingFloors[0].position + 1;
     }
     
-    console.log("Next available position for new floors:", nextPosition);
+    console.log("Starting position for new floors:", startPosition);
     
     // Prepare floors to create
     const floorsToCreate = [];
     const createdFloorIds = [];
     
-    // Calculate floor numbers to ensure proper order
-    const floorNumbers = [];
     for (let i = startFloor; i <= endFloor; i++) {
-      floorNumbers.push(i);
-    }
-    
-    // Sort floor numbers to ensure proper order
-    // This is crucial for the building layout display
-    // Floors should appear from highest to lowest (e.g., 5, 4, 3, 2, 1, -1, -2, -3)
-    floorNumbers.sort((a, b) => b - a);
-    
-    console.log("Ordered floor numbers for creation:", floorNumbers);
-    
-    // Create floors with descending positions (higher floors get higher position values)
-    // This ensures that when sorted by position descending, floors appear in correct order
-    for (let i = 0; i < floorNumbers.length; i++) {
-      const floorNumber = floorNumbers[i];
-      const floorLabel = `${labelPrefix} ${floorNumber}`;
-      const position = nextPosition + i;
+      const floorLabel = `${labelPrefix} ${i}`;
+      const position = startPosition + (i - startFloor);
       
       const floorId = crypto.randomUUID();
       createdFloorIds.push(floorId);
@@ -75,7 +59,7 @@ export async function createBulkFloors(
         template_id: templateId
       });
       
-      console.log(`Prepared floor "${floorLabel}" with ID ${floorId} at position ${position}`);
+      console.log(`Prepared floor "${floorLabel}" with ID ${floorId}`);
     }
     
     console.log(`Inserting ${floorsToCreate.length} floors for project ${projectId}`);
