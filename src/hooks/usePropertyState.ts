@@ -77,6 +77,14 @@ export interface Product {
   unitTypes: UnitType[];
 }
 
+// Interface for non-rentable space type
+export interface NonRentableType {
+  id: string;
+  name: string;
+  squareFootage: number;
+  allocationMethod: 'uniform' | 'specific' | 'percentage';
+}
+
 // Interface for floor - updated to include floorType property
 export interface Floor {
   id: string;
@@ -104,6 +112,9 @@ export const usePropertyState = () => {
   
   // Project Configuration - Unit Mix (Products)
   const [products, setProducts] = useState<Product[]>([]);
+  
+  // Project Configuration - Non-Rentable Space Types
+  const [nonRentableTypes, setNonRentableTypes] = useState<NonRentableType[]>([]);
   
   // Project Configuration - Building Layout
   const [floors, setFloors] = useState<Floor[]>([]);
@@ -250,6 +261,45 @@ export const usePropertyState = () => {
     setProducts(newProducts);
   };
   
+  // Add a new non-rentable space type
+  const addNonRentableType = (nonRentable: Omit<NonRentableType, 'id'>) => {
+    const newNonRentable: NonRentableType = {
+      ...nonRentable,
+      id: crypto.randomUUID(),
+      squareFootage: safeNumberConversion(nonRentable.squareFootage)
+    };
+    
+    console.log("Adding new non-rentable space type:", newNonRentable);
+    setNonRentableTypes(prev => [...prev, newNonRentable]);
+  };
+  
+  // Update an existing non-rentable space type
+  const updateNonRentableType = (id: string, updates: Partial<Omit<NonRentableType, 'id'>>) => {
+    console.log(`Updating non-rentable space type ${id} with:`, updates);
+    
+    setNonRentableTypes(
+      nonRentableTypes.map(type => 
+        type.id === id ? { 
+          ...type, 
+          ...updates,
+          squareFootage: updates.squareFootage !== undefined ? safeNumberConversion(updates.squareFootage) : type.squareFootage
+        } : type
+      )
+    );
+  };
+  
+  // Delete a non-rentable space type
+  const deleteNonRentableType = (id: string) => {
+    console.log(`Deleting non-rentable space type ${id}`);
+    setNonRentableTypes(nonRentableTypes.filter(type => type.id !== id));
+  };
+  
+  // Set all non-rentable space types at once (used during initial load)
+  const setAllNonRentableTypes = (types: NonRentableType[]) => {
+    console.log("Setting all non-rentable space types:", types);
+    setNonRentableTypes(types);
+  };
+  
   // Add a new floor
   const addFloor = () => {
     const newPosition = floors.length > 0 
@@ -304,9 +354,10 @@ export const usePropertyState = () => {
       farAllowance, lotSize, maxBuildableArea,
       floorPlateTemplates,
       products,
+      nonRentableTypes,
       floors
     });
-  }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, products, floors]);
+  }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, products, nonRentableTypes, floors]);
   
   return {
     // Project Information
@@ -335,6 +386,13 @@ export const usePropertyState = () => {
     updateUnitType,
     deleteUnitType,
     setAllProducts,
+    
+    // Project Configuration - Non-Rentable Space
+    nonRentableTypes,
+    addNonRentableType,
+    updateNonRentableType,
+    deleteNonRentableType,
+    setAllNonRentableTypes,
     
     // Project Configuration - Building Layout
     floors,

@@ -52,70 +52,64 @@ export type Database = {
       }
       floor_usage_template_allocations: {
         Row: {
-          created_at: string
+          created_at: string | null
+          floor_id: string | null
+          floor_usage_template_id: string | null
           id: string
-          quantity: number
-          template_id: string
-          unit_type_id: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
+          floor_id?: string | null
+          floor_usage_template_id?: string | null
           id?: string
-          quantity?: number
-          template_id: string
-          unit_type_id: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
+          floor_id?: string | null
+          floor_usage_template_id?: string | null
           id?: string
-          quantity?: number
-          template_id?: string
-          unit_type_id?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "floor_usage_template_allocations_template_id_fkey"
-            columns: ["template_id"]
+            foreignKeyName: "floor_usage_template_allocations_floor_id_fkey"
+            columns: ["floor_id"]
             isOneToOne: false
-            referencedRelation: "floor_usage_templates"
+            referencedRelation: "floors"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "floor_usage_template_allocations_unit_type_id_fkey"
-            columns: ["unit_type_id"]
+            foreignKeyName: "floor_usage_template_allocations_floor_usage_template_id_fkey"
+            columns: ["floor_usage_template_id"]
             isOneToOne: false
-            referencedRelation: "unit_types"
+            referencedRelation: "floor_usage_templates"
             referencedColumns: ["id"]
           },
         ]
       }
       floor_usage_templates: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
           name: string
           project_id: string
-          template_id: string | null
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           name: string
           project_id: string
-          template_id?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           name?: string
           project_id?: string
-          template_id?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -123,13 +117,6 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "floor_usage_templates_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "floor_plate_templates"
             referencedColumns: ["id"]
           },
         ]

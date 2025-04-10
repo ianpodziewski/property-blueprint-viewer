@@ -154,7 +154,7 @@ const PropertyBreakdown = () => {
     );
   }
 
-  return <div className="space-y-6">
+  return <div className="space-y-4">
       <div>
         <h2 className="text-2xl font-semibold text-blue-700 mb-4">Property Breakdown</h2>
         <p className="text-gray-600 mb-6">Define the basic characteristics of your development project.</p>
@@ -291,15 +291,19 @@ const PropertyBreakdown = () => {
       <PlanningCard
         floorPlateTemplates={floorPlateTemplates}
         products={products}
-        onAddTemplate={addFloorPlateTemplate}
-        onUpdateTemplate={updateFloorPlateTemplate}
-        onDeleteTemplate={deleteFloorPlateTemplate}
-        onAddProduct={addProduct}
-        onUpdateProduct={updateProduct}
-        onDeleteProduct={deleteProduct}
-        onAddUnitType={addUnitType}
-        onUpdateUnitType={updateUnitType}
-        onDeleteUnitType={deleteUnitType}
+        nonRentableTypes={property.nonRentableTypes || []}
+        onAddTemplate={property.addFloorPlateTemplate}
+        onUpdateTemplate={property.updateFloorPlateTemplate}
+        onDeleteTemplate={property.deleteFloorPlateTemplate}
+        onAddProduct={property.addProduct}
+        onUpdateProduct={property.updateProduct}
+        onDeleteProduct={property.deleteProduct}
+        onAddUnitType={property.addUnitType}
+        onUpdateUnitType={property.updateUnitType}
+        onDeleteUnitType={property.deleteUnitType}
+        onAddNonRentableType={property.addNonRentableType}
+        onUpdateNonRentableType={property.updateNonRentableType}
+        onDeleteNonRentableType={property.deleteNonRentableType}
       />
       
       <Card className="mb-6">

@@ -4,11 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FloorPlateTemplates from "./FloorPlateTemplates";
 import UnitMix from "./UnitMix";
-import { FloorPlateTemplate, Product, UnitType } from "@/hooks/usePropertyState";
+import NonRentableSpace from "./NonRentableSpace";
+import { FloorPlateTemplate, NonRentableType, Product, UnitType } from "@/hooks/usePropertyState";
 
 interface PlanningCardProps {
   floorPlateTemplates: FloorPlateTemplate[];
   products: Product[];
+  nonRentableTypes: NonRentableType[];
   onAddTemplate: (template: Omit<FloorPlateTemplate, 'id'>) => Promise<FloorPlateTemplate | null>;
   onUpdateTemplate: (id: string, updates: Partial<Omit<FloorPlateTemplate, 'id'>>) => Promise<boolean>;
   onDeleteTemplate: (id: string) => Promise<boolean>;
@@ -18,11 +20,15 @@ interface PlanningCardProps {
   onAddUnitType: (productId: string, unit: Omit<UnitType, 'id'>) => Promise<UnitType | null>;
   onUpdateUnitType: (productId: string, unitId: string, updates: Partial<Omit<UnitType, 'id'>>) => Promise<boolean>;
   onDeleteUnitType: (productId: string, unitId: string) => Promise<boolean>;
+  onAddNonRentableType: (nonRentable: Omit<NonRentableType, 'id'>) => Promise<NonRentableType | null>;
+  onUpdateNonRentableType: (id: string, updates: Partial<Omit<NonRentableType, 'id'>>) => Promise<boolean>;
+  onDeleteNonRentableType: (id: string) => Promise<boolean>;
 }
 
 const PlanningCard = ({
   floorPlateTemplates,
   products,
+  nonRentableTypes,
   onAddTemplate,
   onUpdateTemplate,
   onDeleteTemplate,
@@ -31,7 +37,10 @@ const PlanningCard = ({
   onDeleteProduct,
   onAddUnitType,
   onUpdateUnitType,
-  onDeleteUnitType
+  onDeleteUnitType,
+  onAddNonRentableType,
+  onUpdateNonRentableType,
+  onDeleteNonRentableType
 }: PlanningCardProps) => {
   const [activeTab, setActiveTab] = useState("floor-plate-templates");
 
@@ -51,6 +60,7 @@ const PlanningCard = ({
           <TabsList className="mb-4">
             <TabsTrigger value="floor-plate-templates">Floor Plate Templates</TabsTrigger>
             <TabsTrigger value="unit-mix">Unit Mix</TabsTrigger>
+            <TabsTrigger value="non-rentable-space">Non-Rentable Space</TabsTrigger>
           </TabsList>
           
           <TabsContent value="floor-plate-templates" className="mt-0">
@@ -77,6 +87,18 @@ const PlanningCard = ({
               onAddUnitType={onAddUnitType}
               onUpdateUnitType={onUpdateUnitType}
               onDeleteUnitType={onDeleteUnitType}
+            />
+          </TabsContent>
+          
+          <TabsContent value="non-rentable-space" className="mt-0">
+            <div className="text-sm text-gray-500 mb-4">
+              Define non-rentable space categories for your development
+            </div>
+            <NonRentableSpace
+              nonRentableTypes={nonRentableTypes}
+              onAddNonRentableType={onAddNonRentableType}
+              onUpdateNonRentableType={onUpdateNonRentableType}
+              onDeleteNonRentableType={onDeleteNonRentableType}
             />
           </TabsContent>
         </Tabs>
