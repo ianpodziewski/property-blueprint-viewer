@@ -59,29 +59,6 @@ export interface ExtendedDatabase extends Database {
           updated_at?: string;
         };
       };
-      building_component_categories: {
-        Row: {
-          id: string;
-          project_id: string;
-          name: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          project_id: string;
-          name: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          project_id?: string;
-          name?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
     };
   };
 }
