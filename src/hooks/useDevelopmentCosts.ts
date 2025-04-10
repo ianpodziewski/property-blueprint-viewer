@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useProject } from "@/context/ProjectContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +22,7 @@ export interface HardCost {
   calculationMethod: CalculationMethod;
   rate: number | null;
   total: number | null;
+  notes?: string;
 }
 
 // Define the hard cost database row structure
@@ -34,13 +34,14 @@ interface HardCostRow {
   calculation_method: string;
   rate: number | null;
   total: number | null;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }
 
 export const useDevelopmentCosts = () => {
   const { currentProjectId } = useProject();
-  const { products } = usePropertyState();
+  const { products, floorPlateTemplates, floors } = usePropertyState();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -87,6 +88,93 @@ export const useDevelopmentCosts = () => {
     { id: "other-cost-1", name: "", amount: "", metric: "psf" }
   ]);
 
+  // Calculate property areas for various property types
+  const [propertyAreas, setPropertyAreas] = useState<Record<PropertyType, number>>({
+    apartments: 0,
+    retail: 0,
+    "r&d": 0,
+    common: 0
+  });
+  
+  const [propertyUnits, setPropertyUnits] = useState<Record<PropertyType, number>>({
+    apartments: 0,
+    retail: 0,
+    "r&d": 0,
+    common: 0
+  });
+  
+  // Calculate areas and units for each property type
+  useEffect(() => {
+    const areas = {
+      apartments: 0,
+      retail: 0,
+      "r&d": 0,
+      common: 0
+    };
+    
+    const units = {
+      apartments: 0,
+      retail: 0,
+      "r&d": 0,
+      common: 0
+    };
+    
+    // Calculate residential areas and units
+    const residentialProducts = products.filter(p => 
+      p.name.toLowerCase().includes("residential") || 
+      p.name.toLowerCase().includes("apartment")
+    );
+    
+    for (const product of residentialProducts) {
+      for (const unitType of product.unitTypes) {
+        areas.apartments += unitType.grossArea * unitType.numberOfUnits;
+        units.apartments += unitType.numberOfUnits;
+      }
+    }
+    
+    // Calculate retail areas and units
+    const retailProducts = products.filter(p => 
+      p.name.toLowerCase().includes("retail") || 
+      p.name.toLowerCase().includes("commercial")
+    );
+    
+    for (const product of retailProducts) {
+      for (const unitType of product.unitTypes) {
+        areas.retail += unitType.grossArea * unitType.numberOfUnits;
+        units.retail += unitType.numberOfUnits;
+      }
+    }
+    
+    // Calculate R&D/office areas and units
+    const rdProducts = products.filter(p => 
+      p.name.toLowerCase().includes("r&d") || 
+      p.name.toLowerCase().includes("office")
+    );
+    
+    for (const product of rdProducts) {
+      for (const unitType of product.unitTypes) {
+        areas["r&d"] += unitType.grossArea * unitType.numberOfUnits;
+        units["r&d"] += unitType.numberOfUnits;
+      }
+    }
+    
+    // Calculate common areas (estimate as percentage of total building area)
+    let totalBuildingArea = 0;
+    for (const floor of floors) {
+      const template = floorPlateTemplates.find(t => t.id === floor.templateId);
+      if (template) {
+        totalBuildingArea += template.grossArea;
+      }
+    }
+    
+    // Common areas are roughly 15% of total building area
+    areas.common = totalBuildingArea * 0.15;
+    
+    setPropertyAreas(areas);
+    setPropertyUnits(units);
+    
+  }, [products, floorPlateTemplates, floors]);
+
   // Fetch hard costs from database
   useEffect(() => {
     if (!currentProjectId) return;
@@ -110,7 +198,8 @@ export const useDevelopmentCosts = () => {
             costCategory: item.cost_category,
             calculationMethod: item.calculation_method as CalculationMethod,
             rate: item.rate,
-            total: item.total
+            total: item.total,
+            notes: item.notes
           }));
           
           setHardCosts(formattedData);
@@ -155,11 +244,36 @@ export const useDevelopmentCosts = () => {
     fetchHardCosts();
   }, [currentProjectId]);
 
+  // Calculate total for a hard cost based on calculation method
+  const calculateHardCostTotal = (
+    propertyType: PropertyType,
+    rate: number | null,
+    calculationMethod: CalculationMethod
+  ): number | null => {
+    if (rate === null) return null;
+    
+    switch (calculationMethod) {
+      case "area_based":
+        return rate * propertyAreas[propertyType];
+      case "unit_based":
+        return rate * propertyUnits[propertyType];
+      case "custom":
+        return rate; // For custom, we just use the rate as the total
+      default:
+        return null;
+    }
+  };
+
   // Save hard cost to database
   const saveHardCost = async (hardCost: HardCost) => {
     if (!currentProjectId) return;
     
     try {
+      // Calculate total based on method and rate
+      const calculatedTotal = hardCost.calculationMethod !== 'custom' && hardCost.rate !== null 
+        ? calculateHardCostTotal(hardCost.propertyType, hardCost.rate, hardCost.calculationMethod)
+        : hardCost.total;
+      
       // Check if the hard cost already exists
       const existingIndex = hardCosts.findIndex(cost => cost.id === hardCost.id);
       
@@ -172,7 +286,8 @@ export const useDevelopmentCosts = () => {
             cost_category: hardCost.costCategory,
             calculation_method: hardCost.calculationMethod,
             rate: hardCost.rate,
-            total: hardCost.total
+            total: calculatedTotal,
+            notes: hardCost.notes
           })
           .eq('id', hardCost.id);
           
@@ -181,7 +296,7 @@ export const useDevelopmentCosts = () => {
         // Update local state
         setHardCosts(prevCosts => 
           prevCosts.map(cost => 
-            cost.id === hardCost.id ? hardCost : cost
+            cost.id === hardCost.id ? { ...hardCost, total: calculatedTotal } : cost
           )
         );
       } else {
@@ -194,7 +309,8 @@ export const useDevelopmentCosts = () => {
             cost_category: hardCost.costCategory,
             calculation_method: hardCost.calculationMethod,
             rate: hardCost.rate,
-            total: hardCost.total
+            total: calculatedTotal,
+            notes: hardCost.notes
           })
           .select();
           
@@ -205,7 +321,8 @@ export const useDevelopmentCosts = () => {
           const newHardCost: HardCost = {
             ...hardCost,
             id: data[0].id,
-            projectId: data[0].project_id
+            projectId: data[0].project_id,
+            total: calculatedTotal
           };
           
           setHardCosts(prevCosts => [...prevCosts, newHardCost]);
@@ -235,19 +352,43 @@ export const useDevelopmentCosts = () => {
 
   // Update hard cost
   const updateHardCost = (id: string, updates: Partial<Omit<HardCost, 'id' | 'projectId'>>) => {
+    const existingCost = hardCosts.find(cost => cost.id === id);
+    if (!existingCost) return;
+    
+    // Calculate new total if rate or calculation method changes
+    let newTotal = existingCost.total;
+    
+    if ('rate' in updates || 'calculationMethod' in updates) {
+      const rate = 'rate' in updates ? updates.rate : existingCost.rate;
+      const method = 'calculationMethod' in updates 
+        ? updates.calculationMethod 
+        : existingCost.calculationMethod;
+        
+      if (method !== 'custom' && rate !== null) {
+        newTotal = calculateHardCostTotal(
+          existingCost.propertyType, 
+          rate, 
+          method as CalculationMethod
+        );
+      }
+    }
+    
+    const updatedCost = { 
+      ...existingCost, 
+      ...updates,
+      total: ('calculationMethod' in updates && updates.calculationMethod === 'custom') 
+        ? ('total' in updates ? updates.total : existingCost.total) 
+        : newTotal
+    };
+    
     setHardCosts(prevCosts => 
       prevCosts.map(cost => 
-        cost.id === id 
-          ? { ...cost, ...updates } 
-          : cost
+        cost.id === id ? updatedCost : cost
       )
     );
     
-    // Find the updated cost to save
-    const updatedCost = hardCosts.find(cost => cost.id === id);
-    if (updatedCost) {
-      saveHardCost({ ...updatedCost, ...updates });
-    }
+    // Save to database
+    saveHardCost(updatedCost);
   };
 
   // Delete hard cost
@@ -377,6 +518,55 @@ export const useDevelopmentCosts = () => {
     return hardCosts.reduce((sum, cost) => sum + (cost.total || 0), 0);
   };
   
+  // Calculate cost per gross SF
+  const calculateCostPerGrossSF = () => {
+    const totalHardCost = calculateTotalHardCosts();
+    const totalArea = Object.values(propertyAreas).reduce((sum, area) => sum + area, 0);
+    
+    return totalArea > 0 ? totalHardCost / totalArea : 0;
+  };
+  
+  // Calculate percentage breakdown by shell vs TI
+  const calculateShellVsTI = () => {
+    const shellCosts = hardCosts
+      .filter(cost => cost.costCategory.toLowerCase() === 'shell')
+      .reduce((sum, cost) => sum + (cost.total || 0), 0);
+      
+    const tiCosts = hardCosts
+      .filter(cost => cost.costCategory.toLowerCase() === 'ti')
+      .reduce((sum, cost) => sum + (cost.total || 0), 0);
+      
+    const totalHardCost = calculateTotalHardCosts();
+    
+    return {
+      shell: totalHardCost > 0 ? (shellCosts / totalHardCost) * 100 : 0,
+      ti: totalHardCost > 0 ? (tiCosts / totalHardCost) * 100 : 0,
+      other: totalHardCost > 0 ? 
+        ((totalHardCost - shellCosts - tiCosts) / totalHardCost) * 100 : 0
+    };
+  };
+  
+  // Calculate percentage breakdown by property type
+  const calculatePropertyTypeBreakdown = () => {
+    const totalHardCost = calculateTotalHardCosts();
+    const result: Record<PropertyType, number> = {
+      apartments: 0,
+      retail: 0,
+      "r&d": 0,
+      common: 0
+    };
+    
+    if (totalHardCost > 0) {
+      Object.keys(result).forEach(type => {
+        const propertyType = type as PropertyType;
+        const subtotal = calculatePropertyTypeSubtotal(propertyType);
+        result[propertyType] = (subtotal / totalHardCost) * 100;
+      });
+    }
+    
+    return result;
+  };
+  
   return {
     // Land Costs
     purchasePrice, setPurchasePrice,
@@ -406,6 +596,11 @@ export const useDevelopmentCosts = () => {
     getHardCostsByPropertyType,
     calculatePropertyTypeSubtotal,
     calculateTotalHardCosts,
+    calculateCostPerGrossSF,
+    calculateShellVsTI,
+    calculatePropertyTypeBreakdown,
+    propertyAreas,
+    propertyUnits,
     
     // Soft Costs
     architectureCost, setArchitectureCost,

@@ -12,6 +12,7 @@ declare namespace Database {
       calculation_method: string;
       rate: number | null;
       total: number | null;
+      notes?: string;
       created_at: string;
       updated_at: string;
     }

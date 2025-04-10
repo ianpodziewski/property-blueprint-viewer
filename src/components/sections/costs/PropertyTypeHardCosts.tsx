@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { HardCost, CalculationMethod, PropertyType } from "@/hooks/useDevelopmentCosts";
 import { usePropertyState } from "@/hooks/usePropertyState";
@@ -12,6 +13,8 @@ import { usePropertyState } from "@/hooks/usePropertyState";
 interface PropertyTypeHardCostsProps {
   propertyType: PropertyType;
   costs: HardCost[];
+  propertyArea: number;
+  propertyUnits: number;
   onAddCost: (propertyType: PropertyType, costCategory: string) => void;
   onUpdateCost: (id: string, updates: Partial<Omit<HardCost, 'id' | 'projectId'>>) => void;
   onDeleteCost: (id: string) => void;
@@ -21,79 +24,13 @@ interface PropertyTypeHardCostsProps {
 export const PropertyTypeHardCosts = ({
   propertyType,
   costs,
+  propertyArea,
+  propertyUnits,
   onAddCost,
   onUpdateCost,
   onDeleteCost,
   subtotal
 }: PropertyTypeHardCostsProps) => {
-  const { products, floorPlateTemplates, floors } = usePropertyState();
-  const [propertyArea, setPropertyArea] = useState<number>(0);
-  const [propertyUnits, setPropertyUnits] = useState<number>(0);
-  
-  // Calculate total area and units for this property type
-  useEffect(() => {
-    // This is a simplified approach - in a real application, you would
-    // calculate this from the actual floor allocations and unit mix
-    let area = 0;
-    let units = 0;
-    
-    if (propertyType === "apartments") {
-      // Find residential units
-      const residentialProducts = products.filter(p => 
-        p.name.toLowerCase().includes("residential") || 
-        p.name.toLowerCase().includes("apartment")
-      );
-      
-      for (const product of residentialProducts) {
-        for (const unitType of product.unitTypes) {
-          area += unitType.grossArea * unitType.numberOfUnits;
-          units += unitType.numberOfUnits;
-        }
-      }
-    } else if (propertyType === "retail") {
-      // Find retail units
-      const retailProducts = products.filter(p => 
-        p.name.toLowerCase().includes("retail") || 
-        p.name.toLowerCase().includes("commercial")
-      );
-      
-      for (const product of retailProducts) {
-        for (const unitType of product.unitTypes) {
-          area += unitType.grossArea * unitType.numberOfUnits;
-          units += unitType.numberOfUnits;
-        }
-      }
-    } else if (propertyType === "r&d") {
-      // Find R&D units
-      const rdProducts = products.filter(p => 
-        p.name.toLowerCase().includes("r&d") || 
-        p.name.toLowerCase().includes("office")
-      );
-      
-      for (const product of rdProducts) {
-        for (const unitType of product.unitTypes) {
-          area += unitType.grossArea * unitType.numberOfUnits;
-          units += unitType.numberOfUnits;
-        }
-      }
-    } else if (propertyType === "common") {
-      // For common areas, use a percentage of total building area
-      let totalBuildingArea = 0;
-      for (const floor of floors) {
-        const template = floorPlateTemplates.find(t => t.id === floor.templateId);
-        if (template) {
-          totalBuildingArea += template.grossArea;
-        }
-      }
-      
-      // Assuming common areas are roughly 15% of the building
-      area = totalBuildingArea * 0.15;
-    }
-    
-    setPropertyArea(area);
-    setPropertyUnits(units);
-  }, [propertyType, products, floorPlateTemplates, floors]);
-  
   // Helper to format currency
   const formatCurrency = (amount: number | null) => {
     if (amount === null) return "$0";
@@ -150,13 +87,20 @@ export const PropertyTypeHardCosts = ({
   // When rate or calculation method changes, update the total
   const handleRateChange = (id: string, newRate: string, calculationMethod: CalculationMethod) => {
     const rate = newRate === "" ? null : parseFloat(newRate);
-    const total = calculateTotal(rate, calculationMethod);
-    onUpdateCost(id, { rate, total });
+    onUpdateCost(id, { rate });
   };
   
-  const handleCalculationMethodChange = (id: string, newMethod: CalculationMethod, currentRate: number | null) => {
-    const total = calculateTotal(currentRate, newMethod);
-    onUpdateCost(id, { calculationMethod: newMethod, total });
+  const handleCalculationMethodChange = (id: string, newMethod: CalculationMethod) => {
+    onUpdateCost(id, { calculationMethod: newMethod });
+  };
+
+  const handleTotalChange = (id: string, newTotal: string) => {
+    const total = newTotal === "" ? null : parseFloat(newTotal);
+    onUpdateCost(id, { total });
+  };
+  
+  const handleNotesChange = (id: string, notes: string) => {
+    onUpdateCost(id, { notes });
   };
   
   return (
@@ -189,8 +133,7 @@ export const PropertyTypeHardCosts = ({
                   value={cost.calculationMethod} 
                   onValueChange={(value) => handleCalculationMethodChange(
                     cost.id, 
-                    value as CalculationMethod, 
-                    cost.rate
+                    value as CalculationMethod
                   )}
                 >
                   <SelectTrigger id={`${cost.id}-calculation`}>
@@ -234,7 +177,22 @@ export const PropertyTypeHardCosts = ({
               <div className="space-y-2 md:col-span-2">
                 <Label>Total</Label>
                 <div className="h-10 flex items-center text-base md:text-sm font-medium">
-                  {cost.total === null ? "-" : formatCurrency(cost.total)}
+                  {cost.calculationMethod === "custom" ? (
+                    <div className="flex w-full">
+                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">$</span>
+                      <Input 
+                        value={cost.total === null ? "" : cost.total}
+                        onChange={(e) => handleTotalChange(cost.id, e.target.value)}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="rounded-l-none"
+                        placeholder="0"
+                      />
+                    </div>
+                  ) : (
+                    cost.total === null ? "-" : formatCurrency(cost.total)
+                  )}
                 </div>
               </div>
               
@@ -254,6 +212,19 @@ export const PropertyTypeHardCosts = ({
             <div className="text-sm text-gray-500 mt-1">
               {getCalculationDisplay(cost)}
             </div>
+            
+            {cost.calculationMethod === "custom" && (
+              <div className="mt-3">
+                <Label htmlFor={`${cost.id}-notes`}>Notes</Label>
+                <Textarea 
+                  id={`${cost.id}-notes`}
+                  value={cost.notes || ""}
+                  onChange={(e) => handleNotesChange(cost.id, e.target.value)}
+                  placeholder="Explain your calculation method or add notes..."
+                  className="mt-1"
+                />
+              </div>
+            )}
           </div>
         ))}
         

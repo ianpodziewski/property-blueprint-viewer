@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useModel } from "@/context/ModelContext";
@@ -155,7 +155,6 @@ const DevelopmentCosts = () => {
     ));
   };
 
-  // Format currency for display
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { 
       style: 'currency', 
@@ -163,6 +162,19 @@ const DevelopmentCosts = () => {
       maximumFractionDigits: 0
     }).format(amount);
   };
+
+  const formatPercentage = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'percent',
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    }).format(value / 100);
+  };
+
+  const totalHardCosts = developmentCosts.calculateTotalHardCosts();
+  const costPerGrossSF = developmentCosts.calculateCostPerGrossSF();
+  const shellVsTI = developmentCosts.calculateShellVsTI();
+  const propertyTypeBreakdown = developmentCosts.calculatePropertyTypeBreakdown();
 
   return (
     <div className="space-y-8">
@@ -256,12 +268,54 @@ const DevelopmentCosts = () => {
           <CardDescription>Construction and materials costs by property type</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <Card className="bg-gray-50">
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Total Hard Costs</p>
+                  <p className="text-2xl font-bold">{formatCurrency(totalHardCosts)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Cost per Gross SF</p>
+                  <p className="text-2xl font-bold">{formatCurrency(costPerGrossSF)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Shell vs. TI</p>
+                  <p className="text-lg">
+                    <span className="font-medium text-blue-700">{formatPercentage(shellVsTI.shell)}</span> / 
+                    <span className="font-medium text-green-600"> {formatPercentage(shellVsTI.ti)}</span>
+                    {shellVsTI.other > 0 && (
+                      <span className="font-medium text-gray-500"> / {formatPercentage(shellVsTI.other)} other</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <p className="text-sm font-medium text-gray-500 mb-2">Cost Breakdown by Property Type</p>
+                <div className="space-y-2">
+                  {propertyTypes.map(type => (
+                    <div key={type} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>{type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                        <span>{formatPercentage(propertyTypeBreakdown[type])}</span>
+                      </div>
+                      <Progress value={propertyTypeBreakdown[type]} className="h-2" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
           {/* Property type sections */}
           {propertyTypes.map((propertyType) => (
             <PropertyTypeHardCosts
               key={propertyType}
               propertyType={propertyType}
               costs={developmentCosts.getHardCostsByPropertyType(propertyType)}
+              propertyArea={developmentCosts.propertyAreas[propertyType]}
+              propertyUnits={developmentCosts.propertyUnits[propertyType]}
               onAddCost={developmentCosts.addHardCost}
               onUpdateCost={developmentCosts.updateHardCost}
               onDeleteCost={developmentCosts.deleteHardCost}
