@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useProject } from "@/context/ProjectContext";
 import { supabase } from "@/integrations/supabase/client";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface BulkAddFloorsModalProps {
   isOpen: boolean;
@@ -72,7 +74,6 @@ const BulkAddFloorsModal = ({
   const isValid = () => {
     if (!templateId) return false;
     if (!labelPrefix.trim()) return false;
-    if (startFloor < 1) return false;
     if (endFloor < startFloor) return false;
     if (endFloor - startFloor > 100) return false;
     if (!effectiveProjectId) return false;
@@ -222,13 +223,24 @@ const BulkAddFloorsModal = ({
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="startFloor">Start Floor Number</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="startFloor">Start Floor Number</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="h-4 w-4 text-gray-500" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs text-xs">Negative numbers represent underground floors</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Input
                 id="startFloor"
                 type="number"
-                min="1"
                 value={startFloor}
-                onChange={(e) => setStartFloor(parseInt(e.target.value) || 1)}
+                onChange={(e) => setStartFloor(parseInt(e.target.value) || 0)}
                 disabled={isCreating}
               />
             </div>
@@ -238,9 +250,8 @@ const BulkAddFloorsModal = ({
               <Input
                 id="endFloor"
                 type="number"
-                min={startFloor}
                 value={endFloor}
-                onChange={(e) => setEndFloor(parseInt(e.target.value) || startFloor)}
+                onChange={(e) => setEndFloor(parseInt(e.target.value) || 0)}
                 disabled={isCreating}
               />
               {endFloor < startFloor && (
@@ -265,7 +276,7 @@ const BulkAddFloorsModal = ({
               disabled={isCreating}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Example: "{labelPrefix} 1", "{labelPrefix} 2", etc.
+              Example: "{labelPrefix} -1", "{labelPrefix} 1", etc.
             </p>
           </div>
           

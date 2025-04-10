@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -32,21 +33,48 @@ export async function createBulkFloors(
     
     console.log("Existing floors data:", existingFloors);
     
-    // Determine starting position
-    let startPosition = 1;
+    // Determine starting position - now supporting negative floor numbers
+    // For positioning: negative floors should appear at the bottom of the list (with lower position values)
+    // and positive floors should appear above them
+    
+    // First, find the highest position value from existing floors
+    let nextPosition = 1;
     if (existingFloors && existingFloors.length > 0) {
-      startPosition = existingFloors[0].position + 1;
+      nextPosition = existingFloors[0].position + 1;
     }
     
-    console.log("Starting position for new floors:", startPosition);
+    console.log("Next available position for new floors:", nextPosition);
     
     // Prepare floors to create
     const floorsToCreate = [];
     const createdFloorIds = [];
     
+    // Calculate logical positions for display order
+    // We want floors to appear in this order: -3, -2, -1, 1, 2, 3...
+    // So we'll assign position values accordingly, with underground floors having lower position values
+    
+    // Sort floor numbers to ensure proper order
+    const floorNumbers = [];
     for (let i = startFloor; i <= endFloor; i++) {
-      const floorLabel = `${labelPrefix} ${i}`;
-      const position = startPosition + (i - startFloor);
+      floorNumbers.push(i);
+    }
+    
+    // Sort floor numbers so that negative floors appear first, then positive floors
+    floorNumbers.sort((a, b) => {
+      // Special handling for basement vs. above-ground floors
+      if (a < 0 && b >= 0) return -1; // Negative floors come before positive
+      if (a >= 0 && b < 0) return 1;  // Positive floors come after negative
+      // For floors of the same sign, use normal ascending order
+      return a - b;
+    });
+    
+    console.log("Ordered floor numbers for creation:", floorNumbers);
+    
+    // Create floors with ascending positions
+    for (let i = 0; i < floorNumbers.length; i++) {
+      const floorNumber = floorNumbers[i];
+      const floorLabel = `${labelPrefix} ${floorNumber}`;
+      const position = nextPosition + i;
       
       const floorId = crypto.randomUUID();
       createdFloorIds.push(floorId);
@@ -59,7 +87,7 @@ export async function createBulkFloors(
         template_id: templateId
       });
       
-      console.log(`Prepared floor "${floorLabel}" with ID ${floorId}`);
+      console.log(`Prepared floor "${floorLabel}" with ID ${floorId} at position ${position}`);
     }
     
     console.log(`Inserting ${floorsToCreate.length} floors for project ${projectId}`);
