@@ -192,7 +192,7 @@ export function useSupabasePropertyData(projectId: string | null) {
         position: floor.position,
         templateId: floor.template_id || '',
         projectId: floor.project_id,
-        floorType: floor.floor_type as 'aboveground' | 'underground' || 'aboveground'
+        floorType: (floor.floor_type === 'underground' ? 'underground' : 'aboveground') as 'aboveground' | 'underground'
       }));
       
       console.log("Transformed floor data:", transformedFloors);
@@ -572,7 +572,7 @@ export function useSupabasePropertyData(projectId: string | null) {
         label: data.label,
         position: data.position,
         templateId: data.template_id || "",
-        floorType: data.floor_type || 'aboveground',
+        floorType: (data.floor_type === 'underground' ? 'underground' : 'aboveground') as 'aboveground' | 'underground',
         projectId: data.project_id
       };
       
