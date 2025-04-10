@@ -11,10 +11,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Floor } from "@/hooks/usePropertyState";
-import { createFloorUsageTemplate } from "@/utils/floorManagement";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SaveAsTemplateModalProps {
   isOpen: boolean;
@@ -49,12 +49,66 @@ const SaveAsTemplateModal = ({
     
     setIsSaving(true);
     try {
-      await createFloorUsageTemplate(
-        projectId,
-        templateName.trim(),
-        sourceFloor.templateId,
-        sourceFloor.id
-      );
+      // Since the createFloorUsageTemplate function was removed, 
+      // we'll implement similar functionality directly
+      const templateId = crypto.randomUUID();
+      
+      // Save the template details first
+      const { error: templateError } = await supabase
+        .from('floor_plate_templates')
+        .insert({
+          id: templateId,
+          name: templateName.trim(),
+          project_id: projectId
+        });
+      
+      if (templateError) {
+        throw templateError;
+      }
+      
+      // Get unit allocations from the source floor
+      const { data: allocations, error: allocError } = await supabase
+        .from('unit_allocations')
+        .select('unit_type_id, quantity')
+        .eq('floor_id', sourceFloor.id);
+      
+      if (allocError) {
+        throw allocError;
+      }
+      
+      // If there are allocations, duplicate them for the new template
+      if (allocations && allocations.length > 0) {
+        // Create new floor to hold the allocations
+        const newFloorId = crypto.randomUUID();
+        const { error: floorError } = await supabase
+          .from('floors')
+          .insert({
+            id: newFloorId,
+            project_id: projectId,
+            label: `Template: ${templateName}`,
+            position: 0, // Not displayed in UI
+            template_id: templateId
+          });
+          
+        if (floorError) {
+          throw floorError;
+        }
+        
+        // Duplicate the allocations for the new template floor
+        const newAllocations = allocations.map(alloc => ({
+          floor_id: newFloorId,
+          unit_type_id: alloc.unit_type_id,
+          quantity: alloc.quantity
+        }));
+        
+        const { error: allocInsertError } = await supabase
+          .from('unit_allocations')
+          .insert(newAllocations);
+        
+        if (allocInsertError) {
+          throw allocInsertError;
+        }
+      }
       
       toast.success(`Saved template "${templateName}" successfully`);
       await onComplete();
