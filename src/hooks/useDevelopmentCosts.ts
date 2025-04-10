@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useProject } from "@/context/ProjectContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +23,19 @@ export interface HardCost {
   calculationMethod: CalculationMethod;
   rate: number | null;
   total: number | null;
+}
+
+// Define the hard cost database row structure
+interface HardCostRow {
+  id: string;
+  project_id: string;
+  property_type: string;
+  cost_category: string;
+  calculation_method: string;
+  rate: number | null;
+  total: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export const useDevelopmentCosts = () => {
@@ -80,6 +94,7 @@ export const useDevelopmentCosts = () => {
     const fetchHardCosts = async () => {
       setLoading(true);
       try {
+        // Use any type to bypass the TypeScript error until types are updated
         const { data, error } = await supabase
           .from('hard_costs')
           .select('*')
@@ -88,7 +103,7 @@ export const useDevelopmentCosts = () => {
         if (error) throw error;
         
         if (data && data.length > 0) {
-          const formattedData: HardCost[] = data.map(item => ({
+          const formattedData: HardCost[] = (data as HardCostRow[]).map(item => ({
             id: item.id,
             projectId: item.project_id,
             propertyType: item.property_type as PropertyType,
@@ -181,19 +196,20 @@ export const useDevelopmentCosts = () => {
             rate: hardCost.rate,
             total: hardCost.total
           })
-          .select()
-          .single();
+          .select();
           
         if (error) throw error;
         
-        // Update local state with new ID from the database
-        const newHardCost: HardCost = {
-          ...hardCost,
-          id: data.id,
-          projectId: data.project_id
-        };
-        
-        setHardCosts(prevCosts => [...prevCosts, newHardCost]);
+        if (data && data.length > 0) {
+          // Update local state with new ID from the database
+          const newHardCost: HardCost = {
+            ...hardCost,
+            id: data[0].id,
+            projectId: data[0].project_id
+          };
+          
+          setHardCosts(prevCosts => [...prevCosts, newHardCost]);
+        }
       }
     } catch (err) {
       console.error("Error saving hard cost:", err);
