@@ -251,18 +251,7 @@ const SortableFloorRow = ({
                 <ChevronRight className="h-4 w-4 text-gray-600" />
               )}
             </button>
-            <div className="flex items-center gap-2">
-              {floorType === 'underground' ? (
-                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
-                  <ArrowDown className="h-3 w-3" />
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 flex items-center gap-1">
-                  <ArrowUp className="h-3 w-3" />
-                </Badge>
-              )}
-              <span>{floor.label}</span>
-            </div>
+            <span>{floor.label}</span>
           </div>
         </TableCell>
         <TableCell>
