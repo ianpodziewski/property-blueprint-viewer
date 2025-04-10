@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -36,11 +37,19 @@ import {
   CheckCircle,
   XCircle,
   Trash,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  fetchFloorUsageTemplates,
+  deleteFloorUsageTemplate,
+  applyTemplateToFloors
+} from "@/utils/floorManagement";
+import { FloorUsageTemplateData } from "@/types/propertyData";
 
 // Define the FloorUsageTemplate interface to match the API response structure
 export interface FloorUsageTemplate {
@@ -76,19 +85,20 @@ const FloorUsageTemplates = ({
   const loadTemplates = async () => {
     setIsLoading(true);
     try {
+      // Since the feature is deprecated, we'll just return an empty array
       const templates = await fetchFloorUsageTemplates(projectId);
       // Transform the API response to match our FloorUsageTemplate interface
-      const transformedTemplates: FloorUsageTemplate[] = templates.map(template => ({
+      const transformedTemplates: FloorUsageTemplate[] = templates.map((template: FloorUsageTemplateData) => ({
         id: template.id,
         name: template.name,
-        templateId: template.template_id || "",
-        projectId: template.project_id,
-        createdAt: template.created_at
+        templateId: template.templateId || "",
+        projectId: template.projectId,
+        createdAt: new Date().toISOString() // Default to current date
       }));
       setUsageTemplates(transformedTemplates);
     } catch (error) {
       console.error("Error loading floor usage templates:", error);
-      toast.error("Failed to load floor templates");
+      // No toast error since this feature is deprecated
     } finally {
       setIsLoading(false);
     }
@@ -169,164 +179,16 @@ const FloorUsageTemplates = ({
 
   const selectedCount = Object.values(selectedFloorIds).filter(Boolean).length;
 
+  // Always return the deprecation notice
   return (
     <div>
-      {usageTemplates.length > 0 && (
-        <Card className="mb-4">
-          <CardHeader className="py-3">
-            <CardTitle className="text-lg">Floor Usage Templates</CardTitle>
-            <CardDescription>Apply saved floor configurations to multiple floors</CardDescription>
-          </CardHeader>
-          <CardContent className="py-2 px-3">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Template Name</TableHead>
-                  <TableHead>Base Floor Template</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center py-4">
-                      <Loader2 className="h-5 w-5 animate-spin mx-auto" />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  usageTemplates.map(template => (
-                    <TableRow key={template.id}>
-                      <TableCell>{template.name}</TableCell>
-                      <TableCell>{getTemplateName(template.templateId)}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              disabled={isDeleting[template.id]}
-                            >
-                              {isDeleting[template.id] ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <MoreVertical className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openApplyModal(template)}>
-                              <ArrowRight className="h-4 w-4 mr-2" /> Apply to Floors
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(template.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash className="h-4 w-4 mr-2" /> Delete Template
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Apply template modal */}
-      <Dialog open={applyModalOpen} onOpenChange={setApplyModalOpen}>
-        <DialogContent className="sm:max-w-[550px]">
-          <DialogHeader>
-            <DialogTitle>Apply Template to Floors</DialogTitle>
-            <DialogDescription>
-              {selectedTemplate ? `Apply "${selectedTemplate.name}" to the selected floors` : ''}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4 space-y-4">
-            <div className="flex justify-between items-center pb-2">
-              <Label>Select Floors</Label>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="select-all"
-                  checked={floors.length > 0 && selectedCount === floors.length}
-                  onCheckedChange={(checked) => toggleAllFloors(checked === true)}
-                />
-                <Label 
-                  htmlFor="select-all"
-                  className="text-sm font-normal"
-                >
-                  Select All
-                </Label>
-              </div>
-            </div>
-            
-            <div className="border rounded-md p-3 h-48 overflow-y-auto">
-              {floors.length === 0 ? (
-                <p className="text-gray-500 text-sm">No floors available</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {floors.map((floor) => (
-                    <div key={floor.id} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`floor-${floor.id}`}
-                        checked={!!selectedFloorIds[floor.id]}
-                        onCheckedChange={(checked) => toggleFloor(floor.id, checked === true)}
-                      />
-                      <Label 
-                        htmlFor={`floor-${floor.id}`}
-                        className="text-sm font-normal"
-                      >
-                        {floor.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            <div className="bg-gray-50 rounded-md p-3 mt-3 flex items-center">
-              {selectedCount > 0 ? (
-                <div className="flex items-center text-sm text-green-700">
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {selectedCount} floor{selectedCount !== 1 && 's'} selected
-                </div>
-              ) : (
-                <div className="flex items-center text-sm text-orange-700">
-                  <XCircle className="h-4 w-4 mr-2" />
-                  No floors selected
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setApplyModalOpen(false)}
-              disabled={isApplying}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleApplyTemplate} 
-              disabled={selectedCount === 0 || isApplying}
-            >
-              {isApplying ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Applying...
-                </>
-              ) : (
-                "Apply Template"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Alert variant="warning" className="mb-6">
+        <AlertTriangle className="h-5 w-5" />
+        <AlertTitle>Feature Deprecated</AlertTitle>
+        <AlertDescription>
+          Floor Usage Templates feature has been deprecated. The related database tables have been removed.
+        </AlertDescription>
+      </Alert>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { FloorUsageTemplateData } from "@/types/propertyData";
 
 export async function createBulkFloors(
   projectId: string,
@@ -260,7 +261,7 @@ export async function createFloorUsageTemplate(
   return "";
 }
 
-export async function fetchFloorUsageTemplates(projectId: string) {
+export async function fetchFloorUsageTemplates(projectId: string): Promise<FloorUsageTemplateData[]> {
   console.log("Floor usage templates feature has been deprecated");
   return [];
 }
