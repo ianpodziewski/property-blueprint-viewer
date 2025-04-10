@@ -30,6 +30,7 @@ const PropertyBreakdown = () => {
     floorPlateTemplates,
     products,
     floors,
+    buildingComponentCategories,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
     deleteFloorPlateTemplate,
@@ -45,6 +46,9 @@ const PropertyBreakdown = () => {
     updateUnitAllocation,
     getUnitAllocation,
     getFloorTemplateById,
+    addBuildingComponentCategory,
+    updateBuildingComponentCategory,
+    deleteBuildingComponentCategory,
     reloadProjectData
   } = useSupabasePropertyData(projectId || null);
   
@@ -291,6 +295,7 @@ const PropertyBreakdown = () => {
       <PlanningCard
         floorPlateTemplates={floorPlateTemplates}
         products={products}
+        buildingComponentCategories={buildingComponentCategories || []}
         onAddTemplate={addFloorPlateTemplate}
         onUpdateTemplate={updateFloorPlateTemplate}
         onDeleteTemplate={deleteFloorPlateTemplate}
@@ -300,6 +305,9 @@ const PropertyBreakdown = () => {
         onAddUnitType={addUnitType}
         onUpdateUnitType={updateUnitType}
         onDeleteUnitType={deleteUnitType}
+        onAddComponent={addBuildingComponentCategory}
+        onUpdateComponent={updateBuildingComponentCategory}
+        onDeleteComponent={deleteBuildingComponentCategory}
       />
       
       <Card className="mb-6">
