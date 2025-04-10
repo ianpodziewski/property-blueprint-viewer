@@ -169,6 +169,44 @@ export type Database = {
           },
         ]
       }
+      non_rentable_types: {
+        Row: {
+          id: string
+          project_id: string
+          name: string
+          square_footage: number
+          allocation_method: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          name: string
+          square_footage?: number
+          allocation_method?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          name?: string
+          square_footage?: number
+          allocation_method?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "non_rentable_types_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
