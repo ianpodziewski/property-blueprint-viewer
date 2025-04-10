@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { PlusCircle, Pencil, Trash2, X, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ const UnitMix = ({
   onUpdateUnitType,
   onDeleteUnitType
 }: UnitMixProps) => {
+  // Changed the initial state to an empty object so all products start collapsed
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -369,7 +371,7 @@ const UnitMix = ({
           ) : (
             <div className="space-y-4">
               {products.map((product) => {
-                const isExpanded = expandedProducts[product.id] !== false;
+                const isExpanded = !!expandedProducts[product.id];
                 
                 return (
                   <Card key={product.id} className="bg-white overflow-hidden">
