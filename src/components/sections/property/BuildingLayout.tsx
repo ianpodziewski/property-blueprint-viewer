@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw } from "lucide-react";
@@ -6,7 +7,7 @@ import BulkAddFloorsModal from "./BulkAddFloorsModal";
 import FloorUsageTemplates from "./FloorUsageTemplates";
 import BuildingSummaryPanel from "./BuildingSummaryPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import UnitMix from "./UnitMix";
+import { UnitMix } from "./UnitMix";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -35,6 +36,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useModel } from "@/context/ModelContext";
+import { useProject } from "@/context/ProjectContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
@@ -71,6 +73,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   const [isBulkAddModalOpen, setIsBulkAddModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { setHasUnsavedChanges } = useModel();
+  const { currentProjectId } = useProject();
   const [editFloorId, setEditFloorId] = useState<string | null>(null);
   const [editedLabel, setEditedLabel] = useState('');
   const [editedPosition, setEditedPosition] = useState<number | undefined>(undefined);
@@ -199,7 +202,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
             <FloorUsageTemplates 
               floors={floors}
               templates={templates}
-              projectId={projectId || ''}
+              projectId={currentProjectId || ''}
               onRefresh={onRefreshData}
             />
           )}
@@ -268,7 +271,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
         onClose={() => setIsBulkAddModalOpen(false)}
         onComplete={handleDataRefresh}
         templates={templates}
-        projectId={projectId || ''}
+        projectId={currentProjectId || ''}
       />
       
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>

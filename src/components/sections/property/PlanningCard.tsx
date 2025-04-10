@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import FloorPlateTemplates from "./FloorPlateTemplates";
-import UnitMix from "./UnitMix";
+import { UnitMix } from "./UnitMix";
 import NonRentableComponentModal from "./NonRentableComponentModal";
 import { FloorPlateTemplate, Product, UnitType } from "@/hooks/usePropertyState";
 
