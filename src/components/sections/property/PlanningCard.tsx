@@ -7,6 +7,7 @@ import { PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import FloorPlateTemplates from "./FloorPlateTemplates";
 import UnitMix from "./UnitMix";
+import NonRentableComponentModal from "./NonRentableComponentModal";
 import { FloorPlateTemplate, Product, UnitType } from "@/hooks/usePropertyState";
 
 interface PlanningCardProps {
@@ -37,9 +38,15 @@ const PlanningCard = ({
   onDeleteUnitType
 }: PlanningCardProps) => {
   const [activeTab, setActiveTab] = useState("floor-plate-templates");
+  const [isComponentModalOpen, setIsComponentModalOpen] = useState(false);
 
   const handleAddComponent = () => {
-    toast.info("This feature will be implemented soon");
+    setIsComponentModalOpen(true);
+  };
+
+  const handleSaveComponent = (name: string) => {
+    setIsComponentModalOpen(false);
+    toast.info("Component will be saved in a future update");
   };
 
   return (
@@ -106,6 +113,12 @@ const PlanningCard = ({
             <div className="text-center py-12 border border-dashed border-gray-200 rounded-md bg-gray-50">
               <p className="text-gray-500">No non-rentable components defined yet</p>
             </div>
+            
+            <NonRentableComponentModal 
+              open={isComponentModalOpen}
+              onOpenChange={setIsComponentModalOpen}
+              onSave={handleSaveComponent}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>
