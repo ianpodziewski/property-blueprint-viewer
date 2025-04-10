@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { PlusCircle, RefreshCw, ChevronDown, ChevronRight, GripVertical, AlertTriangle, Edit, Trash2, Plus } from 'lucide-react';
+import { PlusCircle, RefreshCw, ChevronDown, ChevronRight, GripVertical, AlertTriangle, Edit, Trash2, Plus, InfoIcon } from 'lucide-react';
 import { Floor, FloorPlateTemplate, Product, NonRentableType } from '@/hooks/usePropertyState';
 import { toast } from 'sonner';
 import BuildingSummaryPanel from './BuildingSummaryPanel';
@@ -246,16 +246,22 @@ const SortableFloorRow = ({
   const floorTemplate = getFloorTemplateById(floor.templateId);
   const floorArea = floorTemplate?.grossArea || 0;
   
+  const nonRentableArea = useMemo(() => {
+    return nonRentableAllocations.reduce((total, allocation) => {
+      return total + allocation.squareFootage;
+    }, 0);
+  }, [nonRentableAllocations]);
+
   const allocatedArea = floorAllocationData ? floorAllocationData.allocatedArea : useMemo(() => {
-    let total = 0;
+    let unitArea = 0;
     for (const product of products) {
       for (const unitType of product.unitTypes) {
         const quantity = allocations[unitType.id] || 0;
-        total += quantity * unitType.grossArea;
+        unitArea += quantity * unitType.grossArea;
       }
     }
-    return total;
-  }, [products, allocations, floorAllocationData]);
+    return unitArea + nonRentableArea;
+  }, [products, allocations, nonRentableArea, floorAllocationData]);
   
   const utilization = floorAllocationData 
     ? floorAllocationData.utilization 
@@ -281,12 +287,6 @@ const SortableFloorRow = ({
   };
   
   const floorType = floor.floorType || 'aboveground';
-
-  const nonRentableArea = useMemo(() => {
-    return nonRentableAllocations.reduce((total, allocation) => {
-      return total + allocation.squareFootage;
-    }, 0);
-  }, [nonRentableAllocations]);
 
   const getNonRentableTypeName = (typeId: string) => {
     const type = nonRentableTypes.find(t => t.id === typeId);
@@ -337,7 +337,25 @@ const SortableFloorRow = ({
           {floorArea.toLocaleString()} sf
         </TableCell>
         <TableCell className="text-right">
-          {allocatedArea.toLocaleString()} sf
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger className="flex items-center justify-end w-full cursor-help">
+                <span className="mr-1">{allocatedArea.toLocaleString()} sf</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Total allocated space includes:</p>
+                <ul className="mt-1 text-xs">
+                  <li>• Unit allocations: {(allocatedArea - nonRentableArea).toLocaleString()} sf</li>
+                  <li>• Non-rentable space: {nonRentableArea.toLocaleString()} sf</li>
+                </ul>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </TableCell>
         <TableCell className="w-32">
           <Progress 
@@ -589,22 +607,30 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
         const allocData: Record<string, FloorAllocationData> = {};
         
         for (const floor of floors) {
-          let totalAllocated = 0;
+          let unitAllocatedArea = 0;
           
           for (const product of products) {
             for (const unitType of product.unitTypes) {
               const quantity = await getUnitAllocation(floor.id, unitType.id);
-              totalAllocated += quantity * unitType.grossArea;
+              unitAllocatedArea += quantity * unitType.grossArea;
             }
           }
           
+          const floorNonRentableAllocations = getNonRentableAllocationsForFloor(floor.id);
+          
+          const nonRentableArea = floorNonRentableAllocations.reduce((total, allocation) => {
+            return total + allocation.squareFootage;
+          }, 0);
+          
+          const totalAllocatedArea = unitAllocatedArea + nonRentableArea;
+          
           const floorTemplate = getFloorTemplateById(floor.templateId);
           const floorArea = floorTemplate?.grossArea || 0;
-          const utilizationPercentage = floorArea > 0 ? (totalAllocated / floorArea) * 100 : 0;
+          const utilizationPercentage = floorArea > 0 ? (totalAllocatedArea / floorArea) * 100 : 0;
           
           allocData[floor.id] = {
             floorId: floor.id,
-            allocatedArea: totalAllocated,
+            allocatedArea: totalAllocatedArea,
             utilization: utilizationPercentage
           };
         }
@@ -618,7 +644,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     };
     
     calculateAllFloorAllocations();
-  }, [floors, products, getUnitAllocation, getFloorTemplateById]);
+  }, [floors, products, getUnitAllocation, getFloorTemplateById, getNonRentableAllocationsForFloor]);
   
   const handleAllocationChange = useCallback((unitTypeId: string, difference: number) => {
     setGlobalAllocations(prev => ({
@@ -764,7 +790,27 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
                     <TableHead>Floor</TableHead>
                     <TableHead>Template</TableHead>
                     <TableHead className="text-right">Area</TableHead>
-                    <TableHead className="text-right">Allocated</TableHead>
+                    <TableHead className="text-right">
+                      <div className="flex items-center justify-end">
+                        <span>Allocated</span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 text-gray-500">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="16" x2="12" y2="12" />
+                                <line x1="12" y1="8" x2="12.01" y2="8" />
+                              </svg>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs max-w-xs">
+                                Total allocated space includes both unit allocations and non-rentable space
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </TableHead>
                     <TableHead className="text-right">Utilization</TableHead>
                     <TableHead className="w-14"></TableHead>
                   </TableRow>
@@ -815,6 +861,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
         products={products}
         getFloorTemplateById={getFloorTemplateById}
         getUnitAllocation={getUnitAllocation}
+        nonRentableAllocations={nonRentableAllocations}
       />
       
       {showBulkAddModal && (

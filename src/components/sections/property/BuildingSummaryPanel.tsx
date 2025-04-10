@@ -1,9 +1,11 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Progress } from '@/components/ui/progress';
 import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { NonRentableAllocation } from '@/hooks/useSupabasePropertyData';
 
 interface BuildingSummaryPanelProps {
   floors: Floor[];
@@ -11,26 +13,7 @@ interface BuildingSummaryPanelProps {
   products: Product[];
   getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
   getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
-}
-
-interface TemplateUsage {
-  templateId: string;
-  templateName: string;
-  count: number;
-  area: number;
-}
-
-interface UnitTypeSummary {
-  unitType: string;
-  count: number;
-}
-
-interface FloorUtilization {
-  floorId: string;
-  position: number;
-  utilization: number;
-  allocated: number;
-  capacity: number;
+  nonRentableAllocations?: NonRentableAllocation[];
 }
 
 const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
@@ -38,239 +21,212 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
   templates,
   products,
   getFloorTemplateById,
-  getUnitAllocation
+  getUnitAllocation,
+  nonRentableAllocations = []
 }) => {
-  const [floorUtilizations, setFloorUtilizations] = useState<FloorUtilization[]>([]);
-  const [unitTypeCounts, setUnitTypeCounts] = useState<UnitTypeSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastRefreshed, setLastRefreshed] = useState(new Date());
-
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [unitStats, setUnitStats] = useState<{
+    total: number;
+    allocated: number;
+  }>({
+    total: 0,
+    allocated: 0
+  });
+  
+  const [areaStats, setAreaStats] = useState<{
+    total: number;
+    allocated: number;
+    nonRentable: number;
+  }>({
+    total: 0,
+    allocated: 0,
+    nonRentable: 0
+  });
+  
+  // Calculate total non-rentable area
+  const totalNonRentableArea = useMemo(() => {
+    return nonRentableAllocations.reduce((total, allocation) => {
+      return total + allocation.squareFootage;
+    }, 0);
+  }, [nonRentableAllocations]);
+  
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
+    const calculateBuildingStats = async () => {
+      if (floors.length === 0 || products.length === 0) return;
+      
+      setIsLoadingStats(true);
+      
       try {
-        // Calculate utilization for each floor
-        const utilizations: FloorUtilization[] = [];
+        let totalGrossArea = 0;
+        let totalAllocatedArea = 0;
+        let totalUnits = 0;
+        let totalAllocatedUnits = 0;
         
+        // Calculate gross area of all floors
         for (const floor of floors) {
           const template = getFloorTemplateById(floor.templateId);
-          if (!template) continue;
-          
-          let allocatedArea = 0;
-          
-          // Calculate allocated area
-          for (const product of products) {
-            for (const unitType of product.unitTypes) {
-              const quantity = await getUnitAllocation(floor.id, unitType.id);
-              allocatedArea += quantity * unitType.grossArea;
-            }
+          if (template) {
+            totalGrossArea += template.grossArea;
           }
-          
-          utilizations.push({
-            floorId: floor.id,
-            position: floor.position,
-            utilization: template.grossArea > 0 ? (allocatedArea / template.grossArea) * 100 : 0,
-            allocated: allocatedArea,
-            capacity: template.grossArea
-          });
         }
         
-        // Get unit type counts across all floors
-        const unitCounts: Record<string, number> = {};
-        
+        // Calculate allocated unit area and unit counts
         for (const product of products) {
           for (const unitType of product.unitTypes) {
-            unitCounts[unitType.unitType] = 0;
+            totalUnits += unitType.numberOfUnits;
             
-            // Sum quantities across all floors
             for (const floor of floors) {
-              const quantity = await getUnitAllocation(floor.id, unitType.id);
-              unitCounts[unitType.unitType] += quantity;
+              const allocation = await getUnitAllocation(floor.id, unitType.id);
+              totalAllocatedUnits += allocation;
+              totalAllocatedArea += allocation * unitType.grossArea;
             }
           }
         }
         
-        const unitSummary = Object.entries(unitCounts).map(([unitType, count]) => ({
-          unitType,
-          count
-        }));
+        // Add non-rentable area to total allocated area
+        totalAllocatedArea += totalNonRentableArea;
         
-        setFloorUtilizations(utilizations);
-        setUnitTypeCounts(unitSummary);
-        setLastRefreshed(new Date());
+        setUnitStats({
+          total: totalUnits,
+          allocated: totalAllocatedUnits
+        });
+        
+        setAreaStats({
+          total: totalGrossArea,
+          allocated: totalAllocatedArea,
+          nonRentable: totalNonRentableArea
+        });
       } catch (error) {
-        console.error("Error fetching building summary data:", error);
+        console.error("Error calculating building stats:", error);
       } finally {
-        setIsLoading(false);
+        setIsLoadingStats(false);
       }
     };
     
-    if (floors.length > 0 && products.length > 0) {
-      fetchData();
-    } else {
-      setIsLoading(false);
-    }
-  }, [floors, products, getFloorTemplateById, getUnitAllocation]);
+    calculateBuildingStats();
+  }, [floors, products, getFloorTemplateById, getUnitAllocation, totalNonRentableArea]);
   
-  // Template usage stats
-  const templateUsage = useMemo(() => {
-    const usage: Record<string, TemplateUsage> = {};
-    
-    for (const floor of floors) {
-      const template = getFloorTemplateById(floor.templateId);
-      if (!template) continue;
-      
-      if (!usage[template.id]) {
-        usage[template.id] = {
-          templateId: template.id,
-          templateName: template.name,
-          count: 0,
-          area: 0
-        };
-      }
-      
-      usage[template.id].count += 1;
-      usage[template.id].area += template.grossArea;
-    }
-    
-    return Object.values(usage);
-  }, [floors, getFloorTemplateById]);
+  const buildingUtilization = areaStats.total > 0 
+    ? (areaStats.allocated / areaStats.total) * 100 
+    : 0;
   
-  // Building stats
-  const buildingStats = useMemo(() => {
-    const totalFloors = floors.length;
+  const unitUtilization = unitStats.total > 0 
+    ? (unitStats.allocated / unitStats.total) * 100 
+    : 0;
     
-    const totalArea = floorUtilizations.reduce((sum, floor) => sum + floor.capacity, 0);
-    
-    const totalAllocated = floorUtilizations.reduce((sum, floor) => sum + floor.allocated, 0);
-    
-    const utilizationPercentage = totalArea > 0 ? (totalAllocated / totalArea) * 100 : 0;
-    
-    const overallocatedFloors = floorUtilizations
-      .filter(floor => floor.utilization > 100)
-      .sort((a, b) => a.position - b.position);
-    
-    const emptyFloors = floorUtilizations
-      .filter(floor => floor.allocated === 0)
-      .sort((a, b) => a.position - b.position);
-    
-    return {
-      totalFloors,
-      totalArea,
-      totalAllocated,
-      utilizationPercentage,
-      overallocatedFloors,
-      emptyFloors
-    };
-  }, [floors, floorUtilizations]);
-  
-  // Format number with commas
-  const formatNumber = (num: number): string => {
-    return Math.round(num).toLocaleString();
+  const getProgressVariant = (value: number) => {
+    if (value >= 80) return "green";
+    if (value >= 50) return "yellow";
+    return "red";
   };
-  
-  // Format date for last refreshed
-  const formatDate = (date: Date): string => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-  
-  // Template breakdown as text
-  const templateBreakdownText = useMemo(() => {
-    if (templateUsage.length === 0) return "No templates used";
-    
-    const totalArea = templateUsage.reduce((sum, template) => sum + template.area, 0);
-    
-    return templateUsage
-      .map(template => {
-        const percentage = totalArea > 0 
-          ? Math.round((template.area / totalArea) * 100)
-          : 0;
-        return `${percentage}% ${template.templateName}`;
-      })
-      .join(', ');
-  }, [templateUsage]);
-  
-  // Unit type summary as text
-  const unitSummaryText = useMemo(() => {
-    if (unitTypeCounts.length === 0) return "No units allocated";
-    
-    return unitTypeCounts
-      .filter(unit => unit.count > 0)
-      .map(unit => `${unit.count} ${unit.unitType}`)
-      .join(', ');
-  }, [unitTypeCounts]);
-  
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Building Summary</span>
-          <span className="text-xs text-gray-500 font-normal">
-            Last updated: {formatDate(lastRefreshed)}
-          </span>
-        </CardTitle>
+        <CardTitle>Building Summary</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {isLoading ? (
-          <div className="text-center py-4">
-            <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
-            <p className="text-sm text-gray-500 mt-2">Loading summary data...</p>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 className="text-sm font-medium mb-4">Area Utilization</h4>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Metric</TableHead>
+                  <TableHead className="text-right">Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell>Total Area</TableCell>
+                  <TableCell className="text-right">{areaStats.total.toLocaleString()} sf</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="flex items-center cursor-help">
+                          <span>Allocated Area</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 text-gray-500">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                          </svg>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Total allocated space includes:</p>
+                          <ul className="mt-1 text-xs">
+                            <li>• Unit allocations: {(areaStats.allocated - areaStats.nonRentable).toLocaleString()} sf</li>
+                            <li>• Non-rentable space: {areaStats.nonRentable.toLocaleString()} sf</li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
+                  <TableCell className="text-right">{areaStats.allocated.toLocaleString()} sf</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Non-Rentable Space</TableCell>
+                  <TableCell className="text-right">{areaStats.nonRentable.toLocaleString()} sf</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Remaining Unallocated</TableCell>
+                  <TableCell className="text-right">{Math.max(0, areaStats.total - areaStats.allocated).toLocaleString()} sf</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            
+            <div className="mt-4">
+              <div className="flex justify-between text-sm mb-1">
+                <span>Building Utilization</span>
+                <span>{buildingUtilization.toFixed(1)}%</span>
+              </div>
+              <Progress 
+                value={buildingUtilization} 
+                variant={getProgressVariant(buildingUtilization)}
+                size="md"
+              />
+            </div>
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-500">Total Floors</div>
-                <div className="text-2xl font-semibold">{buildingStats.totalFloors}</div>
+          
+          <div>
+            <h4 className="text-sm font-medium mb-4">Unit Utilization</h4>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Metric</TableHead>
+                  <TableHead className="text-right">Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell>Total Units</TableCell>
+                  <TableCell className="text-right">{unitStats.total}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Allocated Units</TableCell>
+                  <TableCell className="text-right">{unitStats.allocated}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Remaining Unallocated</TableCell>
+                  <TableCell className="text-right">{Math.max(0, unitStats.total - unitStats.allocated)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            
+            <div className="mt-4">
+              <div className="flex justify-between text-sm mb-1">
+                <span>Unit Utilization</span>
+                <span>{unitUtilization.toFixed(1)}%</span>
               </div>
-              
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-500">Total Building Area</div>
-                <div className="text-2xl font-semibold">{formatNumber(buildingStats.totalArea)} sf</div>
-              </div>
-              
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-500">Total Allocated Area</div>
-                <div className="text-2xl font-semibold">
-                  {formatNumber(buildingStats.totalAllocated)} sf
-                  <span className="text-sm font-normal text-gray-500 ml-1">
-                    ({buildingStats.utilizationPercentage.toFixed(1)}%)
-                  </span>
-                </div>
-              </div>
-              
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-500">Unit Count</div>
-                <div className="text-lg font-semibold truncate">{unitSummaryText}</div>
-              </div>
+              <Progress 
+                value={unitUtilization} 
+                variant={getProgressVariant(unitUtilization)}
+                size="md"
+              />
             </div>
-            
-            <div>
-              <div className="text-sm font-medium mb-2">Template Breakdown</div>
-              <div className="text-sm">{templateBreakdownText}</div>
-            </div>
-            
-            {buildingStats.overallocatedFloors.length > 0 && (
-              <Alert variant="warning">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Over-allocated Floors</AlertTitle>
-                <AlertDescription>
-                  Floors {buildingStats.overallocatedFloors.map(f => f.position).join(', ')} have utilization over 100%
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {buildingStats.emptyFloors.length > 0 && (
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Empty Floors</AlertTitle>
-                <AlertDescription>
-                  Floors {buildingStats.emptyFloors.map(f => f.position).join(', ')} have no unit allocations
-                </AlertDescription>
-              </Alert>
-            )}
-          </>
-        )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
