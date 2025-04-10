@@ -255,12 +255,10 @@ const SortableFloorRow = ({
               {floorType === 'underground' ? (
                 <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
                   <ArrowDown className="h-3 w-3" />
-                  <span>Underground</span>
                 </Badge>
               ) : (
                 <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 flex items-center gap-1">
                   <ArrowUp className="h-3 w-3" />
-                  <span>Above Ground</span>
                 </Badge>
               )}
               <span>{floor.label}</span>
@@ -514,7 +512,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     const undergroundFloors = floors.filter(f => f.floorType === 'underground');
     
     const sortedAboveground = [...abovegroundFloors].sort((a, b) => b.position - a.position);
-    const sortedUnderground = [...undergroundFloors].sort((a, b) => b.position - a.position);
+    const sortedUnderground = [...undergroundFloors].sort((a, b) => a.position - b.position);
     
     return [...sortedAboveground, ...sortedUnderground];
   }, [floors]);
