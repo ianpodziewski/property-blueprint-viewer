@@ -48,7 +48,7 @@ const FloorComponentsPanel: React.FC<FloorComponentsPanelProps> = ({
         return (
           <Collapsible key={containerId} className="mb-4">
             <CollapsibleTrigger className="flex items-center w-full text-left p-2 hover:bg-gray-50 rounded">
-              {open => (
+              {({ open }: { open: boolean }) => (
                 <>
                   {open ? (
                     <ChevronDown className="h-4 w-4 text-gray-500 mr-2" />

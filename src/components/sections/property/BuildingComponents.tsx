@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BuildingComponent, BuildingComponentFormData } from '@/hooks/useBuildingComponents';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PlusCircle, Edit, Trash2, Building2, ChevronRight, ChevronDown } from "lucide-react";
 import { Floor } from '@/hooks/usePropertyState';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { toast } from "sonner";
 
 interface BuildingComponentsProps {
   components: BuildingComponent[];
@@ -20,7 +20,6 @@ interface BuildingComponentsProps {
   onDeleteComponent: (id: string) => Promise<boolean>;
 }
 
-// Container component to display a group of components
 const ComponentContainer: React.FC<{
   container: BuildingComponent;
   childComponents: BuildingComponent[];
@@ -287,10 +286,8 @@ const BuildingComponents: React.FC<BuildingComponentsProps> = ({
     setIsAddComponentDialogOpen(true);
   };
 
-  // Get container components (top level)
   const containerComponents = components.filter(c => c.isContainer);
   
-  // Get child components by parent ID
   const getChildComponents = (parentId: string) => 
     components.filter(c => c.parentId === parentId);
 
@@ -376,7 +373,6 @@ const BuildingComponents: React.FC<BuildingComponentsProps> = ({
         </Card>
       )}
 
-      {/* Add Component Dialog */}
       <Dialog open={isAddComponentDialogOpen} onOpenChange={setIsAddComponentDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -484,7 +480,6 @@ const BuildingComponents: React.FC<BuildingComponentsProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog - Used for both containers and components */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
