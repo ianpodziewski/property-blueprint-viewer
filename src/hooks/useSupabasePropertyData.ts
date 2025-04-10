@@ -6,7 +6,8 @@ import {
   FloorPlateTemplate, 
   UnitType, 
   Product, 
-  Floor 
+  Floor,
+  BuildingComponentCategory
 } from '@/hooks/usePropertyState';
 import { useProject } from '@/context/ProjectContext';
 
@@ -65,6 +66,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
+  const [buildingComponentCategories, setBuildingComponentCategories] = useState<BuildingComponentCategory[]>([]);
   const [unitAllocations, setUnitAllocations] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState<number>(0);
@@ -171,6 +173,23 @@ export function useSupabasePropertyData(projectId: string | null) {
       });
       
       setProducts(Array.from(productMap.values()));
+      
+      const { data: componentData, error: componentError } = await supabase
+        .from('building_component_categories')
+        .select('*')
+        .eq('project_id', effectiveProjectId);
+        
+      if (componentError) {
+        console.error("Error loading building components:", componentError);
+        throw componentError;
+      }
+      
+      const transformedComponents = (componentData || []).map((component: any) => ({
+        id: component.id,
+        name: component.name
+      }));
+      
+      setBuildingComponentCategories(transformedComponents);
       
       console.log("Loading floors for project:", effectiveProjectId);
       const { data: floorData, error: floorError } = await supabase
@@ -696,6 +715,88 @@ export function useSupabasePropertyData(projectId: string | null) {
     return Promise.resolve(allocation ? allocation.quantity : 0);
   };
 
+  const addBuildingComponentCategory = async (name: string): Promise<BuildingComponentCategory | null> => {
+    if (!effectiveProjectId || !user) return null;
+    
+    try {
+      const dbComponent = {
+        project_id: effectiveProjectId,
+        name: name.trim()
+      };
+      
+      const { data, error } = await supabase
+        .from('building_component_categories')
+        .insert(dbComponent)
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      const newComponent: BuildingComponentCategory = {
+        id: data.id,
+        name: data.name
+      };
+      
+      setBuildingComponentCategories(prev => [...prev, newComponent]);
+      return newComponent;
+      
+    } catch (error) {
+      console.error("Error adding building component category:", error);
+      toast.error("Failed to add building component category");
+      return null;
+    }
+  };
+
+  const updateBuildingComponentCategory = async (id: string, name: string): Promise<boolean> => {
+    if (!effectiveProjectId || !user) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('building_component_categories')
+        .update({ name: name.trim() })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setBuildingComponentCategories(prev => 
+        prev.map(component => 
+          component.id === id ? { ...component, name: name.trim() } : component
+        )
+      );
+      
+      return true;
+      
+    } catch (error) {
+      console.error("Error updating building component category:", error);
+      toast.error("Failed to update building component category");
+      return false;
+    }
+  };
+
+  const deleteBuildingComponentCategory = async (id: string): Promise<boolean> => {
+    if (!effectiveProjectId || !user) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('building_component_categories')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setBuildingComponentCategories(prev => 
+        prev.filter(component => component.id !== id)
+      );
+      
+      return true;
+      
+    } catch (error) {
+      console.error("Error deleting building component category:", error);
+      toast.error("Failed to delete building component category");
+      return false;
+    }
+  };
+
   return {
     loading,
     saving,
@@ -704,6 +805,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     floorPlateTemplates,
     products,
     floors,
+    buildingComponentCategories,
     updateProjectInfo,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
@@ -720,6 +822,9 @@ export function useSupabasePropertyData(projectId: string | null) {
     updateUnitAllocation,
     getUnitAllocation,
     reloadProjectData,
+    addBuildingComponentCategory,
+    updateBuildingComponentCategory,
+    deleteBuildingComponentCategory,
     
     getFloorTemplateById: (templateId: string) => {
       return floorPlateTemplates.find(template => template.id === templateId);

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { safeNumberConversion } from "@/utils/modelValidation";
 
@@ -55,9 +54,9 @@ const getSavedArrayValue = (key: string, defaultValue: any[]): any[] => {
 export interface FloorPlateTemplate {
   id: string;
   name: string;
+  grossArea: number;
   width?: number;
   length?: number;
-  grossArea: number;
 }
 
 // Interface for unit type
@@ -65,9 +64,9 @@ export interface UnitType {
   id: string;
   unitType: string;
   numberOfUnits: number;
+  grossArea: number;
   width?: number;
   length?: number;
-  grossArea: number;
 }
 
 // Interface for product (container for unit types)
@@ -77,14 +76,20 @@ export interface Product {
   unitTypes: UnitType[];
 }
 
+// Interface for building component category
+export interface BuildingComponentCategory {
+  id: string;
+  name: string;
+}
+
 // Interface for floor - updated to include floorType property
 export interface Floor {
   id: string;
   label: string;
   position: number;
   templateId: string;
-  projectId?: string;
-  floorType?: 'aboveground' | 'underground';
+  floorType: 'aboveground' | 'underground';
+  projectId: string;
 }
 
 export const usePropertyState = () => {
