@@ -6,8 +6,18 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { HardCost, CalculationMethod, PropertyType } from "@/hooks/useDevelopmentCosts";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
+
+interface UnitTypeBreakdown {
+  name: string;
+  areaPerUnit: number;
+  numberOfUnits: number;
+  totalArea: number;
+  percentage: number;
+}
 
 interface PropertyTypeHardCostsProps {
   propertyType: PropertyType;
@@ -18,6 +28,8 @@ interface PropertyTypeHardCostsProps {
   onUpdateCost: (id: string, updates: Partial<Omit<HardCost, 'id' | 'projectId'>>) => void;
   onDeleteCost: (id: string) => void;
   subtotal: number;
+  unitTypeBreakdown?: UnitTypeBreakdown[];
+  isNonRentable?: boolean;
 }
 
 export const PropertyTypeHardCosts = ({
@@ -28,8 +40,12 @@ export const PropertyTypeHardCosts = ({
   onAddCost,
   onUpdateCost,
   onDeleteCost,
-  subtotal
+  subtotal,
+  unitTypeBreakdown = [],
+  isNonRentable = false
 }: PropertyTypeHardCostsProps) => {
+  const [isBreakdownOpen, setIsBreakdownOpen] = useState(false);
+  
   // Helper to format currency
   const formatCurrency = (amount: number | null) => {
     if (amount === null) return "$0";
@@ -107,12 +123,43 @@ export const PropertyTypeHardCosts = ({
       <CardHeader>
         <CardTitle>{getPropertyTypeDisplay(propertyType)}</CardTitle>
         <CardDescription>
-          {propertyType.toLowerCase() === "common" 
-            ? "Building-wide costs" 
-            : `${propertyArea.toLocaleString()} SF${propertyUnits > 0 ? `, ${propertyUnits} Units` : ""}`}
+          {propertyArea > 0 
+            ? `${propertyArea.toLocaleString()} SF${propertyUnits > 0 ? `, ${propertyUnits} Units` : ""}`
+            : isNonRentable 
+              ? "Non-rentable spaces"
+              : "No area defined yet"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {unitTypeBreakdown.length > 0 && (
+          <Collapsible
+            open={isBreakdownOpen}
+            onOpenChange={setIsBreakdownOpen}
+            className="border rounded-md p-2 bg-gray-50"
+          >
+            <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-gray-100 rounded-md">
+              <span className="font-medium">Unit Type Breakdown</span>
+              {isBreakdownOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2 px-2">
+              <div className="space-y-3">
+                {unitTypeBreakdown.map((unitType, index) => (
+                  <div key={index} className="text-sm">
+                    <div className="flex justify-between mb-1">
+                      <span className="font-medium">{unitType.name}</span>
+                      <span>{unitType.totalArea.toLocaleString()} SF ({Math.round(unitType.percentage)}%)</span>
+                    </div>
+                    <div className="flex items-center text-xs text-gray-500 mb-1">
+                      <span>{unitType.areaPerUnit.toLocaleString()} SF per unit × {unitType.numberOfUnits} units</span>
+                    </div>
+                    <Progress value={unitType.percentage} className="h-1.5" />
+                  </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+        
         {costs.length === 0 ? (
           <div className="text-center py-4 text-gray-500">
             No cost items yet. Add one below.
