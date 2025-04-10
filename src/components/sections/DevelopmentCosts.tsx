@@ -322,8 +322,6 @@ const DevelopmentCosts = () => {
                 onUpdateCost={developmentCosts.updateHardCost}
                 onDeleteCost={developmentCosts.deleteHardCost}
                 subtotal={developmentCosts.calculatePropertyTypeSubtotal(propertyType)}
-                unitTypeBreakdown={developmentCosts.getUnitTypeBreakdownByPropertyType(propertyType)}
-                isNonRentable={propertyType.toLowerCase() === 'common'}
               />
             ))
           )}

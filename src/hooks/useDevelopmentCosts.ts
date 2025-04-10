@@ -39,15 +39,6 @@ interface HardCostRow {
   updated_at: string;
 }
 
-// Define the unit type breakdown structure
-export interface UnitTypeBreakdown {
-  name: string;
-  areaPerUnit: number;
-  numberOfUnits: number;
-  totalArea: number;
-  percentage: number;
-}
-
 export const useDevelopmentCosts = () => {
   const { currentProjectId } = useProject();
   const { products, floorPlateTemplates, floors, nonRentableTypes } = usePropertyState();
@@ -103,10 +94,6 @@ export const useDevelopmentCosts = () => {
   const [propertyAreas, setPropertyAreas] = useState<Record<string, number>>({});
   const [propertyUnits, setPropertyUnits] = useState<Record<string, number>>({});
   
-  // Store unit type breakdowns for each property type
-  const [unitTypeBreakdowns, setUnitTypeBreakdowns] = useState<Record<string, UnitTypeBreakdown[]>>({});
-  const [nonRentableBreakdown, setNonRentableBreakdown] = useState<UnitTypeBreakdown[]>([]);
-  
   // Fetch unique categories from unit_types table to use as property types
   useEffect(() => {
     if (!currentProjectId) return;
@@ -155,40 +142,20 @@ export const useDevelopmentCosts = () => {
         
         const areas: Record<string, number> = {};
         const units: Record<string, number> = {};
-        const breakdowns: Record<string, UnitTypeBreakdown[]> = {};
         
         // Initialize with available property types
         availablePropertyTypes.forEach(type => {
           areas[type] = 0;
           units[type] = 0;
-          breakdowns[type] = [];
         });
         
         // Calculate areas and units for each unit type based on its category
         if (data) {
-          // First pass: calculate total area per category
           data.forEach(unitType => {
             const category = unitType.category.toLowerCase();
             if (areas[category] !== undefined) {
               areas[category] += unitType.area * unitType.units;
               units[category] += unitType.units;
-            }
-          });
-          
-          // Second pass: create breakdown with percentages
-          data.forEach(unitType => {
-            const category = unitType.category.toLowerCase();
-            if (breakdowns[category] !== undefined && areas[category] > 0) {
-              const totalArea = unitType.area * unitType.units;
-              const percentage = (totalArea / areas[category]) * 100;
-              
-              breakdowns[category].push({
-                name: unitType.name,
-                areaPerUnit: unitType.area,
-                numberOfUnits: unitType.units,
-                totalArea: totalArea,
-                percentage: percentage
-              });
             }
           });
         }
@@ -207,7 +174,6 @@ export const useDevelopmentCosts = () => {
         
         setPropertyAreas(areas);
         setPropertyUnits(units);
-        setUnitTypeBreakdowns(breakdowns);
       } catch (err) {
         console.error("Error fetching unit types:", err);
       }
@@ -217,110 +183,6 @@ export const useDevelopmentCosts = () => {
       fetchUnitTypes();
     }
   }, [currentProjectId, availablePropertyTypes, floorPlateTemplates, floors]);
-
-  // Fetch non-rentable types and create breakdown
-  useEffect(() => {
-    if (!currentProjectId) return;
-    
-    const fetchNonRentableTypes = async () => {
-      try {
-        // First fetch non-rentable space types
-        const { data: nonRentableData, error: nonRentableError } = await supabase
-          .from('non_rentable_types')
-          .select('*')
-          .eq('project_id', currentProjectId);
-          
-        if (nonRentableError) throw nonRentableError;
-        
-        if (!nonRentableData || nonRentableData.length === 0) {
-          setNonRentableBreakdown([]);
-          return;
-        }
-        
-        // Then fetch allocations
-        const { data: allocationsData, error: allocationsError } = await supabase
-          .from('non_rentable_allocations')
-          .select('*')
-          .in('non_rentable_type_id', nonRentableData.map(item => item.id));
-          
-        if (allocationsError) throw allocationsError;
-        
-        const breakdown: UnitTypeBreakdown[] = [];
-        let totalArea = 0;
-        
-        // First calculate total area
-        nonRentableData.forEach(type => {
-          const typeAllocations = allocationsData?.filter(a => a.non_rentable_type_id === type.id) || [];
-          let typeArea = 0;
-          
-          if (type.allocation_method === 'percentage' && type.percentage) {
-            // For percentage-based non-rentable spaces, calculate based on total building area
-            let totalBuildingArea = 0;
-            for (const floor of floors) {
-              const template = floorPlateTemplates.find(t => t.id === floor.templateId);
-              if (template) {
-                totalBuildingArea += template.grossArea;
-              }
-            }
-            typeArea = (totalBuildingArea * type.percentage) / 100;
-          } else if (typeAllocations.length > 0) {
-            // For fixed allocations, sum up the allocations
-            typeArea = typeAllocations.reduce((sum, allocation) => sum + Number(allocation.square_footage), 0);
-          } else {
-            // Otherwise, use the default square footage
-            typeArea = Number(type.square_footage) || 0;
-          }
-          
-          totalArea += typeArea;
-        });
-        
-        // Then create breakdown entries with percentages
-        nonRentableData.forEach(type => {
-          const typeAllocations = allocationsData?.filter(a => a.non_rentable_type_id === type.id) || [];
-          let typeArea = 0;
-          
-          if (type.allocation_method === 'percentage' && type.percentage) {
-            let totalBuildingArea = 0;
-            for (const floor of floors) {
-              const template = floorPlateTemplates.find(t => t.id === floor.templateId);
-              if (template) {
-                totalBuildingArea += template.grossArea;
-              }
-            }
-            typeArea = (totalBuildingArea * type.percentage) / 100;
-          } else if (typeAllocations.length > 0) {
-            typeArea = typeAllocations.reduce((sum, allocation) => sum + Number(allocation.square_footage), 0);
-          } else {
-            typeArea = Number(type.square_footage) || 0;
-          }
-          
-          if (typeArea > 0) {
-            breakdown.push({
-              name: type.name,
-              areaPerUnit: typeArea,
-              numberOfUnits: 1,
-              totalArea: typeArea,
-              percentage: totalArea > 0 ? (typeArea / totalArea) * 100 : 0
-            });
-          }
-        });
-        
-        // Update property areas for common spaces based on actual non-rentable data
-        if (totalArea > 0) {
-          setPropertyAreas(prev => ({
-            ...prev,
-            common: totalArea
-          }));
-        }
-        
-        setNonRentableBreakdown(breakdown);
-      } catch (err) {
-        console.error("Error fetching non-rentable types:", err);
-      }
-    };
-    
-    fetchNonRentableTypes();
-  }, [currentProjectId, floors, floorPlateTemplates]);
 
   // Fetch hard costs from database
   useEffect(() => {
@@ -718,14 +580,6 @@ export const useDevelopmentCosts = () => {
     return result;
   };
   
-  // Get unit type breakdown for a specific property type
-  const getUnitTypeBreakdownByPropertyType = (propertyType: PropertyType): UnitTypeBreakdown[] => {
-    if (propertyType.toLowerCase() === 'common') {
-      return nonRentableBreakdown;
-    }
-    return unitTypeBreakdowns[propertyType] || [];
-  };
-  
   return {
     // Land Costs
     purchasePrice, setPurchasePrice,
@@ -761,11 +615,6 @@ export const useDevelopmentCosts = () => {
     propertyAreas,
     propertyUnits,
     availablePropertyTypes,
-    
-    // Unit type breakdown
-    getUnitTypeBreakdownByPropertyType,
-    unitTypeBreakdowns,
-    nonRentableBreakdown,
     
     // Soft Costs
     architectureCost, setArchitectureCost,
