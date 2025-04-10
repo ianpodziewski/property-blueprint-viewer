@@ -50,6 +50,77 @@ export type Database = {
           },
         ]
       }
+      floor_usage_template_allocations: {
+        Row: {
+          created_at: string | null
+          floor_id: string | null
+          floor_usage_template_id: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          floor_id?: string | null
+          floor_usage_template_id?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          floor_id?: string | null
+          floor_usage_template_id?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_usage_template_allocations_floor_id_fkey"
+            columns: ["floor_id"]
+            isOneToOne: false
+            referencedRelation: "floors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_usage_template_allocations_floor_usage_template_id_fkey"
+            columns: ["floor_usage_template_id"]
+            isOneToOne: false
+            referencedRelation: "floor_usage_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      floor_usage_templates: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          project_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          project_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_usage_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       floors: {
         Row: {
           created_at: string

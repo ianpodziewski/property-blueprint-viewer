@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -86,7 +85,6 @@ const SortableFloorRow = ({
   onAllocationChange,
   floorAllocationData
 }: SortableFloorRowProps & { floorAllocationData?: FloorAllocationData }) => {
-  // Always call hooks at the top level, regardless of props or state
   const {
     attributes,
     listeners,
@@ -99,7 +97,6 @@ const SortableFloorRow = ({
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
   
-  // Define style here (after all hooks are called) to ensure consistent hook calls
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -191,11 +188,9 @@ const SortableFloorRow = ({
     }
   }, [floor.id, onDeleteFloor]);
   
-  // Calculate derived values from props - no early returns or conditionals that would skip hooks
   const floorTemplate = getFloorTemplateById(floor.templateId);
   const floorArea = floorTemplate?.grossArea || 0;
   
-  // Use a consistent approach to calculate allocatedArea whether floorAllocationData is provided or not
   const allocatedArea = useMemo(() => {
     if (floorAllocationData) {
       return floorAllocationData.allocatedArea;
@@ -204,7 +199,7 @@ const SortableFloorRow = ({
     let total = 0;
     for (const product of products) {
       for (const unitType of product.unitTypes) {
-        const quantity = allocations[unitTypeId] || 0;
+        const quantity = allocations[unitType.id] || 0;
         total += quantity * unitType.grossArea;
       }
     }
@@ -220,7 +215,6 @@ const SortableFloorRow = ({
   
   const isOverallocated = utilization > 100;
   
-  // Move this function outside render to avoid recreating it on each render
   const getUtilizationVariant = () => {
     if (utilization > 100) return "red";
     if (utilization >= 67) return "green";
@@ -240,7 +234,6 @@ const SortableFloorRow = ({
   
   const floorType = floor.floorType || 'aboveground';
 
-  // Return the JSX - no early returns before this point
   return (
     <>
       <TableRow ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
@@ -600,13 +593,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
           </Button>
         </div>
       </div>
-      
-      <FloorUsageTemplates
-        floors={floors}
-        templates={templates}
-        projectId={projectId}
-        onRefresh={onRefreshData}
-      />
       
       <Card>
         <CardContent className="p-0 overflow-hidden">

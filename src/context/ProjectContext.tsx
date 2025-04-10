@@ -1,10 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
-
-// Extended Supabase client type with our custom types
-export const extendedSupabase = supabase as any;
 
 interface ProjectContextType {
   currentProjectId: string | null;
