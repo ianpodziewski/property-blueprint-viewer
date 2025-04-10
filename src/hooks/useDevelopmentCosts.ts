@@ -41,7 +41,7 @@ interface HardCostRow {
 
 export const useDevelopmentCosts = () => {
   const { currentProjectId } = useProject();
-  const { products, floorPlateTemplates, floors, unitTypes, nonRentableTypes } = usePropertyState();
+  const { products, floorPlateTemplates, floors, nonRentableTypes } = usePropertyState();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -125,43 +125,64 @@ export const useDevelopmentCosts = () => {
     };
     
     fetchPropertyTypes();
-  }, [currentProjectId, unitTypes]);
+  }, [currentProjectId]);
   
-  // Calculate areas and units for each property type based on unit_types categories
+  // Fetch unit types and calculate areas for each property type
   useEffect(() => {
-    const areas: Record<string, number> = {};
-    const units: Record<string, number> = {};
+    if (!currentProjectId) return;
     
-    // Initialize with available property types
-    availablePropertyTypes.forEach(type => {
-      areas[type] = 0;
-      units[type] = 0;
-    });
-    
-    // Calculate areas and units for each unit type based on its category
-    unitTypes.forEach(unitType => {
-      const category = unitType.category.toLowerCase();
-      if (areas[category] !== undefined) {
-        areas[category] += unitType.area * unitType.units;
-        units[category] += unitType.units;
+    const fetchUnitTypes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('unit_types')
+          .select('*')
+          .eq('project_id', currentProjectId);
+          
+        if (error) throw error;
+        
+        const areas: Record<string, number> = {};
+        const units: Record<string, number> = {};
+        
+        // Initialize with available property types
+        availablePropertyTypes.forEach(type => {
+          areas[type] = 0;
+          units[type] = 0;
+        });
+        
+        // Calculate areas and units for each unit type based on its category
+        if (data) {
+          data.forEach(unitType => {
+            const category = unitType.category.toLowerCase();
+            if (areas[category] !== undefined) {
+              areas[category] += unitType.area * unitType.units;
+              units[category] += unitType.units;
+            }
+          });
+        }
+        
+        // Calculate common areas (estimate as percentage of total building area)
+        let totalBuildingArea = 0;
+        for (const floor of floors) {
+          const template = floorPlateTemplates.find(t => t.id === floor.templateId);
+          if (template) {
+            totalBuildingArea += template.grossArea;
+          }
+        }
+        
+        // Common areas are roughly 15% of total building area
+        areas.common = totalBuildingArea * 0.15;
+        
+        setPropertyAreas(areas);
+        setPropertyUnits(units);
+      } catch (err) {
+        console.error("Error fetching unit types:", err);
       }
-    });
+    };
     
-    // Calculate common areas (estimate as percentage of total building area)
-    let totalBuildingArea = 0;
-    for (const floor of floors) {
-      const template = floorPlateTemplates.find(t => t.id === floor.templateId);
-      if (template) {
-        totalBuildingArea += template.grossArea;
-      }
+    if (availablePropertyTypes.length > 0) {
+      fetchUnitTypes();
     }
-    
-    // Common areas are roughly 15% of total building area
-    areas.common = totalBuildingArea * 0.15;
-    
-    setPropertyAreas(areas);
-    setPropertyUnits(units);
-  }, [unitTypes, floorPlateTemplates, floors, availablePropertyTypes]);
+  }, [currentProjectId, availablePropertyTypes, floorPlateTemplates, floors]);
 
   // Fetch hard costs from database
   useEffect(() => {
