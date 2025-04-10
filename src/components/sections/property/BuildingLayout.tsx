@@ -51,9 +51,8 @@ interface BuildingLayoutProps {
   onUpdateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
   onDeleteFloor: (id: string) => Promise<void>;
   onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<void>;
-  getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<Promise<number>>;
+  getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
   getFloorTemplateById: (templateId: string) => FloorPlateTemplate | undefined;
-  projectId: string | null;
   onRefreshData: () => Promise<void>;
 }
 
@@ -67,7 +66,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   onUpdateUnitAllocation,
   getUnitAllocation,
   getFloorTemplateById,
-  projectId,
   onRefreshData
 }) => {
   const [isBulkAddModalOpen, setIsBulkAddModalOpen] = useState(false);
@@ -258,7 +256,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
         
         <TabsContent value="units">
           <UnitMix 
-            floors={floors}
             products={products}
             getUnitAllocation={getUnitAllocation}
           />
@@ -267,9 +264,9 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
       
       {/* Modals */}
       <BulkAddFloorsModal
-        open={isBulkAddModalOpen}
-        onOpenChange={setIsBulkAddModalOpen}
-        onRefresh={handleDataRefresh}
+        isOpen={isBulkAddModalOpen}
+        onClose={() => setIsBulkAddModalOpen(false)}
+        onComplete={handleDataRefresh}
         templates={templates}
         projectId={projectId || ''}
       />

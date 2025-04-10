@@ -693,7 +693,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     const allocation = unitAllocations.find(
       a => a.floor_id === floorId && a.unit_type_id === unitTypeId
     );
-    return Promise.resolve(allocation ? allocation.quantity : 0);
+    return allocation ? allocation.quantity : 0;
   };
 
   return {
