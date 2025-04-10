@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { safeNumberConversion } from "@/utils/modelValidation";
 
@@ -84,13 +85,6 @@ export interface Floor {
   templateId: string;
   projectId?: string;
   floorType?: 'aboveground' | 'underground';
-}
-
-// Interface for building component category
-export interface BuildingComponentCategory {
-  id: string;
-  name: string;
-  projectId: string;
 }
 
 export const usePropertyState = () => {
