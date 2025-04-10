@@ -45,7 +45,11 @@ const PropertyBreakdown = () => {
     updateUnitAllocation,
     getUnitAllocation,
     getFloorTemplateById,
-    reloadProjectData
+    reloadProjectData,
+    nonRentableTypes,
+    addNonRentableType,
+    updateNonRentableType,
+    deleteNonRentableType
   } = useSupabasePropertyData(projectId || null);
   
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
@@ -291,19 +295,19 @@ const PropertyBreakdown = () => {
       <PlanningCard
         floorPlateTemplates={floorPlateTemplates}
         products={products}
-        nonRentableTypes={property.nonRentableTypes || []}
-        onAddTemplate={property.addFloorPlateTemplate}
-        onUpdateTemplate={property.updateFloorPlateTemplate}
-        onDeleteTemplate={property.deleteFloorPlateTemplate}
-        onAddProduct={property.addProduct}
-        onUpdateProduct={property.updateProduct}
-        onDeleteProduct={property.deleteProduct}
-        onAddUnitType={property.addUnitType}
-        onUpdateUnitType={property.updateUnitType}
-        onDeleteUnitType={property.deleteUnitType}
-        onAddNonRentableType={property.addNonRentableType}
-        onUpdateNonRentableType={property.updateNonRentableType}
-        onDeleteNonRentableType={property.deleteNonRentableType}
+        nonRentableTypes={nonRentableTypes || []}
+        onAddTemplate={addFloorPlateTemplate}
+        onUpdateTemplate={updateFloorPlateTemplate}
+        onDeleteTemplate={deleteFloorPlateTemplate}
+        onAddProduct={addProduct}
+        onUpdateProduct={updateProduct}
+        onDeleteProduct={deleteProduct}
+        onAddUnitType={addUnitType}
+        onUpdateUnitType={updateUnitType}
+        onDeleteUnitType={deleteUnitType}
+        onAddNonRentableType={addNonRentableType}
+        onUpdateNonRentableType={updateNonRentableType}
+        onDeleteNonRentableType={deleteNonRentableType}
       />
       
       <Card className="mb-6">

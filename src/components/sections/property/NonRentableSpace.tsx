@@ -113,10 +113,20 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
 
   const onSubmit = async (values: FormValues) => {
     if (editingId) {
-      await onUpdateNonRentableType(editingId, values);
+      // Make sure all required fields are included
+      await onUpdateNonRentableType(editingId, {
+        name: values.name,
+        squareFootage: values.squareFootage,
+        allocationMethod: values.allocationMethod
+      });
       setEditingId(null);
     } else if (isAdding) {
-      await onAddNonRentableType(values);
+      // Make sure all required fields are included
+      await onAddNonRentableType({
+        name: values.name,
+        squareFootage: values.squareFootage,
+        allocationMethod: values.allocationMethod
+      });
       setIsAdding(false);
     }
     form.reset();
