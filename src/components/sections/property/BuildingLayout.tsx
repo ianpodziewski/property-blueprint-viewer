@@ -355,13 +355,16 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
           </div>
 
           <BulkAddFloorsModal
-            open={isBulkAddModalOpen}
-            onOpenChange={setIsBulkAddModalOpen}
+            isOpen={isBulkAddModalOpen}
+            onClose={() => setIsBulkAddModalOpen(false)}
             onAddFloors={async (count: number) => {
               for (let i = 0; i < count; i++) {
                 await onAddFloor();
               }
             }}
+            templates={templates}
+            projectId={''}
+            onComplete={onRefreshData}
           />
 
           {reorderedFloors.length === 0 ? (
