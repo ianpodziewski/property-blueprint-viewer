@@ -29,7 +29,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
-import { useProject } from '@/context/ProjectContext';
 
 interface UnitAllocation {
   unitTypeId: string;
@@ -94,9 +93,6 @@ const SortableFloorRow = ({
     isDragging
   } = useSortable({ id: floor.id });
 
-  const [allocations, setAllocations] = useState<Record<string, number>>({});
-  const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
-  
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -104,6 +100,9 @@ const SortableFloorRow = ({
     zIndex: isDragging ? 1 : 0,
     position: 'relative' as const
   };
+
+  const [allocations, setAllocations] = useState<Record<string, number>>({});
+  const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
   
   useEffect(() => {
     const loadAllocations = async () => {
@@ -191,11 +190,7 @@ const SortableFloorRow = ({
   const floorTemplate = getFloorTemplateById(floor.templateId);
   const floorArea = floorTemplate?.grossArea || 0;
   
-  const allocatedArea = useMemo(() => {
-    if (floorAllocationData) {
-      return floorAllocationData.allocatedArea;
-    }
-    
+  const allocatedArea = floorAllocationData ? floorAllocationData.allocatedArea : useMemo(() => {
     let total = 0;
     for (const product of products) {
       for (const unitType of product.unitTypes) {
@@ -204,15 +199,12 @@ const SortableFloorRow = ({
       }
     }
     return total;
-  }, [floorAllocationData, products, allocations]);
+  }, [products, allocations, floorAllocationData]);
   
-  const utilization = useMemo(() => {
-    if (floorAllocationData) {
-      return floorAllocationData.utilization;
-    }
-    return floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0;
-  }, [floorAllocationData, floorArea, allocatedArea]);
-  
+  const utilization = floorAllocationData 
+    ? floorAllocationData.utilization 
+    : (floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0);
+    
   const isOverallocated = utilization > 100;
   
   const getUtilizationVariant = () => {
@@ -222,7 +214,7 @@ const SortableFloorRow = ({
     return "red";
   };
   
-  const getUnitAvailability = useCallback((unitType: any) => {
+  const getUnitAvailability = (unitType) => {
     const globallyAllocated = globalAllocations[unitType.id] || 0;
     const total = unitType.numberOfUnits;
     const available = total - globallyAllocated;
@@ -230,7 +222,7 @@ const SortableFloorRow = ({
     const hasAllocationOnThisFloor = (allocations[unitType.id] || 0) > 0;
     
     return { available, total, hasAllocationOnThisFloor };
-  }, [globalAllocations, allocations]);
+  };
   
   const floorType = floor.floorType || 'aboveground';
 
@@ -395,7 +387,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   getFloorTemplateById,
   onRefreshData
 }) => {
-  const { currentProjectId } = useProject();
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [isLoadingInitialAllocations, setIsLoadingInitialAllocations] = useState(true);
@@ -564,7 +555,10 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     }
   }, [sortedFloors, onUpdateFloor, onRefreshData]);
   
-  const projectId = currentProjectId || '';
+  const projectId = useMemo(() => 
+    floors.length > 0 ? floors[0].projectId || "" : "", 
+    [floors]
+  );
   
   return (
     <div className="space-y-6">
@@ -593,6 +587,13 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
           </Button>
         </div>
       </div>
+      
+      <FloorUsageTemplates
+        floors={floors}
+        templates={templates}
+        projectId={projectId}
+        onRefresh={onRefreshData}
+      />
       
       <Card>
         <CardContent className="p-0 overflow-hidden">
