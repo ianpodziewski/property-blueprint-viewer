@@ -181,6 +181,7 @@ export function useSupabasePropertyData(projectId: string | null) {
         position: floor.position,
         templateId: floor.template_id || '',
         projectId: floor.project_id,
+        floorType: floor.floor_type as 'aboveground' | 'underground' || 'aboveground'
       }));
       
       console.log("Transformed floor data:", transformedFloors);
@@ -543,7 +544,8 @@ export function useSupabasePropertyData(projectId: string | null) {
         project_id: effectiveProjectId,
         label: `Floor ${newPosition}`,
         position: newPosition,
-        template_id: defaultTemplateId
+        template_id: defaultTemplateId,
+        floor_type: 'aboveground'
       };
       
       const { data, error } = await supabase
@@ -558,7 +560,8 @@ export function useSupabasePropertyData(projectId: string | null) {
         id: data.id,
         label: data.label,
         position: data.position,
-        templateId: data.template_id || ""
+        templateId: data.template_id || "",
+        floorType: data.floor_type || 'aboveground'
       };
       
       setFloors(prev => [...prev, newFloor]);
@@ -579,6 +582,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       if (updates.label !== undefined) dbUpdates.label = updates.label;
       if (updates.position !== undefined) dbUpdates.position = updates.position;
       if (updates.templateId !== undefined) dbUpdates.template_id = updates.templateId;
+      if (updates.floorType !== undefined) dbUpdates.floor_type = updates.floorType;
       
       const { error } = await supabase
         .from('floors')

@@ -137,6 +137,7 @@ export type Database = {
       floors: {
         Row: {
           created_at: string
+          floor_type: string
           id: string
           label: string
           position: number
@@ -146,6 +147,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          floor_type?: string
           id?: string
           label: string
           position: number
@@ -155,6 +157,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          floor_type?: string
           id?: string
           label?: string
           position?: number

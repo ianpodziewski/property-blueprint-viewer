@@ -45,6 +45,7 @@ const BulkAddFloorsModal = ({
   const [labelPrefix, setLabelPrefix] = useState("Floor");
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [floorType, setFloorType] = useState<"aboveground" | "underground">("aboveground");
 
   // Use project ID from props or fall back to context
   const effectiveProjectId = projectId || currentProjectId;
@@ -56,13 +57,27 @@ const BulkAddFloorsModal = ({
       setTemplateId(templates[0].id);
     }
   }, [templates, templateId]);
+
+  // Reset default values when floor type changes
+  useEffect(() => {
+    if (floorType === "aboveground") {
+      setStartFloor(1);
+      setEndFloor(5);
+      setLabelPrefix("Floor");
+    } else {
+      setStartFloor(1);
+      setEndFloor(3);
+      setLabelPrefix("B");
+    }
+  }, [floorType]);
   
   // Generate preview of floors to be created
   const previewFloors = () => {
     const floors = [];
     if (startFloor <= endFloor) {
       for (let i = startFloor; i <= endFloor; i++) {
-        floors.push(`${labelPrefix} ${i}`);
+        const floorLabel = floorType === "underground" ? `${labelPrefix}${i}` : `${labelPrefix} ${i}`;
+        floors.push(floorLabel);
       }
     }
     return floors;
@@ -126,6 +141,7 @@ const BulkAddFloorsModal = ({
     console.log("- Start Floor:", startFloor);
     console.log("- End Floor:", endFloor);
     console.log("- Label Prefix:", labelPrefix);
+    console.log("- Floor Type:", floorType);
     
     // Set loading state
     setIsCreating(true);
@@ -137,7 +153,8 @@ const BulkAddFloorsModal = ({
         templateId,
         startFloor,
         endFloor,
-        labelPrefix
+        labelPrefix,
+        floorType
       );
       
       console.log("Floor creation completed, result:", result);
@@ -220,6 +237,28 @@ const BulkAddFloorsModal = ({
             </Select>
           </div>
           
+          <div className="space-y-2">
+            <Label htmlFor="floorType">Floor Type</Label>
+            <Select
+              value={floorType}
+              onValueChange={(value) => setFloorType(value as "aboveground" | "underground")}
+              disabled={isCreating}
+            >
+              <SelectTrigger id="floorType">
+                <SelectValue placeholder="Select floor type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="aboveground">Above Ground</SelectItem>
+                <SelectItem value="underground">Underground</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500 mt-1">
+              {floorType === "underground" ? 
+                "Underground floors will be displayed with 'B' prefix and positioned at the bottom of the building" : 
+                "Above ground floors will be sorted from top to bottom"}
+            </p>
+          </div>
+          
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startFloor">Start Floor Number</Label>
@@ -257,7 +296,9 @@ const BulkAddFloorsModal = ({
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="labelPrefix">Floor Label Prefix</Label>
+            <Label htmlFor="labelPrefix">
+              {floorType === "underground" ? "Floor Label Prefix (B recommended)" : "Floor Label Prefix"}
+            </Label>
             <Input
               id="labelPrefix"
               value={labelPrefix}
@@ -265,7 +306,9 @@ const BulkAddFloorsModal = ({
               disabled={isCreating}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Example: "{labelPrefix} 1", "{labelPrefix} 2", etc.
+              {floorType === "underground" 
+                ? `Example: "${labelPrefix}1", "${labelPrefix}2", etc.`
+                : `Example: "${labelPrefix} 1", "${labelPrefix} 2", etc.`}
             </p>
           </div>
           

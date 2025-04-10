@@ -6,7 +6,8 @@ export async function createBulkFloors(
   templateId: string,
   startFloor: number,
   endFloor: number,
-  labelPrefix: string
+  labelPrefix: string,
+  floorType: "aboveground" | "underground" = "aboveground"
 ): Promise<string[]> {
   console.log("Starting bulk floor creation with project ID:", projectId);
   
@@ -45,7 +46,11 @@ export async function createBulkFloors(
     const createdFloorIds = [];
     
     for (let i = startFloor; i <= endFloor; i++) {
-      const floorLabel = `${labelPrefix} ${i}`;
+      // Format the label based on floor type
+      const floorLabel = floorType === "underground" 
+        ? `${labelPrefix}${i}` 
+        : `${labelPrefix} ${i}`;
+        
       const position = startPosition + (i - startFloor);
       
       const floorId = crypto.randomUUID();
@@ -56,10 +61,11 @@ export async function createBulkFloors(
         project_id: projectId,
         label: floorLabel,
         position: position,
-        template_id: templateId
+        template_id: templateId,
+        floor_type: floorType
       });
       
-      console.log(`Prepared floor "${floorLabel}" with ID ${floorId}`);
+      console.log(`Prepared floor "${floorLabel}" with ID ${floorId}, type: ${floorType}`);
     }
     
     console.log(`Inserting ${floorsToCreate.length} floors for project ${projectId}`);

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { PlusCircle, Settings, RefreshCw, ChevronDown, ChevronRight, GripVertical, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Settings, RefreshCw, ChevronDown, ChevronRight, GripVertical, AlertTriangle, Building, ArrowDown, ArrowUp } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
 import { toast } from 'sonner';
@@ -33,6 +33,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 
 interface UnitAllocation {
   unitTypeId: string;
@@ -228,6 +229,8 @@ const SortableFloorRow = ({
     return { available, total, hasAllocationOnThisFloor };
   };
   
+  const floorType = floor.floorType || 'aboveground';
+
   return (
     <>
       <TableRow ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
@@ -248,7 +251,20 @@ const SortableFloorRow = ({
                 <ChevronRight className="h-4 w-4 text-gray-600" />
               )}
             </button>
-            <span>Floor {floor.position}</span>
+            <div className="flex items-center gap-2">
+              {floorType === 'underground' ? (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                  <ArrowDown className="h-3 w-3" />
+                  <span>Underground</span>
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 flex items-center gap-1">
+                  <ArrowUp className="h-3 w-3" />
+                  <span>Above Ground</span>
+                </Badge>
+              )}
+              <span>{floor.label}</span>
+            </div>
           </div>
         </TableCell>
         <TableCell>
@@ -494,7 +510,13 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   );
   
   const sortedFloors = useMemo(() => {
-    return [...floors].sort((a, b) => b.position - a.position);
+    const abovegroundFloors = floors.filter(f => (f.floorType || 'aboveground') === 'aboveground');
+    const undergroundFloors = floors.filter(f => f.floorType === 'underground');
+    
+    const sortedAboveground = [...abovegroundFloors].sort((a, b) => b.position - a.position);
+    const sortedUnderground = [...undergroundFloors].sort((a, b) => b.position - a.position);
+    
+    return [...sortedAboveground, ...sortedUnderground];
   }, [floors]);
   
   const floorIds = useMemo(() => 
