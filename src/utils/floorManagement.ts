@@ -286,7 +286,7 @@ export async function createFloorUsageTemplate(
     if (data && data.length > 0) {
       // Create allocation records for the template
       const templateAllocations = data.map(alloc => ({
-        template_id: templateId,
+        floor_usage_template_id: templateId, // Changed from template_id to floor_usage_template_id
         unit_type_id: alloc.unit_type_id,
         quantity: alloc.quantity
       }));
@@ -347,7 +347,7 @@ export async function applyTemplateToFloors(
     const { data, error: fetchError } = await supabase
       .from('floor_usage_template_allocations')
       .select('unit_type_id, quantity')
-      .eq('template_id', templateId);
+      .eq('floor_usage_template_id', templateId); // Changed from template_id to floor_usage_template_id
     
     if (fetchError) {
       console.error("Error fetching template allocations:", fetchError);
@@ -407,7 +407,7 @@ export async function deleteFloorUsageTemplate(templateId: string): Promise<void
     const { error: allocDeleteError } = await supabase
       .from('floor_usage_template_allocations')
       .delete()
-      .eq('template_id', templateId);
+      .eq('floor_usage_template_id', templateId); // Changed from template_id to floor_usage_template_id
     
     if (allocDeleteError) {
       console.error("Error deleting template allocations:", allocDeleteError);

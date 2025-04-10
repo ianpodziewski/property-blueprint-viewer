@@ -44,7 +44,6 @@ const PlanningCard = ({
 }: PlanningCardProps) => {
   const [activeTab, setActiveTab] = useState("floor-plate-templates");
 
-  // Add a console log to verify nonRentableTypes is being passed correctly
   useEffect(() => {
     console.log("PlanningCard received nonRentableTypes:", nonRentableTypes);
   }, [nonRentableTypes]);

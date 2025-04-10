@@ -52,7 +52,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 export interface FloorUsageTemplate {
   id: string;
   name: string;
-  templateId: string;
+  templateId?: string; // Changed from templateId to match Supabase column name
   projectId: string;
   createdAt: string;
 }
@@ -87,10 +87,11 @@ const FloorUsageTemplates = ({
       const transformedTemplates: FloorUsageTemplate[] = templates.map(template => ({
         id: template.id,
         name: template.name,
-        templateId: template.template_id || "",
+        templateId: template.template_id || undefined, // Map from snake_case to camelCase
         projectId: template.project_id,
         createdAt: template.created_at
       }));
+      console.log("Transformed templates:", transformedTemplates);
       setUsageTemplates(transformedTemplates);
     } catch (error) {
       console.error("Error loading floor usage templates:", error);
