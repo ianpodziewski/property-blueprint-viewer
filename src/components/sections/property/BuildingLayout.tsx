@@ -5,16 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { PlusCircle, Settings, RefreshCw, ChevronDown, ChevronRight, GripVertical, AlertTriangle, Building, ArrowDown, ArrowUp } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { PlusCircle, RefreshCw, ChevronDown, ChevronRight, GripVertical, AlertTriangle } from 'lucide-react';
 import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
 import { toast } from 'sonner';
 import BuildingSummaryPanel from './BuildingSummaryPanel';
 import BulkAddFloorsModal from './BulkAddFloorsModal';
-import FloorDuplicateModal from './FloorDuplicateModal';
-import ApplyFloorToRangeModal from './ApplyFloorToRangeModal';
-import SaveAsTemplateModal from './SaveAsTemplateModal';
-import FloorUsageTemplates from './FloorUsageTemplates';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DndContext,
   closestCenter,
@@ -32,8 +28,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
 
 interface UnitAllocation {
   unitTypeId: string;
@@ -394,15 +388,9 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
 }) => {
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
-  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
-  const [showApplyToRangeModal, setShowApplyToRangeModal] = useState(false);
-  const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedFloor, setSelectedFloor] = useState<Floor | null>(null);
-  const [isDuplicatingFloor, setIsDuplicatingFloor] = useState(false);
+  const [isLoadingInitialAllocations, setIsLoadingInitialAllocations] = useState(true);
   const [globalAllocations, setGlobalAllocations] = useState<Record<string, number>>({});
   const [floorAllocations, setFloorAllocations] = useState<Record<string, FloorAllocationData>>({});
-  const [isLoadingInitialAllocations, setIsLoadingInitialAllocations] = useState(true);
   
   useEffect(() => {
     const calculateGlobalAllocations = async () => {
@@ -533,35 +521,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     }
   }, [onAddFloor]);
   
-  const handleRefreshData = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await onRefreshData();
-      toast.success("Data refreshed successfully");
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      toast.error("Failed to refresh data");
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [onRefreshData]);
-  
-  const handleDuplicateFloor = useCallback(async (newLabel: string, positionType: "above" | "below") => {
-    if (!selectedFloor) return;
-    
-    setIsDuplicatingFloor(true);
-    try {
-      await onRefreshData();
-      toast.success(`Floor duplicated successfully`);
-      setShowDuplicateModal(false);
-    } catch (error) {
-      console.error("Error duplicating floor:", error);
-      toast.error("Failed to duplicate floor");
-    } finally {
-      setIsDuplicatingFloor(false);
-    }
-  }, [selectedFloor, onRefreshData]);
-  
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     
@@ -618,44 +577,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
             Add Multiple Floors
           </Button>
           
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-1" />
-                Tools
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => {
-                if (sortedFloors.length > 0) {
-                  setSelectedFloor(sortedFloors[0]);
-                  setShowDuplicateModal(true);
-                } else {
-                  toast.error("No floors available to duplicate");
-                }
-              }}>
-                Duplicate Floor
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowApplyToRangeModal(true)}>
-                Apply Floor Configuration to Range
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                if (sortedFloors.length > 0) {
-                  setSelectedFloor(sortedFloors[0]);
-                  setShowSaveAsTemplateModal(true);
-                } else {
-                  toast.error("No floors available to save as template");
-                }
-              }}>
-                Save as Template
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleRefreshData}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh Data
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
           <Button
             size="sm"
             onClick={handleAddFloor}
@@ -670,7 +591,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
         floors={floors}
         templates={templates}
         projectId={projectId}
-        onRefresh={handleRefreshData}
+        onRefresh={onRefreshData}
       />
       
       <Card>
@@ -743,37 +664,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
           templates={templates}
           projectId={projectId}
           onClose={() => setShowBulkAddModal(false)}
-          onComplete={handleRefreshData}
-        />
-      )}
-      
-      {showDuplicateModal && (
-        <FloorDuplicateModal
-          isOpen={showDuplicateModal}
-          currentFloorLabel={selectedFloor ? `Floor ${selectedFloor.position}` : ""}
-          onClose={() => setShowDuplicateModal(false)}
-          onDuplicate={handleDuplicateFloor}
-          isLoading={isDuplicatingFloor}
-        />
-      )}
-      
-      {showApplyToRangeModal && (
-        <ApplyFloorToRangeModal
-          sourceFloor={null}
-          floors={floors}
-          isOpen={showApplyToRangeModal}
-          onClose={() => setShowApplyToRangeModal(false)}
-          onComplete={handleRefreshData}
-        />
-      )}
-      
-      {showSaveAsTemplateModal && (
-        <SaveAsTemplateModal
-          isOpen={showSaveAsTemplateModal}
-          sourceFloor={selectedFloor}
-          projectId={projectId}
-          onClose={() => setShowSaveAsTemplateModal(false)}
-          onComplete={handleRefreshData}
+          onComplete={onRefreshData}
         />
       )}
     </div>
