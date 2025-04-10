@@ -1,9 +1,11 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { PlusCircle, Settings, RefreshCw, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
@@ -170,6 +172,14 @@ const SortableFloorRow = ({
   const utilization = floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0;
   const isOverallocated = utilization > 100;
   
+  // Determine the progress bar variant based on utilization
+  const getUtilizationVariant = () => {
+    if (utilization > 100) return "red"; // Over-allocated (red)
+    if (utilization >= 67) return "green"; // High utilization (green)
+    if (utilization >= 34) return "yellow"; // Medium utilization (yellow)
+    return "red"; // Low utilization (red)
+  };
+  
   return (
     <>
       <TableRow ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
@@ -216,8 +226,19 @@ const SortableFloorRow = ({
         <TableCell className="text-right">
           {allocatedArea.toLocaleString()} sf
         </TableCell>
-        <TableCell className={`text-right ${isOverallocated ? 'text-red-600 font-semibold' : utilization >= 90 ? 'text-amber-600' : ''}`}>
-          {utilization.toFixed(1)}%
+        <TableCell className="w-32">
+          <Progress 
+            value={isOverallocated ? 100 : utilization} 
+            variant={getUtilizationVariant()}
+            showValue={true}
+            size="sm"
+            className={isOverallocated ? "opacity-80" : ""}
+          />
+          {isOverallocated && (
+            <div className="text-xs text-red-600 text-center font-semibold mt-1">
+              {utilization.toFixed(1)}%
+            </div>
+          )}
         </TableCell>
         <TableCell className="text-right">
           <Button
