@@ -16,32 +16,21 @@ import {
 interface NonRentableComponentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (name: string) => Promise<boolean>;
-  isSaving?: boolean;
+  onSave: (name: string) => void;
 }
 
 const NonRentableComponentModal = ({
   open,
   onOpenChange,
   onSave,
-  isSaving = false
 }: NonRentableComponentModalProps) => {
   const [name, setName] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
-      setSaving(true);
-      try {
-        const success = await onSave(name.trim());
-        if (success) {
-          setName("");
-          onOpenChange(false);
-        }
-      } finally {
-        setSaving(false);
-      }
+      onSave(name.trim());
+      setName("");
     }
   };
 
@@ -75,9 +64,7 @@ const NonRentableComponentModal = ({
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={!name.trim() || saving || isSaving}>
-              {saving || isSaving ? "Saving..." : "Save"}
-            </Button>
+            <Button type="submit">Save</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -8,13 +8,11 @@ import { toast } from "sonner";
 import FloorPlateTemplates from "./FloorPlateTemplates";
 import UnitMix from "./UnitMix";
 import NonRentableComponentModal from "./NonRentableComponentModal";
-import NonRentableComponentsList from "./NonRentableComponentsList";
-import { BuildingComponentCategory, FloorPlateTemplate, Product, UnitType } from "@/hooks/usePropertyState";
+import { FloorPlateTemplate, Product, UnitType } from "@/hooks/usePropertyState";
 
 interface PlanningCardProps {
   floorPlateTemplates: FloorPlateTemplate[];
   products: Product[];
-  buildingComponentCategories: BuildingComponentCategory[];
   onAddTemplate: (template: Omit<FloorPlateTemplate, 'id'>) => Promise<FloorPlateTemplate | null>;
   onUpdateTemplate: (id: string, updates: Partial<Omit<FloorPlateTemplate, 'id'>>) => Promise<boolean>;
   onDeleteTemplate: (id: string) => Promise<boolean>;
@@ -24,15 +22,11 @@ interface PlanningCardProps {
   onAddUnitType: (productId: string, unit: Omit<UnitType, 'id'>) => Promise<UnitType | null>;
   onUpdateUnitType: (productId: string, unitId: string, updates: Partial<Omit<UnitType, 'id'>>) => Promise<boolean>;
   onDeleteUnitType: (productId: string, unitId: string) => Promise<boolean>;
-  onAddComponent: (name: string) => Promise<BuildingComponentCategory | null>;
-  onUpdateComponent: (id: string, name: string) => Promise<boolean>;
-  onDeleteComponent: (id: string) => Promise<boolean>;
 }
 
 const PlanningCard = ({
   floorPlateTemplates,
   products,
-  buildingComponentCategories,
   onAddTemplate,
   onUpdateTemplate,
   onDeleteTemplate,
@@ -41,37 +35,18 @@ const PlanningCard = ({
   onDeleteProduct,
   onAddUnitType,
   onUpdateUnitType,
-  onDeleteUnitType,
-  onAddComponent,
-  onUpdateComponent,
-  onDeleteComponent
+  onDeleteUnitType
 }: PlanningCardProps) => {
   const [activeTab, setActiveTab] = useState("floor-plate-templates");
   const [isComponentModalOpen, setIsComponentModalOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
 
   const handleAddComponent = () => {
     setIsComponentModalOpen(true);
   };
 
-  const handleSaveComponent = async (name: string) => {
-    setIsSaving(true);
-    try {
-      const result = await onAddComponent(name);
-      if (result) {
-        toast.success("Component added successfully");
-        return true;
-      } else {
-        toast.error("Failed to add component");
-        return false;
-      }
-    } catch (error) {
-      console.error("Error adding component:", error);
-      toast.error("An error occurred while adding the component");
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSaveComponent = (name: string) => {
+    setIsComponentModalOpen(false);
+    toast.info("Component will be saved in a future update");
   };
 
   return (
@@ -135,18 +110,14 @@ const PlanningCard = ({
                 Add Component
               </Button>
             </div>
-            
-            <NonRentableComponentsList 
-              components={buildingComponentCategories}
-              onEdit={onUpdateComponent}
-              onDelete={onDeleteComponent}
-            />
+            <div className="text-center py-12 border border-dashed border-gray-200 rounded-md bg-gray-50">
+              <p className="text-gray-500">No non-rentable components defined yet</p>
+            </div>
             
             <NonRentableComponentModal 
               open={isComponentModalOpen}
               onOpenChange={setIsComponentModalOpen}
               onSave={handleSaveComponent}
-              isSaving={isSaving}
             />
           </TabsContent>
         </Tabs>
