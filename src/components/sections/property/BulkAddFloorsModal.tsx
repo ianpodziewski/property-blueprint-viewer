@@ -24,8 +24,17 @@ interface BulkAddFloorsModalProps {
   isOpen: boolean;
   onClose: () => void;
   templates: FloorPlateTemplate[];
-  projectId: string;
-  onComplete: () => Promise<void>;
+  projectId?: string;
+  onComplete?: () => Promise<void>;
+  // Add the onAddFloors prop to match the usage in BuildingLayout.tsx
+  onAddFloors?: (
+    count: number,
+    templateId: string,
+    startingNumber: number,
+    prefix: string,
+    suffix: string,
+    floorType: "aboveground" | "underground"
+  ) => Promise<void>;
 }
 
 const BulkAddFloorsModal = ({
@@ -34,6 +43,7 @@ const BulkAddFloorsModal = ({
   templates,
   projectId,
   onComplete,
+  onAddFloors
 }: BulkAddFloorsModalProps) => {
   // Project context as backup
   const { currentProjectId } = useProject();
@@ -90,7 +100,7 @@ const BulkAddFloorsModal = ({
     if (startFloor < 1) return false;
     if (endFloor < startFloor) return false;
     if (endFloor - startFloor > 100) return false;
-    if (!effectiveProjectId) return false;
+    if (!effectiveProjectId && !onAddFloors) return false;
     return true;
   };
   
@@ -127,7 +137,30 @@ const BulkAddFloorsModal = ({
     // Clear previous errors
     setErrorMessage(null);
     
-    // Double-check project ID
+    // If onAddFloors is provided, use that instead of the direct database creation
+    if (onAddFloors) {
+      setIsCreating(true);
+      try {
+        const count = endFloor - startFloor + 1;
+        await onAddFloors(
+          count,
+          templateId,
+          startFloor,
+          labelPrefix,
+          floorType === "underground" ? "" : " ",
+          floorType
+        );
+        setIsCreating(false);
+        onClose();
+      } catch (error) {
+        console.error("Error creating floors via onAddFloors:", error);
+        setErrorMessage(error instanceof Error ? error.message : "Failed to create floors");
+        setIsCreating(false);
+      }
+      return;
+    }
+    
+    // Double-check project ID for direct database creation
     if (!effectiveProjectId) {
       console.error("Missing project ID for floor creation");
       setErrorMessage("Project ID is missing. Please reload the page and try again.");
@@ -167,9 +200,11 @@ const BulkAddFloorsModal = ({
       console.log("Floors in database after creation:", freshFloors);
       
       // Refresh data with explicit logging
-      console.log("Calling onComplete() to refresh UI data");
-      await onComplete();
-      console.log("onComplete() finished execution");
+      if (onComplete) {
+        console.log("Calling onComplete() to refresh UI data");
+        await onComplete();
+        console.log("onComplete() finished execution");
+      }
       
       // Close modal
       console.log("Closing modal");
@@ -177,11 +212,13 @@ const BulkAddFloorsModal = ({
       console.log("Modal closed");
       
       // Add a delayed second refresh as a fallback
-      setTimeout(async () => {
-        console.log("Executing delayed second refresh");
-        await onComplete();
-        console.log("Delayed refresh complete");
-      }, 1000);
+      if (onComplete) {
+        setTimeout(async () => {
+          console.log("Executing delayed second refresh");
+          await onComplete();
+          console.log("Delayed refresh complete");
+        }, 1000);
+      }
       
     } catch (error) {
       console.error("Error creating bulk floors:", error);
