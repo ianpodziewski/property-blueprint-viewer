@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -33,11 +32,7 @@ export async function createBulkFloors(
     
     console.log("Existing floors data:", existingFloors);
     
-    // Determine starting position - now supporting negative floor numbers
-    // For positioning: negative floors should appear at the bottom of the list (with lower position values)
-    // and positive floors should appear above them
-    
-    // First, find the highest position value from existing floors
+    // Determine starting position
     let nextPosition = 1;
     if (existingFloors && existingFloors.length > 0) {
       nextPosition = existingFloors[0].position + 1;
@@ -49,28 +44,21 @@ export async function createBulkFloors(
     const floorsToCreate = [];
     const createdFloorIds = [];
     
-    // Calculate logical positions for display order
-    // We want floors to appear in this order: -3, -2, -1, 1, 2, 3...
-    // So we'll assign position values accordingly, with underground floors having lower position values
-    
-    // Sort floor numbers to ensure proper order
+    // Calculate floor numbers to ensure proper order
     const floorNumbers = [];
     for (let i = startFloor; i <= endFloor; i++) {
       floorNumbers.push(i);
     }
     
-    // Sort floor numbers so that negative floors appear first, then positive floors
-    floorNumbers.sort((a, b) => {
-      // Special handling for basement vs. above-ground floors
-      if (a < 0 && b >= 0) return -1; // Negative floors come before positive
-      if (a >= 0 && b < 0) return 1;  // Positive floors come after negative
-      // For floors of the same sign, use normal ascending order
-      return a - b;
-    });
+    // Sort floor numbers to ensure proper order
+    // This is crucial for the building layout display
+    // Floors should appear from highest to lowest (e.g., 5, 4, 3, 2, 1, -1, -2, -3)
+    floorNumbers.sort((a, b) => b - a);
     
     console.log("Ordered floor numbers for creation:", floorNumbers);
     
-    // Create floors with ascending positions
+    // Create floors with descending positions (higher floors get higher position values)
+    // This ensures that when sorted by position descending, floors appear in correct order
     for (let i = 0; i < floorNumbers.length; i++) {
       const floorNumber = floorNumbers[i];
       const floorLabel = `${labelPrefix} ${floorNumber}`;

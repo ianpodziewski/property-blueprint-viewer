@@ -13,14 +13,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FloorPlateTemplate } from "@/hooks/usePropertyState";
 import { createBulkFloors } from "@/utils/floorManagement";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Info } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useProject } from "@/context/ProjectContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
 
 interface BulkAddFloorsModalProps {
   isOpen: boolean;
@@ -59,6 +58,18 @@ const BulkAddFloorsModal = ({
     }
   }, [templates, templateId]);
   
+  // Handle floor number inputs as text to allow for negative numbers
+  const handleFloorNumberChange = (field: 'start' | 'end', value: string) => {
+    const numericValue = value === '' ? 0 : parseInt(value);
+    if (!isNaN(numericValue)) {
+      if (field === 'start') {
+        setStartFloor(numericValue);
+      } else {
+        setEndFloor(numericValue);
+      }
+    }
+  };
+  
   // Generate preview of floors to be created
   const previewFloors = () => {
     const floors = [];
@@ -67,7 +78,13 @@ const BulkAddFloorsModal = ({
         floors.push(`${labelPrefix} ${i}`);
       }
     }
-    return floors;
+    // Sort the preview floors to match the same order they'll appear in the building
+    // (highest floor numbers at top, lowest floor numbers at bottom)
+    return floors.sort((a, b) => {
+      const numA = parseInt(a.replace(`${labelPrefix} `, ''));
+      const numB = parseInt(b.replace(`${labelPrefix} `, ''));
+      return numB - numA;
+    });
   };
 
   // Perform basic validation
@@ -238,9 +255,9 @@ const BulkAddFloorsModal = ({
               </div>
               <Input
                 id="startFloor"
-                type="number"
-                value={startFloor}
-                onChange={(e) => setStartFloor(parseInt(e.target.value) || 0)}
+                type="text"
+                value={startFloor.toString()}
+                onChange={(e) => handleFloorNumberChange('start', e.target.value)}
                 disabled={isCreating}
               />
             </div>
@@ -249,9 +266,9 @@ const BulkAddFloorsModal = ({
               <Label htmlFor="endFloor">End Floor Number</Label>
               <Input
                 id="endFloor"
-                type="number"
-                value={endFloor}
-                onChange={(e) => setEndFloor(parseInt(e.target.value) || 0)}
+                type="text"
+                value={endFloor.toString()}
+                onChange={(e) => handleFloorNumberChange('end', e.target.value)}
                 disabled={isCreating}
               />
               {endFloor < startFloor && (
