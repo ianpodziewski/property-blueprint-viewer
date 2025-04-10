@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -32,6 +33,16 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 
+// Define BulkAddFloorsModalProps interface to match the component's expected props
+interface BulkAddFloorsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAddFloors: (count: number) => Promise<void>;
+  templates: FloorPlateTemplate[];
+  projectId: string;
+  onComplete: () => Promise<void>;
+}
+
 interface SortableFloorRowProps {
   floor: Floor;
   templates: FloorPlateTemplate[];
@@ -40,7 +51,7 @@ interface SortableFloorRowProps {
   isExpanded: boolean;
   onToggleExpand: (id: string) => void;
   onDeleteFloor: (id: string) => void;
-  onUpdateFloor: (id: string, updates: Partial<Floor>) => void;
+  onUpdateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
   onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<void>;
   getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
   getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;

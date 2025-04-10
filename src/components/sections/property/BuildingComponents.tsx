@@ -11,6 +11,7 @@ import { PlusCircle, Edit, Trash2, Building2, ChevronRight, ChevronDown } from "
 import { Floor } from '@/hooks/usePropertyState';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface BuildingComponentsProps {
   components: BuildingComponent[];
@@ -68,11 +69,18 @@ const BuildingComponents: React.FC<BuildingComponentsProps> = ({
   }, [editComponentId, components]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    const { name, value } = e.target;
+    if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: e.target.checked,
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   const handleRadioChange = (value: string) => {
