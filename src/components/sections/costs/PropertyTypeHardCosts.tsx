@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { HardCost, CalculationMethod, PropertyType } from "@/hooks/useDevelopmentCosts";
-import { usePropertyState } from "@/hooks/usePropertyState";
 
 interface PropertyTypeHardCostsProps {
   propertyType: PropertyType;
@@ -41,15 +40,15 @@ export const PropertyTypeHardCosts = ({
     }).format(amount);
   };
   
-  // Get property type display name
+  // Get property type display name with proper capitalization
   const getPropertyTypeDisplay = (type: PropertyType) => {
-    switch (type) {
-      case "apartments": return "Apartments";
-      case "retail": return "Retail";
-      case "r&d": return "R&D";
-      case "common": return "Common Elements";
-      default: return type;
-    }
+    if (!type) return "Unknown";
+    
+    // Split by spaces, hyphens or underscores, capitalize each word, join with spaces
+    return type
+      .split(/[\s-_]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
   
   // Calculate total based on rate and area/units
@@ -108,125 +107,131 @@ export const PropertyTypeHardCosts = ({
       <CardHeader>
         <CardTitle>{getPropertyTypeDisplay(propertyType)}</CardTitle>
         <CardDescription>
-          {propertyType === "common" 
+          {propertyType.toLowerCase() === "common" 
             ? "Building-wide costs" 
             : `${propertyArea.toLocaleString()} SF${propertyUnits > 0 ? `, ${propertyUnits} Units` : ""}`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {costs.map((cost) => (
-          <div key={cost.id} className="border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-2 items-end">
-              <div className="space-y-2 md:col-span-3">
-                <Label htmlFor={`${cost.id}-category`}>Cost Category</Label>
-                <Input 
-                  id={`${cost.id}-category`}
-                  value={cost.costCategory}
-                  onChange={(e) => onUpdateCost(cost.id, { costCategory: e.target.value })}
-                  placeholder="e.g., Shell, TI, etc."
-                />
-              </div>
-              
-              <div className="space-y-2 md:col-span-3">
-                <Label htmlFor={`${cost.id}-calculation`}>Calculation Method</Label>
-                <Select 
-                  value={cost.calculationMethod} 
-                  onValueChange={(value) => handleCalculationMethodChange(
-                    cost.id, 
-                    value as CalculationMethod
-                  )}
-                >
-                  <SelectTrigger id={`${cost.id}-calculation`}>
-                    <SelectValue placeholder="Select method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="area_based">Area-Based</SelectItem>
-                    {propertyType === "apartments" && (
-                      <SelectItem value="unit_based">Unit-Based</SelectItem>
-                    )}
-                    <SelectItem value="custom">Custom</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2 md:col-span-3">
-                <Label htmlFor={`${cost.id}-rate`}>
-                  {cost.calculationMethod === "area_based" ? "Rate (per SF)" : 
-                   cost.calculationMethod === "unit_based" ? "Rate (per Unit)" : 
-                   "Amount ($)"}
-                </Label>
-                <div className="flex">
-                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">$</span>
+        {costs.length === 0 ? (
+          <div className="text-center py-4 text-gray-500">
+            No cost items yet. Add one below.
+          </div>
+        ) : (
+          costs.map((cost) => (
+            <div key={cost.id} className="border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-2 items-end">
+                <div className="space-y-2 md:col-span-3">
+                  <Label htmlFor={`${cost.id}-category`}>Cost Category</Label>
                   <Input 
-                    id={`${cost.id}-rate`}
-                    value={cost.rate === null ? "" : cost.rate}
-                    onChange={(e) => handleRateChange(
-                      cost.id, 
-                      e.target.value, 
-                      cost.calculationMethod
-                    )}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="rounded-l-none"
-                    placeholder="0"
+                    id={`${cost.id}-category`}
+                    value={cost.costCategory}
+                    onChange={(e) => onUpdateCost(cost.id, { costCategory: e.target.value })}
+                    placeholder="e.g., Shell, TI, etc."
                   />
                 </div>
-              </div>
-              
-              <div className="space-y-2 md:col-span-2">
-                <Label>Total</Label>
-                <div className="h-10 flex items-center text-base md:text-sm font-medium">
-                  {cost.calculationMethod === "custom" ? (
-                    <div className="flex w-full">
-                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">$</span>
-                      <Input 
-                        value={cost.total === null ? "" : cost.total}
-                        onChange={(e) => handleTotalChange(cost.id, e.target.value)}
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="rounded-l-none"
-                        placeholder="0"
-                      />
-                    </div>
-                  ) : (
-                    cost.total === null ? "-" : formatCurrency(cost.total)
-                  )}
+                
+                <div className="space-y-2 md:col-span-3">
+                  <Label htmlFor={`${cost.id}-calculation`}>Calculation Method</Label>
+                  <Select 
+                    value={cost.calculationMethod} 
+                    onValueChange={(value) => handleCalculationMethodChange(
+                      cost.id, 
+                      value as CalculationMethod
+                    )}
+                  >
+                    <SelectTrigger id={`${cost.id}-calculation`}>
+                      <SelectValue placeholder="Select method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="area_based">Area-Based</SelectItem>
+                      {propertyUnits > 0 && (
+                        <SelectItem value="unit_based">Unit-Based</SelectItem>
+                      )}
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2 md:col-span-3">
+                  <Label htmlFor={`${cost.id}-rate`}>
+                    {cost.calculationMethod === "area_based" ? "Rate (per SF)" : 
+                     cost.calculationMethod === "unit_based" ? "Rate (per Unit)" : 
+                     "Amount ($)"}
+                  </Label>
+                  <div className="flex">
+                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">$</span>
+                    <Input 
+                      id={`${cost.id}-rate`}
+                      value={cost.rate === null ? "" : cost.rate}
+                      onChange={(e) => handleRateChange(
+                        cost.id, 
+                        e.target.value, 
+                        cost.calculationMethod
+                      )}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="rounded-l-none"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Total</Label>
+                  <div className="h-10 flex items-center text-base md:text-sm font-medium">
+                    {cost.calculationMethod === "custom" ? (
+                      <div className="flex w-full">
+                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground text-sm">$</span>
+                        <Input 
+                          value={cost.total === null ? "" : cost.total}
+                          onChange={(e) => handleTotalChange(cost.id, e.target.value)}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="rounded-l-none"
+                          placeholder="0"
+                        />
+                      </div>
+                    ) : (
+                      cost.total === null ? "-" : formatCurrency(cost.total)
+                    )}
+                  </div>
+                </div>
+                
+                <div className="md:col-span-1 flex justify-end">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => onDeleteCost(cost.id)}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                    <span className="sr-only">Remove</span>
+                  </Button>
                 </div>
               </div>
               
-              <div className="md:col-span-1 flex justify-end">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => onDeleteCost(cost.id)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-5 w-5" />
-                  <span className="sr-only">Remove</span>
-                </Button>
+              <div className="text-sm text-gray-500 mt-1">
+                {getCalculationDisplay(cost)}
               </div>
+              
+              {cost.calculationMethod === "custom" && (
+                <div className="mt-3">
+                  <Label htmlFor={`${cost.id}-notes`}>Notes</Label>
+                  <Textarea 
+                    id={`${cost.id}-notes`}
+                    value={cost.notes || ""}
+                    onChange={(e) => handleNotesChange(cost.id, e.target.value)}
+                    placeholder="Explain your calculation method or add notes..."
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
-            
-            <div className="text-sm text-gray-500 mt-1">
-              {getCalculationDisplay(cost)}
-            </div>
-            
-            {cost.calculationMethod === "custom" && (
-              <div className="mt-3">
-                <Label htmlFor={`${cost.id}-notes`}>Notes</Label>
-                <Textarea 
-                  id={`${cost.id}-notes`}
-                  value={cost.notes || ""}
-                  onChange={(e) => handleNotesChange(cost.id, e.target.value)}
-                  placeholder="Explain your calculation method or add notes..."
-                  className="mt-1"
-                />
-              </div>
-            )}
-          </div>
-        ))}
+          ))
+        )}
         
         <Button 
           variant="outline" 

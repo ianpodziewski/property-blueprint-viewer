@@ -26,7 +26,7 @@ const DevelopmentCosts = () => {
   const [softCustomCosts, setSoftCustomCosts] = useState<CustomCostItem[]>([]);
   const [otherCustomCosts, setOtherCustomCosts] = useState<CustomCostItem[]>([]);
   
-  const propertyTypes: PropertyType[] = ["apartments", "retail", "r&d", "common"];
+  const propertyTypes = developmentCosts.availablePropertyTypes;
   
   const addCustomCost = (section: string) => {
     const newCost: CustomCostItem = {
@@ -298,9 +298,9 @@ const DevelopmentCosts = () => {
                     <div key={type} className="space-y-1">
                       <div className="flex justify-between text-sm">
                         <span>{type.charAt(0).toUpperCase() + type.slice(1)}</span>
-                        <span>{formatPercentage(propertyTypeBreakdown[type])}</span>
+                        <span>{formatPercentage(propertyTypeBreakdown[type] || 0)}</span>
                       </div>
-                      <Progress value={propertyTypeBreakdown[type]} className="h-2" />
+                      <Progress value={propertyTypeBreakdown[type] || 0} className="h-2" />
                     </div>
                   ))}
                 </div>
@@ -308,22 +308,24 @@ const DevelopmentCosts = () => {
             </CardContent>
           </Card>
           
-          {/* Property type sections */}
-          {propertyTypes.map((propertyType) => (
-            <PropertyTypeHardCosts
-              key={propertyType}
-              propertyType={propertyType}
-              costs={developmentCosts.getHardCostsByPropertyType(propertyType)}
-              propertyArea={developmentCosts.propertyAreas[propertyType]}
-              propertyUnits={developmentCosts.propertyUnits[propertyType]}
-              onAddCost={developmentCosts.addHardCost}
-              onUpdateCost={developmentCosts.updateHardCost}
-              onDeleteCost={developmentCosts.deleteHardCost}
-              subtotal={developmentCosts.calculatePropertyTypeSubtotal(propertyType)}
-            />
-          ))}
+          {developmentCosts.loading ? (
+            <div className="text-center py-8">Loading property types...</div>
+          ) : (
+            propertyTypes.map((propertyType) => (
+              <PropertyTypeHardCosts
+                key={propertyType}
+                propertyType={propertyType}
+                costs={developmentCosts.getHardCostsByPropertyType(propertyType)}
+                propertyArea={developmentCosts.propertyAreas[propertyType] || 0}
+                propertyUnits={developmentCosts.propertyUnits[propertyType] || 0}
+                onAddCost={developmentCosts.addHardCost}
+                onUpdateCost={developmentCosts.updateHardCost}
+                onDeleteCost={developmentCosts.deleteHardCost}
+                subtotal={developmentCosts.calculatePropertyTypeSubtotal(propertyType)}
+              />
+            ))
+          )}
           
-          {/* Sustainability Costs Section */}
           <div className="mt-8">
             <Collapsible>
               <CollapsibleTrigger asChild>
@@ -360,7 +362,6 @@ const DevelopmentCosts = () => {
             </Collapsible>
           </div>
           
-          {/* Hard costs contingency */}
           <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mt-6">
             <div className="space-y-2">
               <Label htmlFor="contingency">Contingency (%)</Label>
@@ -375,7 +376,6 @@ const DevelopmentCosts = () => {
             </div>
           </div>
           
-          {/* Hard costs total */}
           <div className="mt-8 flex justify-between items-center pt-6 border-t border-t-2">
             <span className="text-lg font-semibold">Total Hard Costs</span>
             <span className="text-lg font-bold">

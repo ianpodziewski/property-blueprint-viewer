@@ -12,7 +12,7 @@ interface CustomCost {
 }
 
 export type CalculationMethod = "area_based" | "unit_based" | "custom";
-export type PropertyType = "apartments" | "retail" | "r&d" | "common";
+export type PropertyType = string;
 
 export interface HardCost {
   id: string;
@@ -41,7 +41,7 @@ interface HardCostRow {
 
 export const useDevelopmentCosts = () => {
   const { currentProjectId } = useProject();
-  const { products, floorPlateTemplates, floors } = usePropertyState();
+  const { products, floorPlateTemplates, floors, unitTypes, nonRentableTypes } = usePropertyState();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -70,7 +70,7 @@ export const useDevelopmentCosts = () => {
     { id: "hard-cost-1", name: "", amount: "", metric: "psf" }
   ]);
   
-  // Soft Costs
+  // Soft Costs and Other Costs variables
   const [architectureCost, setArchitectureCost] = useState<string>("");
   const [permitFees, setPermitFees] = useState<string>("");
   const [legalFees, setLegalFees] = useState<string>("");
@@ -81,82 +81,71 @@ export const useDevelopmentCosts = () => {
     { id: "soft-cost-1", name: "", amount: "", metric: "psf" }
   ]);
   
-  // Other Costs
   const [financingFees, setFinancingFees] = useState<string>("");
   const [interestReserve, setInterestReserve] = useState<string>("");
   const [otherCustomCosts, setOtherCustomCosts] = useState<CustomCost[]>([
     { id: "other-cost-1", name: "", amount: "", metric: "psf" }
   ]);
 
+  // Store available property types from unit_types table
+  const [availablePropertyTypes, setAvailablePropertyTypes] = useState<string[]>([]);
+
   // Calculate property areas for various property types
-  const [propertyAreas, setPropertyAreas] = useState<Record<PropertyType, number>>({
-    apartments: 0,
-    retail: 0,
-    "r&d": 0,
-    common: 0
-  });
+  const [propertyAreas, setPropertyAreas] = useState<Record<string, number>>({});
+  const [propertyUnits, setPropertyUnits] = useState<Record<string, number>>({});
   
-  const [propertyUnits, setPropertyUnits] = useState<Record<PropertyType, number>>({
-    apartments: 0,
-    retail: 0,
-    "r&d": 0,
-    common: 0
-  });
-  
-  // Calculate areas and units for each property type
+  // Fetch unique categories from unit_types table to use as property types
   useEffect(() => {
-    const areas = {
-      apartments: 0,
-      retail: 0,
-      "r&d": 0,
-      common: 0
+    if (!currentProjectId) return;
+    
+    const fetchPropertyTypes = async () => {
+      try {
+        // Query the unit_types table to get unique categories
+        const { data, error } = await supabase
+          .from('unit_types')
+          .select('category')
+          .eq('project_id', currentProjectId)
+          .order('category');
+          
+        if (error) throw error;
+        
+        // Extract unique categories
+        const categories = Array.from(new Set(data.map(item => item.category)));
+        
+        // Always include "common" for shared spaces
+        if (!categories.includes("common")) {
+          categories.push("common");
+        }
+        
+        setAvailablePropertyTypes(categories);
+      } catch (err) {
+        console.error("Error fetching property types:", err);
+        setError("Failed to load property types");
+      }
     };
     
-    const units = {
-      apartments: 0,
-      retail: 0,
-      "r&d": 0,
-      common: 0
-    };
+    fetchPropertyTypes();
+  }, [currentProjectId, unitTypes]);
+  
+  // Calculate areas and units for each property type based on unit_types categories
+  useEffect(() => {
+    const areas: Record<string, number> = {};
+    const units: Record<string, number> = {};
     
-    // Calculate residential areas and units
-    const residentialProducts = products.filter(p => 
-      p.name.toLowerCase().includes("residential") || 
-      p.name.toLowerCase().includes("apartment")
-    );
+    // Initialize with available property types
+    availablePropertyTypes.forEach(type => {
+      areas[type] = 0;
+      units[type] = 0;
+    });
     
-    for (const product of residentialProducts) {
-      for (const unitType of product.unitTypes) {
-        areas.apartments += unitType.grossArea * unitType.numberOfUnits;
-        units.apartments += unitType.numberOfUnits;
+    // Calculate areas and units for each unit type based on its category
+    unitTypes.forEach(unitType => {
+      const category = unitType.category.toLowerCase();
+      if (areas[category] !== undefined) {
+        areas[category] += unitType.area * unitType.units;
+        units[category] += unitType.units;
       }
-    }
-    
-    // Calculate retail areas and units
-    const retailProducts = products.filter(p => 
-      p.name.toLowerCase().includes("retail") || 
-      p.name.toLowerCase().includes("commercial")
-    );
-    
-    for (const product of retailProducts) {
-      for (const unitType of product.unitTypes) {
-        areas.retail += unitType.grossArea * unitType.numberOfUnits;
-        units.retail += unitType.numberOfUnits;
-      }
-    }
-    
-    // Calculate R&D/office areas and units
-    const rdProducts = products.filter(p => 
-      p.name.toLowerCase().includes("r&d") || 
-      p.name.toLowerCase().includes("office")
-    );
-    
-    for (const product of rdProducts) {
-      for (const unitType of product.unitTypes) {
-        areas["r&d"] += unitType.grossArea * unitType.numberOfUnits;
-        units["r&d"] += unitType.numberOfUnits;
-      }
-    }
+    });
     
     // Calculate common areas (estimate as percentage of total building area)
     let totalBuildingArea = 0;
@@ -172,8 +161,7 @@ export const useDevelopmentCosts = () => {
     
     setPropertyAreas(areas);
     setPropertyUnits(units);
-    
-  }, [products, floorPlateTemplates, floors]);
+  }, [unitTypes, floorPlateTemplates, floors, availablePropertyTypes]);
 
   // Fetch hard costs from database
   useEffect(() => {
@@ -182,7 +170,6 @@ export const useDevelopmentCosts = () => {
     const fetchHardCosts = async () => {
       setLoading(true);
       try {
-        // Use any type to bypass the TypeScript error until types are updated
         const { data, error } = await supabase
           .from('hard_costs')
           .select('*')
@@ -194,7 +181,7 @@ export const useDevelopmentCosts = () => {
           const formattedData: HardCost[] = (data as HardCostRow[]).map(item => ({
             id: item.id,
             projectId: item.project_id,
-            propertyType: item.property_type as PropertyType,
+            propertyType: item.property_type,
             costCategory: item.cost_category,
             calculationMethod: item.calculation_method as CalculationMethod,
             rate: item.rate,
@@ -204,12 +191,10 @@ export const useDevelopmentCosts = () => {
           
           setHardCosts(formattedData);
         } else {
-          // Initialize with default hard costs for each property type
+          // Initialize with default hard costs for each property type once we have availablePropertyTypes
           const defaultCosts: HardCost[] = [];
           
-          // Add default shell and TI costs for each property type
-          const propertyTypes: PropertyType[] = ["apartments", "retail", "r&d", "common"];
-          propertyTypes.forEach(type => {
+          availablePropertyTypes.forEach(type => {
             defaultCosts.push({
               id: crypto.randomUUID(),
               projectId: currentProjectId,
@@ -232,6 +217,11 @@ export const useDevelopmentCosts = () => {
           });
           
           setHardCosts(defaultCosts);
+          
+          // Save these default costs to the database
+          defaultCosts.forEach(cost => {
+            saveHardCost(cost);
+          });
         }
       } catch (err) {
         console.error("Error fetching hard costs:", err);
@@ -241,8 +231,10 @@ export const useDevelopmentCosts = () => {
       }
     };
     
-    fetchHardCosts();
-  }, [currentProjectId]);
+    if (availablePropertyTypes.length > 0) {
+      fetchHardCosts();
+    }
+  }, [currentProjectId, availablePropertyTypes]);
 
   // Calculate total for a hard cost based on calculation method
   const calculateHardCostTotal = (
@@ -254,9 +246,9 @@ export const useDevelopmentCosts = () => {
     
     switch (calculationMethod) {
       case "area_based":
-        return rate * propertyAreas[propertyType];
+        return rate * (propertyAreas[propertyType] || 0);
       case "unit_based":
-        return rate * propertyUnits[propertyType];
+        return rate * (propertyUnits[propertyType] || 0);
       case "custom":
         return rate; // For custom, we just use the rate as the total
       default:
@@ -347,6 +339,7 @@ export const useDevelopmentCosts = () => {
     };
     
     setHardCosts(prevCosts => [...prevCosts, newHardCost]);
+    saveHardCost(newHardCost);
     return newHardCost;
   };
 
@@ -549,18 +542,17 @@ export const useDevelopmentCosts = () => {
   // Calculate percentage breakdown by property type
   const calculatePropertyTypeBreakdown = () => {
     const totalHardCost = calculateTotalHardCosts();
-    const result: Record<PropertyType, number> = {
-      apartments: 0,
-      retail: 0,
-      "r&d": 0,
-      common: 0
-    };
+    const result: Record<string, number> = {};
+    
+    // Initialize with 0 for all available property types
+    availablePropertyTypes.forEach(type => {
+      result[type] = 0;
+    });
     
     if (totalHardCost > 0) {
-      Object.keys(result).forEach(type => {
-        const propertyType = type as PropertyType;
-        const subtotal = calculatePropertyTypeSubtotal(propertyType);
-        result[propertyType] = (subtotal / totalHardCost) * 100;
+      availablePropertyTypes.forEach(type => {
+        const subtotal = calculatePropertyTypeSubtotal(type);
+        result[type] = (subtotal / totalHardCost) * 100;
       });
     }
     
@@ -601,6 +593,7 @@ export const useDevelopmentCosts = () => {
     calculatePropertyTypeBreakdown,
     propertyAreas,
     propertyUnits,
+    availablePropertyTypes,
     
     // Soft Costs
     architectureCost, setArchitectureCost,
