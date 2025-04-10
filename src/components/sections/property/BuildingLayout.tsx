@@ -67,6 +67,12 @@ interface SortableFloorRowProps {
   onAllocationChange: (unitTypeId: string, quantity: number) => void;
 }
 
+interface FloorAllocationData {
+  floorId: string;
+  allocatedArea: number;
+  utilization: number;
+}
+
 const SortableFloorRow = ({
   floor,
   templates,
@@ -79,8 +85,9 @@ const SortableFloorRow = ({
   getUnitAllocation,
   getFloorTemplateById,
   globalAllocations,
-  onAllocationChange
-}: SortableFloorRowProps) => {
+  onAllocationChange,
+  floorAllocationData
+}: SortableFloorRowProps & { floorAllocationData?: FloorAllocationData }) => {
   const {
     attributes,
     listeners,
@@ -187,7 +194,7 @@ const SortableFloorRow = ({
   const floorTemplate = getFloorTemplateById(floor.templateId);
   const floorArea = floorTemplate?.grossArea || 0;
   
-  const allocatedArea = useMemo(() => {
+  const allocatedArea = floorAllocationData ? floorAllocationData.allocatedArea : useMemo(() => {
     let total = 0;
     for (const product of products) {
       for (const unitType of product.unitTypes) {
@@ -196,9 +203,12 @@ const SortableFloorRow = ({
       }
     }
     return total;
-  }, [products, allocations]);
+  }, [products, allocations, floorAllocationData]);
   
-  const utilization = floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0;
+  const utilization = floorAllocationData 
+    ? floorAllocationData.utilization 
+    : (floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0);
+    
   const isOverallocated = utilization > 100;
   
   const getUtilizationVariant = () => {
@@ -388,6 +398,8 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   const [selectedFloor, setSelectedFloor] = useState<Floor | null>(null);
   const [isDuplicatingFloor, setIsDuplicatingFloor] = useState(false);
   const [globalAllocations, setGlobalAllocations] = useState<Record<string, number>>({});
+  const [floorAllocations, setFloorAllocations] = useState<Record<string, FloorAllocationData>>({});
+  const [isLoadingInitialAllocations, setIsLoadingInitialAllocations] = useState(true);
   
   useEffect(() => {
     const calculateGlobalAllocations = async () => {
@@ -418,6 +430,50 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     
     calculateGlobalAllocations();
   }, [floors, products, getUnitAllocation]);
+  
+  useEffect(() => {
+    const calculateAllFloorAllocations = async () => {
+      if (floors.length === 0 || products.length === 0 || !getFloorTemplateById) {
+        setIsLoadingInitialAllocations(false);
+        return;
+      }
+      
+      setIsLoadingInitialAllocations(true);
+      
+      try {
+        const allocData: Record<string, FloorAllocationData> = {};
+        
+        for (const floor of floors) {
+          let totalAllocated = 0;
+          
+          for (const product of products) {
+            for (const unitType of product.unitTypes) {
+              const quantity = await getUnitAllocation(floor.id, unitType.id);
+              totalAllocated += quantity * unitType.grossArea;
+            }
+          }
+          
+          const floorTemplate = getFloorTemplateById(floor.templateId);
+          const floorArea = floorTemplate?.grossArea || 0;
+          const utilizationPercentage = floorArea > 0 ? (totalAllocated / floorArea) * 100 : 0;
+          
+          allocData[floor.id] = {
+            floorId: floor.id,
+            allocatedArea: totalAllocated,
+            utilization: utilizationPercentage
+          };
+        }
+        
+        setFloorAllocations(allocData);
+      } catch (error) {
+        console.error("Error pre-calculating floor allocations:", error);
+      } finally {
+        setIsLoadingInitialAllocations(false);
+      }
+    };
+    
+    calculateAllFloorAllocations();
+  }, [floors, products, getUnitAllocation, getFloorTemplateById]);
   
   const handleAllocationChange = useCallback((unitTypeId: string, difference: number) => {
     setGlobalAllocations(prev => ({
@@ -611,47 +667,55 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
       <Card>
         <CardContent className="p-0 overflow-hidden">
           <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8"></TableHead>
-                  <TableHead>Floor</TableHead>
-                  <TableHead>Template</TableHead>
-                  <TableHead className="text-right">Area</TableHead>
-                  <TableHead className="text-right">Allocated</TableHead>
-                  <TableHead className="text-right">Utilization</TableHead>
-                  <TableHead className="w-14"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-              >
-                <SortableContext items={floorIds} strategy={verticalListSortingStrategy}>
-                  <TableBody>
-                    {sortedFloors.map(floor => (
-                      <SortableFloorRow
-                        key={floor.id}
-                        floor={floor}
-                        templates={templates}
-                        products={products}
-                        isExpanded={expandedFloors.has(floor.id)}
-                        onToggleExpand={() => toggleFloorExpand(floor.id)}
-                        onDeleteFloor={onDeleteFloor}
-                        onUpdateFloor={onUpdateFloor}
-                        onUpdateUnitAllocation={onUpdateUnitAllocation}
-                        getUnitAllocation={getUnitAllocation}
-                        getFloorTemplateById={getFloorTemplateById}
-                        globalAllocations={globalAllocations}
-                        onAllocationChange={handleAllocationChange}
-                      />
-                    ))}
-                  </TableBody>
-                </SortableContext>
-              </DndContext>
-            </Table>
+            {isLoadingInitialAllocations ? (
+              <div className="py-8 text-center">
+                <RefreshCw className="h-8 w-8 animate-spin text-blue-500 mx-auto" />
+                <p className="text-gray-600 mt-4">Loading floor allocation data...</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8"></TableHead>
+                    <TableHead>Floor</TableHead>
+                    <TableHead>Template</TableHead>
+                    <TableHead className="text-right">Area</TableHead>
+                    <TableHead className="text-right">Allocated</TableHead>
+                    <TableHead className="text-right">Utilization</TableHead>
+                    <TableHead className="w-14"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                  modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                >
+                  <SortableContext items={floorIds} strategy={verticalListSortingStrategy}>
+                    <TableBody>
+                      {sortedFloors.map(floor => (
+                        <SortableFloorRow
+                          key={floor.id}
+                          floor={floor}
+                          templates={templates}
+                          products={products}
+                          isExpanded={expandedFloors.has(floor.id)}
+                          onToggleExpand={() => toggleFloorExpand(floor.id)}
+                          onDeleteFloor={onDeleteFloor}
+                          onUpdateFloor={onUpdateFloor}
+                          onUpdateUnitAllocation={onUpdateUnitAllocation}
+                          getUnitAllocation={getUnitAllocation}
+                          getFloorTemplateById={getFloorTemplateById}
+                          globalAllocations={globalAllocations}
+                          onAllocationChange={handleAllocationChange}
+                          floorAllocationData={floorAllocations[floor.id]}
+                        />
+                      ))}
+                    </TableBody>
+                  </SortableContext>
+                </DndContext>
+              </Table>
+            )}
           </div>
         </CardContent>
       </Card>
