@@ -82,7 +82,7 @@ const BuildingComponents: React.FC<BuildingComponentsProps> = ({
   const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value === 'null' ? null : value
     }));
   };
 
@@ -244,14 +244,14 @@ const BuildingComponents: React.FC<BuildingComponentsProps> = ({
                   Apply To
                 </Label>
                 <Select 
-                  value={formData.floorId || ''} 
-                  onValueChange={(value) => handleSelectChange('floorId', value === '' ? null : value)}
+                  value={formData.floorId !== null ? formData.floorId : 'null'} 
+                  onValueChange={(value) => handleSelectChange('floorId', value)}
                 >
                   <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Select floor" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Floors</SelectItem>
+                    <SelectItem value="null">All Floors</SelectItem>
                     {floors.map((floor) => (
                       <SelectItem key={floor.id} value={floor.id}>
                         {floor.label}
@@ -423,14 +423,14 @@ const BuildingComponents: React.FC<BuildingComponentsProps> = ({
                 Apply To
               </Label>
               <Select 
-                value={formData.floorId || ''} 
-                onValueChange={(value) => handleSelectChange('floorId', value === '' ? null : value)}
+                value={formData.floorId !== null ? formData.floorId : 'null'} 
+                onValueChange={(value) => handleSelectChange('floorId', value)}
               >
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select floor" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Floors</SelectItem>
+                  <SelectItem value="null">All Floors</SelectItem>
                   {floors.map((floor) => (
                     <SelectItem key={floor.id} value={floor.id}>
                       {floor.label}
