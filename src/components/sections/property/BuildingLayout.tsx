@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -14,7 +13,6 @@ import BulkAddFloorsModal from './BulkAddFloorsModal';
 import FloorUsageTemplates from './FloorUsageTemplates';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { BuildingComponent } from '@/hooks/useBuildingComponents';
-import FloorComponentsPanel from './FloorComponentsPanel';
 import {
   DndContext,
   closestCenter,
@@ -33,14 +31,25 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
 
-// Define BulkAddFloorsModalProps interface to match the component's expected props
-interface BulkAddFloorsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onAddFloors: (count: number) => Promise<void>;
+interface UnitAllocation {
+  unitTypeId: string;
+  quantity: number;
+}
+
+interface BuildingLayoutProps {
+  floors: Floor[];
   templates: FloorPlateTemplate[];
-  projectId: string;
-  onComplete: () => Promise<void>;
+  products: Product[];
+  buildingComponents: BuildingComponent[];
+  onAddFloor: () => Promise<Floor>;
+  onUpdateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
+  onDeleteFloor: (id: string) => Promise<void>;
+  onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<void>;
+  getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
+  getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
+  getComponentsByFloorId: (floorId: string | null) => BuildingComponent[];
+  calculateComponentArea: (component: BuildingComponent, floorArea: number) => number;
+  onRefreshData: () => Promise<void>;
 }
 
 interface SortableFloorRowProps {
@@ -49,20 +58,27 @@ interface SortableFloorRowProps {
   products: Product[];
   buildingComponents: BuildingComponent[];
   isExpanded: boolean;
-  onToggleExpand: (id: string) => void;
-  onDeleteFloor: (id: string) => void;
+  onToggleExpand: () => void;
+  onDeleteFloor: (id: string) => Promise<void>;
   onUpdateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
   onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<void>;
   getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
   getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
   getComponentsByFloorId: (floorId: string | null) => BuildingComponent[];
   calculateComponentArea: (component: BuildingComponent, floorArea: number) => number;
-  globalAllocations?: Record<string, Record<string, number>>;
-  onAllocationChange?: (unitTypeId: string, value: string) => void;
-  floorAllocationData?: any;
+  globalAllocations: Record<string, number>;
+  onAllocationChange: (unitTypeId: string, quantity: number) => void;
+  floorAllocationData?: FloorAllocationData;
 }
 
-const SortableFloorRow: React.FC<SortableFloorRowProps> = ({
+interface FloorAllocationData {
+  floorId: string;
+  allocatedArea: number;
+  componentArea: number;
+  utilization: number;
+}
+
+const SortableFloorRow = ({
   floor,
   templates,
   products,
@@ -79,31 +95,239 @@ const SortableFloorRow: React.FC<SortableFloorRowProps> = ({
   globalAllocations,
   onAllocationChange,
   floorAllocationData
-}) => {
-  const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
+}: SortableFloorRowProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: floor.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : 0,
+    position: 'relative' as const
+  };
+
   const [allocations, setAllocations] = useState<Record<string, number>>({});
+  const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
+  
+  useEffect(() => {
+    const loadAllocations = async () => {
+      if (isExpanded && products.length > 0) {
+        setIsLoadingAllocations(true);
+        try {
+          const alloc: Record<string, number> = {};
+          for (const product of products) {
+            for (const unitType of product.unitTypes) {
+              const quantity = await getUnitAllocation(floor.id, unitType.id);
+              alloc[unitType.id] = quantity;
+            }
+          }
+          setAllocations(alloc);
+        } catch (error) {
+          console.error(`Error loading allocations for floor ${floor.id}:`, error);
+          toast.error("Failed to load unit allocations");
+        } finally {
+          setIsLoadingAllocations(false);
+        }
+      }
+    };
+    
+    loadAllocations();
+  }, [floor.id, isExpanded, products, getUnitAllocation]);
+  
+  const handleTemplateChange = useCallback(async (templateId: string) => {
+    try {
+      await onUpdateFloor(floor.id, { templateId });
+    } catch (error) {
+      console.error(`Error updating floor ${floor.id} template:`, error);
+      toast.error("Failed to update floor template");
+    }
+  }, [floor.id, onUpdateFloor]);
+  
+  const handleAllocationChange = useCallback(async (unitTypeId: string, value: string) => {
+    const quantity = parseInt(value) || 0;
+    const currentQuantity = allocations[unitTypeId] || 0;
+    const difference = quantity - currentQuantity;
+    
+    let unitType;
+    for (const product of products) {
+      const found = product.unitTypes.find(u => u.id === unitTypeId);
+      if (found) {
+        unitType = found;
+        break;
+      }
+    }
+    
+    if (!unitType) return;
+    
+    const totalAllocated = globalAllocations[unitTypeId] || 0;
+    const totalAvailable = unitType.numberOfUnits;
+    
+    if (totalAllocated + difference > totalAvailable) {
+      toast.error(`Cannot allocate more than ${totalAvailable} units of this type`);
+      return;
+    }
+    
+    try {
+      await onUpdateUnitAllocation(floor.id, unitTypeId, quantity);
+      setAllocations(prev => ({
+        ...prev,
+        [unitTypeId]: quantity
+      }));
+      
+      onAllocationChange(unitTypeId, difference);
+      
+    } catch (error) {
+      console.error(`Error updating allocation for floor ${floor.id}, unit ${unitTypeId}:`, error);
+      toast.error("Failed to update unit allocation");
+    }
+  }, [floor.id, onUpdateUnitAllocation, allocations, products, globalAllocations, onAllocationChange]);
+  
+  const handleDeleteFloor = useCallback(async () => {
+    try {
+      await onDeleteFloor(floor.id);
+      toast.success("Floor deleted successfully");
+    } catch (error) {
+      console.error(`Error deleting floor ${floor.id}:`, error);
+      toast.error("Failed to delete floor");
+    }
+  }, [floor.id, onDeleteFloor]);
+  
   const floorTemplate = getFloorTemplateById(floor.templateId);
   const floorArea = floorTemplate?.grossArea || 0;
+  
   const floorComponents = getComponentsByFloorId(floor.id);
-
-  const getUnitAvailability = (unitType: any) => {
-    return {
-      available: 0,
-      total: 0,
-      hasAllocationOnThisFloor: false
-    };
-  };
-
-  const handleAllocationChange = (unitTypeId: string, value: string) => {
-    const numericValue = value === '' ? 0 : parseInt(value, 10);
-    setAllocations(prev => ({ ...prev, [unitTypeId]: numericValue }));
-    if (onAllocationChange) {
-      onAllocationChange(unitTypeId, value);
+  
+  const componentTotalArea = useMemo(() => {
+    return floorComponents.reduce((total, component) => {
+      return total + calculateComponentArea(component, floorArea);
+    }, 0);
+  }, [floorComponents, floorArea, calculateComponentArea]);
+  
+  const allocatedArea = floorAllocationData ? floorAllocationData.allocatedArea : useMemo(() => {
+    let total = 0;
+    for (const product of products) {
+      for (const unitType of product.unitTypes) {
+        const quantity = allocations[unitType.id] || 0;
+        total += quantity * unitType.grossArea;
+      }
     }
+    return total;
+  }, [products, allocations, floorAllocationData]);
+  
+  const totalAllocated = allocatedArea + (floorAllocationData ? floorAllocationData.componentArea : componentTotalArea);
+  
+  const utilization = floorAllocationData 
+    ? floorAllocationData.utilization 
+    : (floorArea > 0 ? (totalAllocated / floorArea) * 100 : 0);
+    
+  const isOverallocated = utilization > 100;
+  
+  const getUtilizationVariant = () => {
+    if (utilization > 100) return "red";
+    if (utilization >= 67) return "green";
+    if (utilization >= 34) return "yellow";
+    return "red";
   };
+  
+  const getUnitAvailability = (unitType) => {
+    const globallyAllocated = globalAllocations[unitType.id] || 0;
+    const total = unitType.numberOfUnits;
+    const available = total - globallyAllocated;
+    
+    const hasAllocationOnThisFloor = (allocations[unitType.id] || 0) > 0;
+    
+    return { available, total, hasAllocationOnThisFloor };
+  };
+  
+  const floorType = floor.floorType || 'aboveground';
 
   return (
     <>
+      <TableRow ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
+        <TableCell className="w-8">
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 flex justify-center">
+            <GripVertical className="h-5 w-5 text-gray-400" />
+          </div>
+        </TableCell>
+        <TableCell className="font-medium">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={onToggleExpand}
+              className="p-1 rounded-sm hover:bg-gray-100"
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4 text-gray-600" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-gray-600" />
+              )}
+            </button>
+            <span>{floor.label}</span>
+          </div>
+        </TableCell>
+        <TableCell>
+          <Select
+            value={floor.templateId}
+            onValueChange={handleTemplateChange}
+          >
+            <SelectTrigger className="w-60">
+              <SelectValue placeholder="Select template" />
+            </SelectTrigger>
+            <SelectContent>
+              {templates.map(template => (
+                <SelectItem key={template.id} value={template.id}>
+                  {template.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </TableCell>
+        <TableCell className="text-right">
+          {floorArea.toLocaleString()} sf
+        </TableCell>
+        <TableCell className="text-right">
+          {allocatedArea.toLocaleString()} sf
+          {componentTotalArea > 0 && (
+            <span className="text-xs text-gray-500 block">
+              +{componentTotalArea.toLocaleString()} sf (components)
+            </span>
+          )}
+        </TableCell>
+        <TableCell className="w-32">
+          <Progress 
+            value={isOverallocated ? 100 : utilization} 
+            variant={getUtilizationVariant()}
+            showValue={true}
+            size="sm"
+            className={isOverallocated ? "opacity-80" : ""}
+          />
+          {isOverallocated && (
+            <div className="text-xs text-red-600 text-center font-semibold mt-1">
+              {utilization.toFixed(1)}%
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="text-right">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDeleteFloor}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 hover:text-red-500">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+          </Button>
+        </TableCell>
+      </TableRow>
+      
       {isExpanded && (
         <TableRow className="bg-gray-50/70 border-b-0">
           <TableCell colSpan={7} className="p-0">
@@ -170,11 +394,39 @@ const SortableFloorRow: React.FC<SortableFloorRowProps> = ({
                   ))}
                   
                   {floorComponents.length > 0 && (
-                    <FloorComponentsPanel
-                      floorComponents={floorComponents}
-                      floorArea={floorArea}
-                      calculateComponentArea={calculateComponentArea}
-                    />
+                    <div className="mt-8 border-t pt-4">
+                      <div className="text-sm font-medium text-gray-700 mb-3">Building Components</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {floorComponents.map(component => {
+                          const componentArea = calculateComponentArea(component, floorArea);
+                          const percentOfFloor = floorArea > 0 ? (componentArea / floorArea) * 100 : 0;
+                          
+                          return (
+                            <div key={component.id} className="flex flex-col h-full p-3 bg-white border rounded shadow-sm">
+                              <div className="mb-2">
+                                <div className="font-medium text-sm">
+                                  {component.name}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {component.componentType}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {component.isPercentage 
+                                    ? `${component.percentage}% of floor`
+                                    : `${component.squareFootage.toLocaleString()} sf fixed`}
+                                </div>
+                              </div>
+                              <div className="mt-auto pt-2 text-sm font-semibold">
+                                {componentArea.toLocaleString()} sf 
+                                <span className="ml-1 text-xs font-normal text-gray-500">
+                                  ({percentOfFloor.toFixed(1)}%)
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -185,22 +437,6 @@ const SortableFloorRow: React.FC<SortableFloorRowProps> = ({
     </>
   );
 };
-
-interface BuildingLayoutProps {
-  floors: Floor[];
-  templates: FloorPlateTemplate[];
-  products: Product[];
-  buildingComponents: BuildingComponent[];
-  onAddFloor: () => Promise<Floor | null>;
-  onUpdateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
-  onDeleteFloor: (id: string) => Promise<void>;
-  onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<void>;
-  getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
-  getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
-  getComponentsByFloorId: (floorId: string | null) => BuildingComponent[];
-  calculateComponentArea: (component: BuildingComponent, floorArea: number) => number;
-  onRefreshData: () => Promise<void>;
-}
 
 const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   floors,
@@ -217,257 +453,303 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   calculateComponentArea,
   onRefreshData
 }) => {
-  const [expandedFloorId, setExpandedFloorId] = useState<string | null>(null);
-  const [isBulkAddModalOpen, setIsBulkAddModalOpen] = useState(false);
-  const [floorOrder, setFloorOrder] = useState<string[]>(floors.map(f => f.id));
+  const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
+  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
+  const [isLoadingInitialAllocations, setIsLoadingInitialAllocations] = useState(true);
+  const [globalAllocations, setGlobalAllocations] = useState<Record<string, number>>({});
+  const [floorAllocations, setFloorAllocations] = useState<Record<string, FloorAllocationData>>({});
   
   useEffect(() => {
-    setFloorOrder(floors.map(f => f.id));
-  }, [floors]);
-
-  const toggleExpand = (id: string) => {
-    setExpandedFloorId(prevId => (prevId === id ? null : id));
-  };
-
-  const handleUpdateFloor = async (id: string, updates: Partial<Floor>) => {
-    try {
-      await onUpdateFloor(id, updates);
-      toast.success("Floor updated successfully");
-    } catch (error) {
-      console.error("Error updating floor:", error);
-      toast.error("Failed to update floor");
-    }
-  };
-
-  const handleDeleteFloor = async (id: string) => {
-    try {
-      await onDeleteFloor(id);
-      toast.success("Floor deleted successfully");
-    } catch (error) {
-      console.error("Error deleting floor:", error);
-      toast.error("Failed to delete floor");
-    }
-  };
-
+    const calculateGlobalAllocations = async () => {
+      if (floors.length === 0 || products.length === 0) return;
+      
+      try {
+        const allocs: Record<string, number> = {};
+        
+        for (const product of products) {
+          for (const unitType of product.unitTypes) {
+            let totalAllocated = 0;
+            
+            for (const floor of floors) {
+              const allocation = await getUnitAllocation(floor.id, unitType.id);
+              totalAllocated += allocation;
+            }
+            
+            allocs[unitType.id] = totalAllocated;
+          }
+        }
+        
+        setGlobalAllocations(allocs);
+      } catch (error) {
+        console.error("Error calculating global allocations:", error);
+        toast.error("Failed to calculate unit availability");
+      }
+    };
+    
+    calculateGlobalAllocations();
+  }, [floors, products, getUnitAllocation]);
+  
+  useEffect(() => {
+    const calculateAllFloorAllocations = async () => {
+      if (floors.length === 0 || products.length === 0 || !getFloorTemplateById) {
+        setIsLoadingInitialAllocations(false);
+        return;
+      }
+      
+      setIsLoadingInitialAllocations(true);
+      
+      try {
+        const allocData: Record<string, FloorAllocationData> = {};
+        
+        for (const floor of floors) {
+          let totalUnitAllocated = 0;
+          
+          for (const product of products) {
+            for (const unitType of product.unitTypes) {
+              const quantity = await getUnitAllocation(floor.id, unitType.id);
+              totalUnitAllocated += quantity * unitType.grossArea;
+            }
+          }
+          
+          const floorTemplate = getFloorTemplateById(floor.templateId);
+          const floorArea = floorTemplate?.grossArea || 0;
+          
+          const floorComponents = getComponentsByFloorId(floor.id);
+          const componentArea = floorComponents.reduce((total, component) => {
+            return total + calculateComponentArea(component, floorArea);
+          }, 0);
+          
+          const totalAllocated = totalUnitAllocated + componentArea;
+          const utilizationPercentage = floorArea > 0 ? (totalAllocated / floorArea) * 100 : 0;
+          
+          allocData[floor.id] = {
+            floorId: floor.id,
+            allocatedArea: totalUnitAllocated,
+            componentArea: componentArea,
+            utilization: utilizationPercentage
+          };
+        }
+        
+        setFloorAllocations(allocData);
+      } catch (error) {
+        console.error("Error pre-calculating floor allocations:", error);
+      } finally {
+        setIsLoadingInitialAllocations(false);
+      }
+    };
+    
+    calculateAllFloorAllocations();
+  }, [floors, products, buildingComponents, getUnitAllocation, getFloorTemplateById, getComponentsByFloorId, calculateComponentArea]);
+  
+  const handleAllocationChange = useCallback((unitTypeId: string, difference: number) => {
+    setGlobalAllocations(prev => ({
+      ...prev,
+      [unitTypeId]: (prev[unitTypeId] || 0) + difference
+    }));
+  }, []);
+  
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = floorOrder.indexOf(active.id as string);
-      const newIndex = floorOrder.indexOf(over.id as string);
-
-      const updatedOrder = arrayMove(floorOrder, oldIndex, newIndex);
-      setFloorOrder(updatedOrder);
-
-      // Optimistically update the order in the UI
-      const updatedFloors = [...floors];
-      
-      // Map floor IDs to their original index
-      const floorIdToIndex = floors.reduce((acc: Record<string, number>, floor, index) => {
-        acc[floor.id] = index;
-        return acc;
-      }, {});
-      
-      // Apply the new order based on the updatedOrder array
-      const orderedFloors = updatedOrder.map(floorId => {
-        const originalIndex = floorIdToIndex[floorId];
-        return updatedFloors[originalIndex];
-      });
-      
-      // Update the position of each floor based on its new index
-      orderedFloors.forEach((floor, index) => {
-        const originalIndex = floorIdToIndex[floor.id];
-        updatedFloors[originalIndex] = { ...floor, position: index + 1 };
-      });
-
-      // Persist the changes to the database
-      updatedFloors.forEach(async (floor) => {
-        await onUpdateFloor(floor.id, { position: floor.position });
-      });
-    }
-  }, [floors, floorOrder, onUpdateFloor]);
-
-  // Helper function to move an item in an array
-  const arrayMove = (arr: string[], fromIndex: number, toIndex: number) => {
-    const newArr = [...arr];
-    const element = newArr.splice(fromIndex, 1)[0];
-    newArr.splice(toIndex, 0, element);
-    return newArr;
-  };
-
-  const reorderedFloors = useMemo(() => {
-    const floorIdToIndex = floors.reduce((acc: Record<string, number>, floor, index) => {
-      acc[floor.id] = index;
-      return acc;
-    }, {});
+  
+  const sortedFloors = useMemo(() => {
+    const abovegroundFloors = floors.filter(f => (f.floorType || 'aboveground') === 'aboveground');
+    const undergroundFloors = floors.filter(f => f.floorType === 'underground');
     
-    return floorOrder.map(floorId => floors[floorIdToIndex[floorId]]);
-  }, [floors, floorOrder]);
-
-  const buildingSummaryProps = {
-    floors: reorderedFloors,
-    templates,
-    products,
-    buildingComponents,
-    getFloorTemplateById,
-    calculateComponentArea
-  };
-
-  const globalAllocations = useMemo(() => {
-    return products.reduce((acc, product) => {
-      product.unitTypes.forEach(unitType => {
-        acc[unitType.id] = {};
-      });
-      return acc;
-    }, {} as Record<string, Record<string, number>>);
-  }, [products]);
-
-  const [floorAllocationData, setFloorAllocationData] = useState({});
-
-  const handleAllocationChange = (unitTypeId: string, value: string) => {
-    setFloorAllocationData(prev => ({
-      ...prev,
-    }));
-  };
-
-  return (
-    <div>
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Building Layout</CardTitle>
-          <CardDescription>Define the floors and unit allocation of your building</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <BuildingSummaryPanel {...buildingSummaryProps} />
+    const sortedAboveground = [...abovegroundFloors].sort((a, b) => b.position - a.position);
+    const sortedUnderground = [...undergroundFloors].sort((a, b) => a.position - b.position);
+    
+    return [...sortedAboveground, ...sortedUnderground];
+  }, [floors]);
+  
+  const floorIds = useMemo(() => 
+    sortedFloors.map(floor => floor.id),
+    [sortedFloors]
+  );
+  
+  const toggleFloorExpand = useCallback((floorId: string) => {
+    setExpandedFloors(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(floorId)) {
+        newSet.delete(floorId);
+      } else {
+        newSet.add(floorId);
+      }
+      return newSet;
+    });
+  }, []);
+  
+  const handleAddFloor = useCallback(async () => {
+    try {
+      await onAddFloor();
+      toast.success("New floor added");
+    } catch (error) {
+      console.error("Error adding floor:", error);
+      toast.error("Failed to add floor");
+    }
+  }, [onAddFloor]);
+  
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const activeIndex = sortedFloors.findIndex(f => f.id === active.id);
+      const overIndex = sortedFloors.findIndex(f => f.id === over.id);
+      
+      if (activeIndex !== -1 && overIndex !== -1) {
+        const activeFloor = sortedFloors[activeIndex];
+        const overFloor = sortedFloors[overIndex];
+        
+        try {
+          await onUpdateFloor(activeFloor.id, { position: overFloor.position });
           
-          <div className="flex justify-between items-center">
-            <h4 className="text-sm font-semibold">Floors</h4>
-            <div>
-              <Button variant="outline" size="sm" onClick={onRefreshData}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Data
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setIsBulkAddModalOpen(true)}>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Bulk Add Floors
-              </Button>
-              <Button size="sm" onClick={onAddFloor}>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Add Floor
-              </Button>
-            </div>
-          </div>
-
-          <BulkAddFloorsModal
-            isOpen={isBulkAddModalOpen}
-            onClose={() => setIsBulkAddModalOpen(false)}
-            templates={templates}
-            projectId={''}
-            onComplete={onRefreshData}
-            onAddFloors={async (count: number) => {
-              for (let i = 0; i < count; i++) {
-                await onAddFloor();
-              }
-            }}
-          />
-
-          {reorderedFloors.length === 0 ? (
-            <div className="text-center py-4 text-gray-500">No floors added yet.</div>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-              onDragEnd={handleDragEnd}
-            >
+          const direction = activeIndex < overIndex ? 1 : -1;
+          for (let i = activeIndex + direction; i !== overIndex + direction; i += direction) {
+            const floorToUpdate = sortedFloors[i];
+            const newPosition = i === overIndex 
+              ? activeFloor.position
+              : sortedFloors[i - direction].position;
+              
+            await onUpdateFloor(floorToUpdate.id, { position: newPosition });
+          }
+          
+          await onRefreshData();
+        } catch (error) {
+          console.error("Error updating floor positions:", error);
+          toast.error("Failed to reorder floors");
+        }
+      }
+    }
+  }, [sortedFloors, onUpdateFloor, onRefreshData]);
+  
+  const projectId = useMemo(() => 
+    floors.length > 0 ? floors[0].projectId || "" : "", 
+    [floors]
+  );
+  
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h3 className="text-lg font-semibold text-blue-700">Building Layout</h3>
+          <p className="text-sm text-gray-500">Configure floor layouts and unit allocations</p>
+        </div>
+        
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowBulkAddModal(true)}
+          >
+            <PlusCircle className="h-4 w-4 mr-1" />
+            Add Multiple Floors
+          </Button>
+          
+          <Button
+            size="sm"
+            onClick={handleAddFloor}
+          >
+            <PlusCircle className="h-4 w-4 mr-1" />
+            Add Floor
+          </Button>
+        </div>
+      </div>
+      
+      <FloorUsageTemplates
+        floors={floors}
+        templates={templates}
+        projectId={projectId}
+        onRefresh={onRefreshData}
+      />
+      
+      <Card>
+        <CardContent className="p-0 overflow-hidden">
+          <div className="overflow-x-auto">
+            {isLoadingInitialAllocations ? (
+              <div className="py-8 text-center">
+                <RefreshCw className="h-8 w-8 animate-spin text-blue-500 mx-auto" />
+                <p className="text-gray-600 mt-4">Loading floor allocation data...</p>
+              </div>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50px]"></TableHead>
-                    <TableHead>Label</TableHead>
+                    <TableHead className="w-8"></TableHead>
+                    <TableHead>Floor</TableHead>
                     <TableHead>Template</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Gross Area</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                    <TableHead className="w-[20px]"></TableHead>
+                    <TableHead className="text-right">Area</TableHead>
+                    <TableHead className="text-right">Allocated</TableHead>
+                    <TableHead className="text-right">Utilization</TableHead>
+                    <TableHead className="w-14"></TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  <SortableContext
-                    items={floorOrder}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {reorderedFloors.map((floor) => {
-                      const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: floor.id });
-                      const style = {
-                        transform: CSS.Transform.toString(transform),
-                        transition,
-                      };
-                      
-                      const floorTemplate = getFloorTemplateById(floor.templateId);
-                      
-                      return (
-                        <React.Fragment key={floor.id}>
-                          <TableRow ref={setNodeRef} style={style} {...attributes} className="cursor-move">
-                            <TableCell>
-                              <Button variant="ghost" size="icon" {...listeners}>
-                                <GripVertical className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                            <TableCell>{floor.label}</TableCell>
-                            <TableCell>{floorTemplate?.name || 'None'}</TableCell>
-                            <TableCell>{floor.floorType}</TableCell>
-                            <TableCell className="text-right">{floorTemplate?.grossArea ? floorTemplate.grossArea.toLocaleString() + ' sf' : 'N/A'}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button variant="ghost" size="icon" onClick={() => toggleExpand(floor.id)}>
-                                  {expandedFloorId === floor.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleDeleteFloor(floor.id)}>
-                                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                            <TableCell></TableCell>
-                          </TableRow>
-                          <SortableFloorRow
-                            key={`expanded-${floor.id}`}
-                            floor={floor}
-                            templates={templates}
-                            products={products}
-                            buildingComponents={buildingComponents}
-                            isExpanded={expandedFloorId === floor.id}
-                            onToggleExpand={toggleExpand}
-                            onDeleteFloor={handleDeleteFloor}
-                            onUpdateFloor={handleUpdateFloor}
-                            onUpdateUnitAllocation={onUpdateUnitAllocation}
-                            getUnitAllocation={getUnitAllocation}
-                            getFloorTemplateById={getFloorTemplateById}
-                            getComponentsByFloorId={getComponentsByFloorId}
-                            calculateComponentArea={calculateComponentArea}
-                            globalAllocations={globalAllocations}
-                            onAllocationChange={handleAllocationChange}
-                            floorAllocationData={floorAllocationData}
-                          />
-                        </React.Fragment>
-                      );
-                    })}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                  modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                >
+                  <SortableContext items={floorIds} strategy={verticalListSortingStrategy}>
+                    <TableBody>
+                      {sortedFloors.map(floor => (
+                        <SortableFloorRow
+                          key={floor.id}
+                          floor={floor}
+                          templates={templates}
+                          products={products}
+                          buildingComponents={buildingComponents}
+                          isExpanded={expandedFloors.has(floor.id)}
+                          onToggleExpand={() => toggleFloorExpand(floor.id)}
+                          onDeleteFloor={onDeleteFloor}
+                          onUpdateFloor={onUpdateFloor}
+                          onUpdateUnitAllocation={onUpdateUnitAllocation}
+                          getUnitAllocation={getUnitAllocation}
+                          getFloorTemplateById={getFloorTemplateById}
+                          getComponentsByFloorId={getComponentsByFloorId}
+                          calculateComponentArea={calculateComponentArea}
+                          globalAllocations={globalAllocations}
+                          onAllocationChange={handleAllocationChange}
+                          floorAllocationData={floorAllocations[floor.id]}
+                        />
+                      ))}
+                    </TableBody>
                   </SortableContext>
-                </TableBody>
+                </DndContext>
               </Table>
-            </DndContext>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
+      
+      <BuildingSummaryPanel
+        floors={floors}
+        templates={templates}
+        products={products}
+        buildingComponents={buildingComponents}
+        getFloorTemplateById={getFloorTemplateById}
+        getUnitAllocation={getUnitAllocation}
+        getComponentsByFloorId={getComponentsByFloorId}
+        calculateComponentArea={calculateComponentArea}
+      />
+      
+      {showBulkAddModal && (
+        <BulkAddFloorsModal
+          isOpen={showBulkAddModal}
+          templates={templates}
+          projectId={projectId}
+          onClose={() => setShowBulkAddModal(false)}
+          onComplete={onRefreshData}
+        />
+      )}
     </div>
   );
 };
 
-export { BuildingLayout };
+export default BuildingLayout;

@@ -11,42 +11,36 @@ export type Database = {
     Tables: {
       building_components: {
         Row: {
-          component_type: string | null
+          component_type: string
           created_at: string
           floor_id: string | null
           id: string
-          is_container: boolean
           is_percentage: boolean
           name: string
-          parent_id: string | null
           percentage: number | null
           project_id: string
           square_footage: number | null
           updated_at: string
         }
         Insert: {
-          component_type?: string | null
+          component_type: string
           created_at?: string
           floor_id?: string | null
           id?: string
-          is_container?: boolean
           is_percentage?: boolean
           name: string
-          parent_id?: string | null
           percentage?: number | null
           project_id: string
           square_footage?: number | null
           updated_at?: string
         }
         Update: {
-          component_type?: string | null
+          component_type?: string
           created_at?: string
           floor_id?: string | null
           id?: string
-          is_container?: boolean
           is_percentage?: boolean
           name?: string
-          parent_id?: string | null
           percentage?: number | null
           project_id?: string
           square_footage?: number | null
@@ -58,13 +52,6 @@ export type Database = {
             columns: ["floor_id"]
             isOneToOne: false
             referencedRelation: "floors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "building_components_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "building_components"
             referencedColumns: ["id"]
           },
           {
