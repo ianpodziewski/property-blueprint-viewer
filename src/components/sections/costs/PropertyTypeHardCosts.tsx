@@ -6,8 +6,17 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { HardCost, CalculationMethod, PropertyType } from "@/hooks/useDevelopmentCosts";
+import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+
+interface UnitTypeInfo {
+  id: string;
+  name: string;
+  area: number;
+  units: number;
+}
 
 interface PropertyTypeHardCostsProps {
   propertyType: PropertyType;
@@ -30,6 +39,31 @@ export const PropertyTypeHardCosts = ({
   onDeleteCost,
   subtotal
 }: PropertyTypeHardCostsProps) => {
+  const [unitTypes, setUnitTypes] = useState<UnitTypeInfo[]>([]);
+  const [isUnitTypesOpen, setIsUnitTypesOpen] = useState(false);
+  
+  // Fetch unit types for this property category
+  useEffect(() => {
+    const fetchUnitTypes = async () => {
+      if (propertyType.toLowerCase() === "common") return; // Skip for common areas
+      
+      const { data, error } = await supabase
+        .from('unit_types')
+        .select('id, name, area, units')
+        .eq('category', propertyType)
+        .order('name');
+        
+      if (error) {
+        console.error("Error fetching unit types:", error);
+        return;
+      }
+      
+      setUnitTypes(data || []);
+    };
+    
+    fetchUnitTypes();
+  }, [propertyType]);
+
   // Helper to format currency
   const formatCurrency = (amount: number | null) => {
     if (amount === null) return "$0";
@@ -38,6 +72,11 @@ export const PropertyTypeHardCosts = ({
       currency: 'USD',
       maximumFractionDigits: 0
     }).format(amount);
+  };
+  
+  // Format numbers with commas
+  const formatNumber = (num: number) => {
+    return num.toLocaleString();
   };
   
   // Get property type display name with proper capitalization
@@ -113,6 +152,47 @@ export const PropertyTypeHardCosts = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Unit Types Breakdown */}
+        {propertyType.toLowerCase() !== "common" && (
+          <Collapsible 
+            open={isUnitTypesOpen} 
+            onOpenChange={setIsUnitTypesOpen}
+            className="border rounded-md p-2 mb-4"
+          >
+            <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-sm font-medium">
+              <span>Unit Types Breakdown</span>
+              {isUnitTypesOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              {unitTypes.length === 0 ? (
+                <div className="text-sm text-gray-500 p-2">No unit types defined for this category</div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 px-2">
+                    <div className="col-span-5">Unit Type</div>
+                    <div className="col-span-3 text-right">Area/Unit</div>
+                    <div className="col-span-2 text-right">Units</div>
+                    <div className="col-span-2 text-right">Total Area</div>
+                  </div>
+                  {unitTypes.map(unitType => (
+                    <div key={unitType.id} className="grid grid-cols-12 gap-2 text-sm px-2 py-1 border-t">
+                      <div className="col-span-5">{unitType.name}</div>
+                      <div className="col-span-3 text-right">{formatNumber(unitType.area)} SF</div>
+                      <div className="col-span-2 text-right">{unitType.units}</div>
+                      <div className="col-span-2 text-right">{formatNumber(unitType.area * unitType.units)} SF</div>
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-12 gap-2 text-sm font-medium px-2 py-1 border-t">
+                    <div className="col-span-8">Total</div>
+                    <div className="col-span-2 text-right">{unitTypes.reduce((sum, unit) => sum + unit.units, 0)}</div>
+                    <div className="col-span-2 text-right">{formatNumber(unitTypes.reduce((sum, unit) => sum + (unit.area * unit.units), 0))} SF</div>
+                  </div>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      
         {costs.length === 0 ? (
           <div className="text-center py-4 text-gray-500">
             No cost items yet. Add one below.
