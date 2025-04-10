@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { PlusCircle, Settings, RefreshCw, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
+import { PlusCircle, Settings, RefreshCw, ChevronDown, ChevronRight, GripVertical, AlertTriangle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
 import { toast } from 'sonner';
@@ -62,6 +63,8 @@ interface SortableFloorRowProps {
   onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<void>;
   getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
   getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
+  globalAllocations: Record<string, number>;
+  onAllocationChange: (unitTypeId: string, quantity: number) => void;
 }
 
 const SortableFloorRow = ({
@@ -74,7 +77,9 @@ const SortableFloorRow = ({
   onUpdateFloor,
   onUpdateUnitAllocation,
   getUnitAllocation,
-  getFloorTemplateById
+  getFloorTemplateById,
+  globalAllocations,
+  onAllocationChange
 }: SortableFloorRowProps) => {
   const {
     attributes,
@@ -132,17 +137,45 @@ const SortableFloorRow = ({
   
   const handleAllocationChange = useCallback(async (unitTypeId: string, value: string) => {
     const quantity = parseInt(value) || 0;
+    const currentQuantity = allocations[unitTypeId] || 0;
+    const difference = quantity - currentQuantity;
+    
+    // Get unit type details
+    let unitType;
+    for (const product of products) {
+      const found = product.unitTypes.find(u => u.id === unitTypeId);
+      if (found) {
+        unitType = found;
+        break;
+      }
+    }
+    
+    if (!unitType) return;
+    
+    // Check if we're exceeding global availability
+    const totalAllocated = globalAllocations[unitTypeId] || 0;
+    const totalAvailable = unitType.numberOfUnits;
+    
+    if (totalAllocated + difference > totalAvailable) {
+      toast.error(`Cannot allocate more than ${totalAvailable} units of this type`);
+      return;
+    }
+    
     try {
       await onUpdateUnitAllocation(floor.id, unitTypeId, quantity);
       setAllocations(prev => ({
         ...prev,
         [unitTypeId]: quantity
       }));
+      
+      // Update global allocation state
+      onAllocationChange(unitTypeId, difference);
+      
     } catch (error) {
       console.error(`Error updating allocation for floor ${floor.id}, unit ${unitTypeId}:`, error);
       toast.error("Failed to update unit allocation");
     }
-  }, [floor.id, onUpdateUnitAllocation]);
+  }, [floor.id, onUpdateUnitAllocation, allocations, products, globalAllocations, onAllocationChange]);
   
   const handleDeleteFloor = useCallback(async () => {
     try {
@@ -179,9 +212,9 @@ const SortableFloorRow = ({
   };
   
   const getUnitAvailability = (unitType) => {
-    const allocated = allocations[unitType.id] || 0;
+    const globallyAllocated = globalAllocations[unitType.id] || 0;
     const total = unitType.numberOfUnits;
-    const available = total - allocated;
+    const available = total - globallyAllocated;
     return { available, total };
   };
   
@@ -278,13 +311,15 @@ const SortableFloorRow = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {product.unitTypes.map(unitType => {
                           const { available, total } = getUnitAvailability(unitType);
+                          const isFullyAllocated = available <= 0;
                           return (
-                            <div key={unitType.id} className="flex flex-col h-full p-3 bg-white border rounded shadow-sm">
+                            <div key={unitType.id} className={`flex flex-col h-full p-3 bg-white border rounded shadow-sm ${isFullyAllocated ? 'border-red-300' : ''}`}>
                               <div className="mb-2">
                                 <div className="font-medium text-sm">
                                   {unitType.unitType}
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1">
+                                <div className={`text-xs ${isFullyAllocated ? 'text-red-500 font-medium' : 'text-gray-500'} mt-1 flex items-center`}>
+                                  {isFullyAllocated && <AlertTriangle className="h-3 w-3 mr-1" />}
                                   {available} available / {total} total
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1">
@@ -295,9 +330,10 @@ const SortableFloorRow = ({
                                 <Input
                                   type="number"
                                   min="0"
+                                  max={total}
                                   value={allocations[unitType.id] || 0}
                                   onChange={(e) => handleAllocationChange(unitType.id, e.target.value)}
-                                  className="w-full text-right"
+                                  className={`w-full text-right ${isFullyAllocated ? 'border-red-300' : ''}`}
                                 />
                               </div>
                             </div>
@@ -336,6 +372,47 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedFloor, setSelectedFloor] = useState<Floor | null>(null);
   const [isDuplicatingFloor, setIsDuplicatingFloor] = useState(false);
+  const [globalAllocations, setGlobalAllocations] = useState<Record<string, number>>({});
+  
+  // Initialize and calculate global allocations on mount and after data refresh
+  useEffect(() => {
+    const calculateGlobalAllocations = async () => {
+      if (floors.length === 0 || products.length === 0) return;
+      
+      try {
+        const allocs: Record<string, number> = {};
+        
+        // For each unit type, calculate total allocations across all floors
+        for (const product of products) {
+          for (const unitType of product.unitTypes) {
+            let totalAllocated = 0;
+            
+            for (const floor of floors) {
+              const allocation = await getUnitAllocation(floor.id, unitType.id);
+              totalAllocated += allocation;
+            }
+            
+            allocs[unitType.id] = totalAllocated;
+          }
+        }
+        
+        setGlobalAllocations(allocs);
+      } catch (error) {
+        console.error("Error calculating global allocations:", error);
+        toast.error("Failed to calculate unit availability");
+      }
+    };
+    
+    calculateGlobalAllocations();
+  }, [floors, products, getUnitAllocation]);
+  
+  // Handle global allocation updates
+  const handleAllocationChange = useCallback((unitTypeId: string, difference: number) => {
+    setGlobalAllocations(prev => ({
+      ...prev,
+      [unitTypeId]: (prev[unitTypeId] || 0) + difference
+    }));
+  }, []);
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -557,6 +634,8 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
                         onUpdateUnitAllocation={onUpdateUnitAllocation}
                         getUnitAllocation={getUnitAllocation}
                         getFloorTemplateById={getFloorTemplateById}
+                        globalAllocations={globalAllocations}
+                        onAllocationChange={handleAllocationChange}
                       />
                     ))}
                   </TableBody>
