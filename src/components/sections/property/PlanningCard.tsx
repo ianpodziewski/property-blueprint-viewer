@@ -5,12 +5,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FloorPlateTemplates from "./FloorPlateTemplates";
 import UnitMix from "./UnitMix";
 import NonRentableSpace from "./NonRentableSpace";
-import { FloorPlateTemplate, NonRentableSpace as NonRentableSpaceType, Product, UnitType } from "@/hooks/usePropertyState";
+import { FloorPlateTemplate, NonRentableType, Product, UnitType } from "@/hooks/usePropertyState";
 
 interface PlanningCardProps {
   floorPlateTemplates: FloorPlateTemplate[];
   products: Product[];
-  nonRentableTypes: NonRentableSpaceType[];
+  nonRentableTypes: NonRentableType[];
   onAddTemplate: (template: Omit<FloorPlateTemplate, 'id'>) => Promise<FloorPlateTemplate | null>;
   onUpdateTemplate: (id: string, updates: Partial<Omit<FloorPlateTemplate, 'id'>>) => Promise<boolean>;
   onDeleteTemplate: (id: string) => Promise<boolean>;
@@ -20,8 +20,8 @@ interface PlanningCardProps {
   onAddUnitType: (productId: string, unit: Omit<UnitType, 'id'>) => Promise<UnitType | null>;
   onUpdateUnitType: (productId: string, unitId: string, updates: Partial<Omit<UnitType, 'id'>>) => Promise<boolean>;
   onDeleteUnitType: (productId: string, unitId: string) => Promise<boolean>;
-  onAddNonRentableType: (nonRentable: Omit<NonRentableSpaceType, 'id'>) => Promise<NonRentableSpaceType | null>;
-  onUpdateNonRentableType: (id: string, updates: Partial<Omit<NonRentableSpaceType, 'id'>>) => Promise<boolean>;
+  onAddNonRentableType: (nonRentable: Omit<NonRentableType, 'id'>) => Promise<NonRentableType | null>;
+  onUpdateNonRentableType: (id: string, updates: Partial<Omit<NonRentableType, 'id'>>) => Promise<boolean>;
   onDeleteNonRentableType: (id: string) => Promise<boolean>;
 }
 

@@ -34,22 +34,22 @@ import {
   LayoutGrid, 
   Percent 
 } from "lucide-react";
-import { NonRentableSpace as NonRentableSpaceType, AllocationMethod } from "@/hooks/usePropertyState";
+import { NonRentableType } from "@/hooks/usePropertyState";
 
 interface NonRentableSpaceProps {
-  nonRentableTypes: NonRentableSpaceType[];
-  onAddNonRentableType: (nonRentable: Omit<NonRentableSpaceType, 'id'>) => Promise<NonRentableSpaceType | null>;
-  onUpdateNonRentableType: (id: string, updates: Partial<Omit<NonRentableSpaceType, 'id'>>) => Promise<boolean>;
+  nonRentableTypes: NonRentableType[];
+  onAddNonRentableType: (nonRentable: Omit<NonRentableType, 'id'>) => Promise<NonRentableType | null>;
+  onUpdateNonRentableType: (id: string, updates: Partial<Omit<NonRentableType, 'id'>>) => Promise<boolean>;
   onDeleteNonRentableType: (id: string) => Promise<boolean>;
 }
 
-const allocationMethodLabels: Record<AllocationMethod, string> = {
+const allocationMethodLabels = {
   'uniform': 'Uniform Across Floors',
   'specific': 'Specific Floors',
   'percentage': 'Percentage of Floor Area'
 };
 
-const allocationMethodIcons: Record<AllocationMethod, React.ReactNode> = {
+const allocationMethodIcons = {
   'uniform': <LayoutGrid className="mr-2 h-4 w-4" />,
   'specific': <Building2 className="mr-2 h-4 w-4" />,
   'percentage': <Percent className="mr-2 h-4 w-4" />
@@ -58,7 +58,7 @@ const allocationMethodIcons: Record<AllocationMethod, React.ReactNode> = {
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   squareFootage: z.number().min(0, "Must be a positive number"),
-  allocationMethod: z.enum(["uniform", "specific", "percentage"] as const)
+  allocationMethod: z.enum(["uniform", "specific", "percentage"])
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -90,7 +90,7 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
     });
   };
 
-  const handleEditClick = (type: NonRentableSpaceType) => {
+  const handleEditClick = (type: NonRentableType) => {
     setEditingId(type.id);
     form.reset({
       name: type.name,
@@ -113,6 +113,7 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
 
   const onSubmit = async (values: FormValues) => {
     if (editingId) {
+      // Make sure all required fields are included
       await onUpdateNonRentableType(editingId, {
         name: values.name,
         squareFootage: values.squareFootage,
@@ -120,6 +121,7 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
       });
       setEditingId(null);
     } else if (isAdding) {
+      // Make sure all required fields are included
       await onAddNonRentableType({
         name: values.name,
         squareFootage: values.squareFootage,
@@ -132,12 +134,14 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Add new type button */}
       {!isAdding && !editingId && (
         <Button onClick={handleAddClick} className="mb-4">
           <Plus className="mr-2 h-4 w-4" /> Add Non-Rentable Type
         </Button>
       )}
 
+      {/* Add/Edit form */}
       {(isAdding || editingId) && (
         <Card className="mb-6">
           <CardHeader>
@@ -244,6 +248,7 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
         </Card>
       )}
 
+      {/* List of non-rentable space types */}
       {nonRentableTypes.length > 0 ? (
         <div className="space-y-4">
           {nonRentableTypes.map((type) => (

@@ -1,7 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AllocationMethod } from "@/hooks/usePropertyState";
 
 export async function createBulkFloors(
   projectId: string,
@@ -287,7 +285,7 @@ export async function createFloorUsageTemplate(
     if (allocations && allocations.length > 0) {
       // Create allocation records for the template
       const templateAllocations = allocations.map(alloc => ({
-        floor_usage_template_id: templateId,
+        template_id: templateId,
         unit_type_id: alloc.unit_type_id,
         quantity: alloc.quantity
       }));
@@ -348,7 +346,7 @@ export async function applyTemplateToFloors(
     const { data: templateAllocations, error: fetchError } = await supabase
       .from('floor_usage_template_allocations')
       .select('unit_type_id, quantity')
-      .eq('floor_usage_template_id', templateId);
+      .eq('template_id', templateId);
     
     if (fetchError) {
       console.error("Error fetching template allocations:", fetchError);
@@ -408,7 +406,7 @@ export async function deleteFloorUsageTemplate(templateId: string): Promise<void
     const { error: allocDeleteError } = await supabase
       .from('floor_usage_template_allocations')
       .delete()
-      .eq('floor_usage_template_id', templateId);
+      .eq('template_id', templateId);
     
     if (allocDeleteError) {
       console.error("Error deleting template allocations:", allocDeleteError);
@@ -430,133 +428,6 @@ export async function deleteFloorUsageTemplate(templateId: string): Promise<void
   } catch (error) {
     console.error("Error in deleteFloorUsageTemplate:", error);
     toast.error("Failed to delete floor template");
-    throw error;
-  }
-}
-
-interface NonRentableSpaceData {
-  id: string;
-  name: string;
-  square_footage: number;
-  allocation_method: string;
-  specific_floors?: number[];
-  project_id: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export async function getNonRentableSpaces(projectId: string): Promise<NonRentableSpaceData[]> {
-  console.log(`Fetching non-rentable spaces for project ${projectId}`);
-  
-  try {
-    // Use RPC to fetch data from non_rentable_spaces
-    const { data, error } = await supabase
-      .rpc('get_non_rentable_spaces', { p_project_id: projectId });
-    
-    if (error) {
-      console.error("Error fetching non-rentable spaces:", error);
-      throw error;
-    }
-    
-    console.log(`Retrieved ${data?.length || 0} non-rentable spaces`);
-    return data || [];
-    
-  } catch (error) {
-    console.error("Error in getNonRentableSpaces:", error);
-    toast.error("Failed to fetch non-rentable spaces");
-    throw error;
-  }
-}
-
-export async function createNonRentableSpace(
-  projectId: string, 
-  name: string, 
-  squareFootage: number, 
-  allocationMethod: string, 
-  specificFloors: number[] = []
-): Promise<string> {
-  console.log(`Creating non-rentable space "${name}" for project ${projectId}`);
-  
-  try {
-    const id = crypto.randomUUID();
-    
-    // Use RPC to insert into the non_rentable_spaces table
-    const { error } = await supabase.rpc('create_non_rentable_space', {
-      p_id: id,
-      p_project_id: projectId,
-      p_name: name,
-      p_square_footage: squareFootage,
-      p_allocation_method: allocationMethod,
-      p_specific_floors: specificFloors.length > 0 ? specificFloors : null
-    });
-    
-    if (error) {
-      console.error("Error creating non-rentable space:", error);
-      throw error;
-    }
-    
-    console.log(`Successfully created non-rentable space with ID ${id}`);
-    return id;
-    
-  } catch (error) {
-    console.error("Error in createNonRentableSpace:", error);
-    toast.error("Failed to create non-rentable space");
-    throw error;
-  }
-}
-
-export async function updateNonRentableSpace(
-  id: string,
-  updates: {
-    name?: string;
-    squareFootage?: number;
-    allocationMethod?: string;
-    specificFloors?: number[];
-  }
-): Promise<void> {
-  console.log(`Updating non-rentable space ${id}`);
-  
-  try {
-    // Use RPC to update the non_rentable_spaces table
-    const { error } = await supabase.rpc('update_non_rentable_space', {
-      p_id: id,
-      p_name: updates.name,
-      p_square_footage: updates.squareFootage,
-      p_allocation_method: updates.allocationMethod,
-      p_specific_floors: updates.specificFloors?.length ? updates.specificFloors : null
-    });
-    
-    if (error) {
-      console.error("Error updating non-rentable space:", error);
-      throw error;
-    }
-    
-    console.log(`Successfully updated non-rentable space ${id}`);
-  } catch (error) {
-    console.error("Error in updateNonRentableSpace:", error);
-    toast.error("Failed to update non-rentable space");
-    throw error;
-  }
-}
-
-export async function deleteNonRentableSpace(id: string): Promise<void> {
-  console.log(`Deleting non-rentable space ${id}`);
-  
-  try {
-    // Use RPC to delete from the non_rentable_spaces table
-    const { error } = await supabase.rpc('delete_non_rentable_space', {
-      p_id: id
-    });
-    
-    if (error) {
-      console.error("Error deleting non-rentable space:", error);
-      throw error;
-    }
-    
-    console.log(`Successfully deleted non-rentable space ${id}`);
-  } catch (error) {
-    console.error("Error in deleteNonRentableSpace:", error);
-    toast.error("Failed to delete non-rentable space");
     throw error;
   }
 }
