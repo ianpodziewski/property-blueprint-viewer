@@ -84,7 +84,10 @@ export interface NonRentableType {
   id: string;
   name: string;
   squareFootage: number;
+  percentage?: number; // New field for percentage-based allocation
   allocationMethod: AllocationMethod;
+  floorConstraints?: Record<string, any>; // New field for storing allocation rules
+  isPercentageBased?: boolean; // For uniform allocation method to toggle between fixed area and percentage
 }
 
 // Interface for floor - updated to include floorType property
@@ -270,7 +273,9 @@ export const usePropertyState = () => {
     const newNonRentable: NonRentableType = {
       ...nonRentable,
       id: crypto.randomUUID(),
-      squareFootage: safeNumberConversion(nonRentable.squareFootage)
+      squareFootage: nonRentable.isPercentageBased ? 0 : safeNumberConversion(nonRentable.squareFootage),
+      percentage: nonRentable.isPercentageBased ? safeNumberConversion(nonRentable.percentage || 0) : undefined,
+      floorConstraints: nonRentable.floorConstraints || {}
     };
     
     console.log("Adding new non-rentable space type:", newNonRentable);
@@ -286,7 +291,10 @@ export const usePropertyState = () => {
         type.id === id ? { 
           ...type, 
           ...updates,
-          squareFootage: updates.squareFootage !== undefined ? safeNumberConversion(updates.squareFootage) : type.squareFootage
+          squareFootage: updates.isPercentageBased ? 0 : 
+                      (updates.squareFootage !== undefined ? safeNumberConversion(updates.squareFootage) : type.squareFootage),
+          percentage: updates.isPercentageBased ? 
+                   (updates.percentage !== undefined ? safeNumberConversion(updates.percentage) : type.percentage) : undefined
         } : type
       )
     );

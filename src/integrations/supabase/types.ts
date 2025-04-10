@@ -227,8 +227,10 @@ export type Database = {
         Row: {
           allocation_method: string
           created_at: string | null
+          floor_constraints: Json
           id: string
           name: string
+          percentage: number | null
           project_id: string
           square_footage: number
           updated_at: string | null
@@ -236,8 +238,10 @@ export type Database = {
         Insert: {
           allocation_method?: string
           created_at?: string | null
+          floor_constraints?: Json
           id?: string
           name: string
+          percentage?: number | null
           project_id: string
           square_footage?: number
           updated_at?: string | null
@@ -245,8 +249,10 @@ export type Database = {
         Update: {
           allocation_method?: string
           created_at?: string | null
+          floor_constraints?: Json
           id?: string
           name?: string
+          percentage?: number | null
           project_id?: string
           square_footage?: number
           updated_at?: string | null

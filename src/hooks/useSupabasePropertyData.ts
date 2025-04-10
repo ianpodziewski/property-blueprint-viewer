@@ -62,7 +62,9 @@ interface NonRentableTypeData {
   project_id: string;
   name: string;
   square_footage: number;
+  percentage: number | null;
   allocation_method: string;
+  floor_constraints: any;
   created_at: string;
   updated_at: string;
 }
@@ -244,7 +246,10 @@ export function useSupabasePropertyData(projectId: string | null) {
           id: type.id,
           name: type.name,
           squareFootage: Number(type.square_footage),
-          allocationMethod: type.allocation_method as 'uniform' | 'specific' | 'percentage'
+          percentage: type.percentage !== null ? Number(type.percentage) : undefined,
+          allocationMethod: type.allocation_method as 'uniform' | 'specific' | 'percentage',
+          floorConstraints: type.floor_constraints || {},
+          isPercentageBased: type.percentage !== null && (type.allocation_method === 'uniform' || type.allocation_method === 'percentage')
         }));
         
         console.log("Transformed non-rentable space data:", transformedNonRentableTypes);
@@ -745,8 +750,10 @@ export function useSupabasePropertyData(projectId: string | null) {
       const dbNonRentableType = {
         project_id: effectiveProjectId,
         name: nonRentable.name.trim(),
-        square_footage: nonRentable.squareFootage,
-        allocation_method: nonRentable.allocationMethod
+        square_footage: nonRentable.isPercentageBased ? 0 : nonRentable.squareFootage,
+        percentage: nonRentable.isPercentageBased ? nonRentable.percentage : null,
+        allocation_method: nonRentable.allocationMethod,
+        floor_constraints: nonRentable.floorConstraints || {}
       };
       
       const { data, error } = await supabase
@@ -761,7 +768,10 @@ export function useSupabasePropertyData(projectId: string | null) {
         id: data.id,
         name: data.name,
         squareFootage: Number(data.square_footage),
-        allocationMethod: data.allocation_method as 'uniform' | 'specific' | 'percentage'
+        percentage: data.percentage !== null ? Number(data.percentage) : undefined,
+        allocationMethod: data.allocation_method as 'uniform' | 'specific' | 'percentage',
+        floorConstraints: data.floor_constraints || {},
+        isPercentageBased: data.percentage !== null && (data.allocation_method === 'uniform' || data.allocation_method === 'percentage')
       };
       
       setNonRentableTypes(prev => [...prev, newNonRentableType]);
@@ -781,8 +791,21 @@ export function useSupabasePropertyData(projectId: string | null) {
     try {
       const dbUpdates: any = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name.trim();
-      if (updates.squareFootage !== undefined) dbUpdates.square_footage = updates.squareFootage;
+      
+      const isPercentageBased = updates.isPercentageBased !== undefined ? 
+        updates.isPercentageBased : 
+        (updates.allocationMethod === 'percentage');
+      
+      if (isPercentageBased) {
+        dbUpdates.percentage = updates.percentage;
+        dbUpdates.square_footage = 0; // Reset square_footage when using percentage
+      } else {
+        dbUpdates.square_footage = updates.squareFootage;
+        dbUpdates.percentage = null; // Reset percentage when using fixed area
+      }
+      
       if (updates.allocationMethod !== undefined) dbUpdates.allocation_method = updates.allocationMethod;
+      if (updates.floorConstraints !== undefined) dbUpdates.floor_constraints = updates.floorConstraints;
       
       const { error } = await supabase
         .from('non_rentable_types')
@@ -793,7 +816,13 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       setNonRentableTypes(prev =>
         prev.map(type =>
-          type.id === id ? { ...type, ...updates } : type
+          type.id === id ? { 
+            ...type, 
+            ...updates,
+            squareFootage: isPercentageBased ? 0 : (updates.squareFootage !== undefined ? updates.squareFootage : type.squareFootage),
+            percentage: isPercentageBased ? (updates.percentage !== undefined ? updates.percentage : type.percentage) : undefined,
+            isPercentageBased: isPercentageBased
+          } : type
         )
       );
       
