@@ -57,3 +57,11 @@ export interface UnitAllocationData {
     project_id: string;
   };
 }
+
+// Mock type to make the FloorUsageTemplates component work
+export interface FloorUsageTemplateData {
+  id: string;
+  name: string;
+  templateId: string;
+  projectId: string;
+}

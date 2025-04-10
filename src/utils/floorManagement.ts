@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -245,189 +246,34 @@ export async function applyFloorToRange(
   }
 }
 
+// The following functions related to floor usage templates have been deprecated
+// as the related database tables have been removed
+
 export async function createFloorUsageTemplate(
   projectId: string,
   templateName: string,
   floorTemplateId: string,
   sourceFloorId: string
 ): Promise<string> {
-  console.log(`Creating floor usage template "${templateName}" for project ${projectId}`);
-  
-  try {
-    // Create the template record
-    const templateId = crypto.randomUUID();
-    
-    const { error: insertError } = await supabase
-      .from('floor_usage_templates')
-      .insert({
-        id: templateId,
-        project_id: projectId,
-        name: templateName,
-        template_id: floorTemplateId
-      });
-    
-    if (insertError) {
-      console.error("Error creating floor usage template:", insertError);
-      throw insertError;
-    }
-    
-    // Get the unit allocations from the source floor
-    const { data: allocations, error: fetchError } = await supabase
-      .from('unit_allocations')
-      .select('unit_type_id, quantity')
-      .eq('floor_id', sourceFloorId);
-    
-    if (fetchError) {
-      console.error("Error fetching allocations for template:", fetchError);
-      throw fetchError;
-    }
-    
-    if (allocations && allocations.length > 0) {
-      // Create allocation records for the template
-      const templateAllocations = allocations.map(alloc => ({
-        template_id: templateId,
-        unit_type_id: alloc.unit_type_id,
-        quantity: alloc.quantity
-      }));
-      
-      const { error: allocError } = await supabase
-        .from('floor_usage_template_allocations')
-        .insert(templateAllocations);
-      
-      if (allocError) {
-        console.error("Error creating template allocations:", allocError);
-        throw allocError;
-      }
-    }
-    
-    console.log(`Successfully created floor usage template with ID ${templateId}`);
-    return templateId;
-    
-  } catch (error) {
-    console.error("Error in createFloorUsageTemplate:", error);
-    toast.error("Failed to create floor template");
-    throw error;
-  }
+  console.log("Floor usage templates feature has been deprecated");
+  toast.error("This feature has been deprecated as the related database tables have been removed.");
+  return "";
 }
 
 export async function fetchFloorUsageTemplates(projectId: string) {
-  console.log(`Fetching floor usage templates for project ${projectId}`);
-  
-  try {
-    const { data, error } = await supabase
-      .from('floor_usage_templates')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('name');
-    
-    if (error) {
-      console.error("Error fetching floor usage templates:", error);
-      throw error;
-    }
-    
-    console.log(`Retrieved ${data?.length || 0} templates`);
-    return data || [];
-    
-  } catch (error) {
-    console.error("Error in fetchFloorUsageTemplates:", error);
-    toast.error("Failed to fetch floor templates");
-    throw error;
-  }
+  console.log("Floor usage templates feature has been deprecated");
+  return [];
 }
 
 export async function applyTemplateToFloors(
   templateId: string,
   floorIds: string[]
 ): Promise<void> {
-  console.log(`Applying template ${templateId} to ${floorIds.length} floors`);
-  
-  try {
-    // Get template allocations
-    const { data: templateAllocations, error: fetchError } = await supabase
-      .from('floor_usage_template_allocations')
-      .select('unit_type_id, quantity')
-      .eq('template_id', templateId);
-    
-    if (fetchError) {
-      console.error("Error fetching template allocations:", fetchError);
-      throw fetchError;
-    }
-    
-    if (!templateAllocations || templateAllocations.length === 0) {
-      console.log("No allocations found for this template");
-      return;
-    }
-    
-    // Process each floor
-    for (const floorId of floorIds) {
-      console.log(`Processing floor ${floorId}`);
-      
-      // Remove existing allocations
-      const { error: deleteError } = await supabase
-        .from('unit_allocations')
-        .delete()
-        .eq('floor_id', floorId);
-      
-      if (deleteError) {
-        console.error(`Error deleting allocations for floor ${floorId}:`, deleteError);
-        throw deleteError;
-      }
-      
-      // Create new allocations based on template
-      const newAllocations = templateAllocations.map(alloc => ({
-        floor_id: floorId,
-        unit_type_id: alloc.unit_type_id,
-        quantity: alloc.quantity
-      }));
-      
-      const { error: insertError } = await supabase
-        .from('unit_allocations')
-        .insert(newAllocations);
-      
-      if (insertError) {
-        console.error(`Error inserting allocations for floor ${floorId}:`, insertError);
-        throw insertError;
-      }
-    }
-    
-    console.log("Successfully applied template to all floors");
-  } catch (error) {
-    console.error("Error in applyTemplateToFloors:", error);
-    toast.error("Failed to apply template to floors");
-    throw error;
-  }
+  console.log("Floor usage templates feature has been deprecated");
+  toast.error("This feature has been deprecated as the related database tables have been removed.");
 }
 
 export async function deleteFloorUsageTemplate(templateId: string): Promise<void> {
-  console.log(`Deleting floor usage template ${templateId}`);
-  
-  try {
-    // First delete associated allocations
-    const { error: allocDeleteError } = await supabase
-      .from('floor_usage_template_allocations')
-      .delete()
-      .eq('template_id', templateId);
-    
-    if (allocDeleteError) {
-      console.error("Error deleting template allocations:", allocDeleteError);
-      throw allocDeleteError;
-    }
-    
-    // Then delete the template itself
-    const { error: templateDeleteError } = await supabase
-      .from('floor_usage_templates')
-      .delete()
-      .eq('id', templateId);
-    
-    if (templateDeleteError) {
-      console.error("Error deleting template:", templateDeleteError);
-      throw templateDeleteError;
-    }
-    
-    console.log("Successfully deleted floor usage template");
-  } catch (error) {
-    console.error("Error in deleteFloorUsageTemplate:", error);
-    toast.error("Failed to delete floor template");
-    throw error;
-  }
+  console.log("Floor usage templates feature has been deprecated");
+  toast.error("This feature has been deprecated as the related database tables have been removed.");
 }

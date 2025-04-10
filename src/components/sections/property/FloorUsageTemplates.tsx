@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -31,11 +30,6 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Floor, FloorPlateTemplate } from "@/hooks/usePropertyState";
-import { 
-  fetchFloorUsageTemplates, 
-  applyTemplateToFloors, 
-  deleteFloorUsageTemplate 
-} from "@/utils/floorManagement";
 import { 
   MoreVertical,
   Loader2,
