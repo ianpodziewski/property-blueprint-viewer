@@ -69,6 +69,22 @@ interface NonRentableTypeData {
   updated_at: string;
 }
 
+interface NonRentableAllocationData {
+  id: string;
+  floor_id: string;
+  non_rentable_type_id: string;
+  square_footage: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NonRentableAllocation {
+  id: string;
+  floorId: string;
+  nonRentableTypeId: string;
+  squareFootage: number;
+}
+
 export function useSupabasePropertyData(projectId: string | null) {
   const { user } = useAuth();
   const { currentProjectId } = useProject();
@@ -80,6 +96,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [unitAllocations, setUnitAllocations] = useState<any[]>([]);
   const [nonRentableTypes, setNonRentableTypes] = useState<NonRentableType[]>([]);
+  const [nonRentableAllocations, setNonRentableAllocations] = useState<NonRentableAllocation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState<number>(0);
 
@@ -237,7 +254,6 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       console.log("Raw non-rentable space data loaded:", nonRentableData);
       
-      // Check if we actually have data
       if (!nonRentableData || nonRentableData.length === 0) {
         console.log("No non-rentable space types found in database");
         setNonRentableTypes([]);
@@ -254,6 +270,37 @@ export function useSupabasePropertyData(projectId: string | null) {
         
         console.log("Transformed non-rentable space data:", transformedNonRentableTypes);
         setNonRentableTypes(transformedNonRentableTypes);
+      }
+      
+      console.log("Loading non-rentable allocations for project floors");
+      const { data: allocationsData, error: allocationsError } = await supabase
+        .from('non_rentable_allocations')
+        .select(`
+          id, square_footage, non_rentable_type_id,
+          floors!inner(id, project_id)
+        `)
+        .eq('floors.project_id', effectiveProjectId);
+        
+      if (allocationsError) {
+        console.error("Error loading non-rentable allocations:", allocationsError);
+        throw allocationsError;
+      }
+      
+      console.log("Raw non-rentable allocations loaded:", allocationsData);
+      
+      if (!allocationsData || allocationsData.length === 0) {
+        console.log("No non-rentable allocations found in database");
+        setNonRentableAllocations([]);
+      } else {
+        const transformedAllocations = allocationsData.map((alloc) => ({
+          id: alloc.id,
+          floorId: alloc.floors.id,
+          nonRentableTypeId: alloc.non_rentable_type_id,
+          squareFootage: Number(alloc.square_footage)
+        }));
+        
+        console.log("Transformed non-rentable allocations:", transformedAllocations);
+        setNonRentableAllocations(transformedAllocations);
       }
       
       console.log("Project data loaded successfully");
@@ -857,6 +904,96 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
+  const addNonRentableAllocation = async (allocation: Omit<NonRentableAllocation, 'id'>) => {
+    if (!effectiveProjectId || !user) return null;
+    
+    try {
+      const dbAllocation = {
+        floor_id: allocation.floorId,
+        non_rentable_type_id: allocation.nonRentableTypeId,
+        square_footage: allocation.squareFootage
+      };
+      
+      const { data, error } = await supabase
+        .from('non_rentable_allocations')
+        .insert(dbAllocation)
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      const newAllocation: NonRentableAllocation = {
+        id: data.id,
+        floorId: data.floor_id,
+        nonRentableTypeId: data.non_rentable_type_id,
+        squareFootage: Number(data.square_footage)
+      };
+      
+      setNonRentableAllocations(prev => [...prev, newAllocation]);
+      return newAllocation;
+      
+    } catch (error) {
+      console.error("Error adding non-rentable allocation:", error);
+      toast.error("Failed to add non-rentable space allocation");
+      return null;
+    }
+  };
+
+  const updateNonRentableAllocation = async (id: string, updates: Partial<Omit<NonRentableAllocation, 'id'>>) => {
+    if (!effectiveProjectId || !user) return false;
+    
+    try {
+      const dbUpdates: any = {};
+      if (updates.squareFootage !== undefined) dbUpdates.square_footage = updates.squareFootage;
+      
+      const { error } = await supabase
+        .from('non_rentable_allocations')
+        .update(dbUpdates)
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setNonRentableAllocations(prev =>
+        prev.map(alloc =>
+          alloc.id === id ? { ...alloc, ...updates } : alloc
+        )
+      );
+      
+      return true;
+      
+    } catch (error) {
+      console.error("Error updating non-rentable allocation:", error);
+      toast.error("Failed to update non-rentable space allocation");
+      return false;
+    }
+  };
+
+  const deleteNonRentableAllocation = async (id: string) => {
+    if (!effectiveProjectId || !user) return false;
+    
+    try {
+      const { error } = await supabase
+        .from('non_rentable_allocations')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      setNonRentableAllocations(prev => prev.filter(alloc => alloc.id !== id));
+      
+      return true;
+      
+    } catch (error) {
+      console.error("Error deleting non-rentable allocation:", error);
+      toast.error("Failed to delete non-rentable space allocation");
+      return false;
+    }
+  };
+
+  const getNonRentableAllocationsForFloor = (floorId: string) => {
+    return nonRentableAllocations.filter(alloc => alloc.floorId === floorId);
+  };
+
   const returnVal = {
     loading,
     saving,
@@ -866,6 +1003,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     products,
     floors,
     nonRentableTypes,
+    nonRentableAllocations,
     updateProjectInfo,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
@@ -884,6 +1022,10 @@ export function useSupabasePropertyData(projectId: string | null) {
     addNonRentableType,
     updateNonRentableType,
     deleteNonRentableType,
+    addNonRentableAllocation,
+    updateNonRentableAllocation,
+    deleteNonRentableAllocation,
+    getNonRentableAllocationsForFloor,
     reloadProjectData,
     
     getFloorTemplateById: (templateId: string) => {

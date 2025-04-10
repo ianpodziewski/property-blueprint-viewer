@@ -5,13 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { PlusCircle, RefreshCw, ChevronDown, ChevronRight, GripVertical, AlertTriangle } from 'lucide-react';
-import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
+import { PlusCircle, RefreshCw, ChevronDown, ChevronRight, GripVertical, AlertTriangle, Edit, Trash2, Plus } from 'lucide-react';
+import { Floor, FloorPlateTemplate, Product, NonRentableType } from '@/hooks/usePropertyState';
 import { toast } from 'sonner';
 import BuildingSummaryPanel from './BuildingSummaryPanel';
 import BulkAddFloorsModal from './BulkAddFloorsModal';
 import FloorUsageTemplates from './FloorUsageTemplates';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { NonRentableAllocation } from '@/hooks/useSupabasePropertyData';
+import NonRentableAllocationModal from './NonRentableAllocationModal';
 import {
   DndContext,
   closestCenter,
@@ -39,6 +41,7 @@ interface BuildingLayoutProps {
   floors: Floor[];
   templates: FloorPlateTemplate[];
   products: Product[];
+  nonRentableTypes: NonRentableType[];
   onAddFloor: () => Promise<Floor>;
   onUpdateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
   onDeleteFloor: (id: string) => Promise<void>;
@@ -46,12 +49,18 @@ interface BuildingLayoutProps {
   getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
   getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
   onRefreshData: () => Promise<void>;
+  nonRentableAllocations: NonRentableAllocation[];
+  addNonRentableAllocation: (allocation: Omit<NonRentableAllocation, 'id'>) => Promise<NonRentableAllocation | null>;
+  updateNonRentableAllocation: (id: string, updates: Partial<Omit<NonRentableAllocation, 'id'>>) => Promise<boolean>;
+  deleteNonRentableAllocation: (id: string) => Promise<boolean>;
+  getNonRentableAllocationsForFloor: (floorId: string) => NonRentableAllocation[];
 }
 
 interface SortableFloorRowProps {
   floor: Floor;
   templates: FloorPlateTemplate[];
   products: Product[];
+  nonRentableTypes: NonRentableType[];
   isExpanded: boolean;
   onToggleExpand: () => void;
   onDeleteFloor: (id: string) => Promise<void>;
@@ -61,6 +70,11 @@ interface SortableFloorRowProps {
   getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
   globalAllocations: Record<string, number>;
   onAllocationChange: (unitTypeId: string, quantity: number) => void;
+  floorAllocationData?: FloorAllocationData;
+  nonRentableAllocations: NonRentableAllocation[];
+  addNonRentableAllocation: (allocation: Omit<NonRentableAllocation, 'id'>) => Promise<NonRentableAllocation | null>;
+  updateNonRentableAllocation: (id: string, updates: Partial<Omit<NonRentableAllocation, 'id'>>) => Promise<boolean>;
+  deleteNonRentableAllocation: (id: string) => Promise<boolean>;
 }
 
 interface FloorAllocationData {
@@ -73,6 +87,7 @@ const SortableFloorRow = ({
   floor,
   templates,
   products,
+  nonRentableTypes,
   isExpanded,
   onToggleExpand,
   onDeleteFloor,
@@ -82,8 +97,12 @@ const SortableFloorRow = ({
   getFloorTemplateById,
   globalAllocations,
   onAllocationChange,
-  floorAllocationData
-}: SortableFloorRowProps & { floorAllocationData?: FloorAllocationData }) => {
+  floorAllocationData,
+  nonRentableAllocations,
+  addNonRentableAllocation,
+  updateNonRentableAllocation,
+  deleteNonRentableAllocation
+}: SortableFloorRowProps) => {
   const {
     attributes,
     listeners,
@@ -103,7 +122,9 @@ const SortableFloorRow = ({
 
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
-  
+  const [showNonRentableModal, setShowNonRentableModal] = useState(false);
+  const [editingNonRentableId, setEditingNonRentableId] = useState<string | null>(null);
+
   useEffect(() => {
     const loadAllocations = async () => {
       if (isExpanded && products.length > 0) {
@@ -187,6 +208,41 @@ const SortableFloorRow = ({
     }
   }, [floor.id, onDeleteFloor]);
   
+  const handleAddNonRentableAllocation = async (nonRentableTypeId: string, squareFootage: number) => {
+    try {
+      await addNonRentableAllocation({
+        floorId: floor.id,
+        nonRentableTypeId,
+        squareFootage
+      });
+      toast.success("Non-rentable space added successfully");
+    } catch (error) {
+      console.error("Error adding non-rentable allocation:", error);
+      toast.error("Failed to add non-rentable space");
+    }
+  };
+
+  const handleUpdateNonRentableAllocation = async (id: string, squareFootage: number) => {
+    try {
+      await updateNonRentableAllocation(id, { squareFootage });
+      toast.success("Non-rentable space updated successfully");
+      setEditingNonRentableId(null);
+    } catch (error) {
+      console.error("Error updating non-rentable allocation:", error);
+      toast.error("Failed to update non-rentable space");
+    }
+  };
+
+  const handleDeleteNonRentableAllocation = async (id: string) => {
+    try {
+      await deleteNonRentableAllocation(id);
+      toast.success("Non-rentable space removed successfully");
+    } catch (error) {
+      console.error("Error deleting non-rentable allocation:", error);
+      toast.error("Failed to remove non-rentable space");
+    }
+  };
+
   const floorTemplate = getFloorTemplateById(floor.templateId);
   const floorArea = floorTemplate?.grossArea || 0;
   
@@ -225,6 +281,17 @@ const SortableFloorRow = ({
   };
   
   const floorType = floor.floorType || 'aboveground';
+
+  const nonRentableArea = useMemo(() => {
+    return nonRentableAllocations.reduce((total, allocation) => {
+      return total + allocation.squareFootage;
+    }, 0);
+  }, [nonRentableAllocations]);
+
+  const getNonRentableTypeName = (typeId: string) => {
+    const type = nonRentableTypes.find(t => t.id === typeId);
+    return type ? type.name : 'Unknown';
+  };
 
   return (
     <>
@@ -367,9 +434,89 @@ const SortableFloorRow = ({
                   ))}
                 </div>
               )}
+              
+              <div className="mt-8">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="text-sm font-medium">Non-Rentable Allocations</div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowNonRentableModal(true)}
+                    className="h-8"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add Non-Rentable Space
+                  </Button>
+                </div>
+                
+                {nonRentableAllocations.length === 0 ? (
+                  <div className="text-sm text-gray-500 py-3 border rounded text-center bg-white">
+                    No non-rentable spaces allocated to this floor
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {nonRentableAllocations.map(allocation => (
+                      <div 
+                        key={allocation.id} 
+                        className="p-3 bg-white border rounded shadow-sm flex justify-between items-center"
+                      >
+                        <div>
+                          <div className="font-medium text-sm">
+                            {getNonRentableTypeName(allocation.nonRentableTypeId)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {allocation.squareFootage.toLocaleString()} sf
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              setEditingNonRentableId(allocation.id);
+                              setShowNonRentableModal(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 text-gray-500 hover:text-blue-500" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleDeleteNonRentableAllocation(allocation.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </TableCell>
         </TableRow>
+      )}
+      
+      {showNonRentableModal && (
+        <NonRentableAllocationModal
+          isOpen={showNonRentableModal}
+          onClose={() => {
+            setShowNonRentableModal(false);
+            setEditingNonRentableId(null);
+          }}
+          onSave={editingNonRentableId 
+            ? (_, squareFootage) => handleUpdateNonRentableAllocation(editingNonRentableId, squareFootage)
+            : handleAddNonRentableAllocation
+          }
+          nonRentableTypes={nonRentableTypes}
+          floor={floor}
+          floorArea={floorArea}
+          existingAllocationIds={editingNonRentableId 
+            ? nonRentableAllocations.filter(a => a.id !== editingNonRentableId).map(a => a.nonRentableTypeId)
+            : nonRentableAllocations.map(a => a.nonRentableTypeId)
+          }
+        />
       )}
     </>
   );
@@ -379,13 +526,19 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   floors,
   templates,
   products,
+  nonRentableTypes,
   onAddFloor,
   onUpdateFloor,
   onDeleteFloor,
   onUpdateUnitAllocation,
   getUnitAllocation,
   getFloorTemplateById,
-  onRefreshData
+  onRefreshData,
+  nonRentableAllocations,
+  addNonRentableAllocation,
+  updateNonRentableAllocation,
+  deleteNonRentableAllocation,
+  getNonRentableAllocationsForFloor
 }) => {
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
@@ -630,6 +783,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
                           floor={floor}
                           templates={templates}
                           products={products}
+                          nonRentableTypes={nonRentableTypes}
                           isExpanded={expandedFloors.has(floor.id)}
                           onToggleExpand={() => toggleFloorExpand(floor.id)}
                           onDeleteFloor={onDeleteFloor}
@@ -640,6 +794,10 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
                           globalAllocations={globalAllocations}
                           onAllocationChange={handleAllocationChange}
                           floorAllocationData={floorAllocations[floor.id]}
+                          nonRentableAllocations={getNonRentableAllocationsForFloor(floor.id)}
+                          addNonRentableAllocation={addNonRentableAllocation}
+                          updateNonRentableAllocation={updateNonRentableAllocation}
+                          deleteNonRentableAllocation={deleteNonRentableAllocation}
                         />
                       ))}
                     </TableBody>

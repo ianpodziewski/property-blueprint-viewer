@@ -182,6 +182,48 @@ export type Database = {
           },
         ]
       }
+      non_rentable_allocations: {
+        Row: {
+          created_at: string
+          floor_id: string
+          id: string
+          non_rentable_type_id: string
+          square_footage: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          floor_id: string
+          id?: string
+          non_rentable_type_id: string
+          square_footage: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          floor_id?: string
+          id?: string
+          non_rentable_type_id?: string
+          square_footage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "non_rentable_allocations_floor_id_fkey"
+            columns: ["floor_id"]
+            isOneToOne: false
+            referencedRelation: "floors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "non_rentable_allocations_non_rentable_type_id_fkey"
+            columns: ["non_rentable_type_id"]
+            isOneToOne: false
+            referencedRelation: "non_rentable_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       non_rentable_spaces: {
         Row: {
           allocation_method: string

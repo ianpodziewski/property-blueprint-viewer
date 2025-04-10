@@ -49,7 +49,12 @@ const PropertyBreakdown = () => {
     nonRentableTypes,
     addNonRentableType,
     updateNonRentableType,
-    deleteNonRentableType
+    deleteNonRentableType,
+    nonRentableAllocations,
+    addNonRentableAllocation,
+    updateNonRentableAllocation,
+    deleteNonRentableAllocation,
+    getNonRentableAllocationsForFloor
   } = useSupabasePropertyData(projectId || null);
   
   useEffect(() => {
@@ -324,6 +329,7 @@ const PropertyBreakdown = () => {
             floors={floors}
             templates={floorPlateTemplates}
             products={products}
+            nonRentableTypes={nonRentableTypes || []}
             onAddFloor={addFloor}
             onUpdateFloor={updateFloor}
             onDeleteFloor={deleteFloor}
@@ -331,6 +337,11 @@ const PropertyBreakdown = () => {
             getUnitAllocation={getUnitAllocation}
             getFloorTemplateById={getFloorTemplateById}
             onRefreshData={handleDataRefresh}
+            nonRentableAllocations={nonRentableAllocations || []}
+            addNonRentableAllocation={addNonRentableAllocation}
+            updateNonRentableAllocation={updateNonRentableAllocation}
+            deleteNonRentableAllocation={deleteNonRentableAllocation}
+            getNonRentableAllocationsForFloor={getNonRentableAllocationsForFloor}
           />
         </CardContent>
       </Card>
