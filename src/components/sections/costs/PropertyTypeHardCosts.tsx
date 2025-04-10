@@ -112,7 +112,7 @@ export const PropertyTypeHardCosts = ({
     
     switch (cost.calculationMethod) {
       case "area_based":
-        return `${formatCurrency(cost.rate)}/SF × ${propertyArea.toLocaleString()} SF = ${formatCurrency(cost.total)}`;
+        return `${formatCurrency(cost.rate)}/SF × ${formatNumber(propertyArea)} SF = ${formatCurrency(cost.total)}`;
       case "unit_based":
         return `${formatCurrency(cost.rate)}/Unit × ${propertyUnits} Units = ${formatCurrency(cost.total)}`;
       case "custom":
@@ -148,7 +148,7 @@ export const PropertyTypeHardCosts = ({
         <CardDescription>
           {propertyType.toLowerCase() === "common" 
             ? "Building-wide costs" 
-            : `${propertyArea.toLocaleString()} SF${propertyUnits > 0 ? `, ${propertyUnits} Units` : ""}`}
+            : `${formatNumber(propertyArea)} SF${propertyUnits > 0 ? `, ${propertyUnits} Units` : ""}`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
