@@ -86,7 +86,7 @@ export interface NonRentableType {
   squareFootage: number;
   percentage?: number; // New field for percentage-based allocation
   allocationMethod: AllocationMethod;
-  floorConstraints?: Record<string, any>; // New field for storing allocation rules
+  floorConstraints?: any; // Changed from Record<string, any> to any to match Json type
   isPercentageBased?: boolean; // For uniform allocation method to toggle between fixed area and percentage
 }
 
