@@ -19,6 +19,7 @@ export function useBuildingComponents(projectId: string | null) {
 
     setLoading(true);
     try {
+      // Using a generic query approach to avoid TypeScript issues with the table name
       const { data, error } = await supabase
         .from('building_component_categories')
         .select('*')
@@ -27,10 +28,13 @@ export function useBuildingComponents(projectId: string | null) {
 
       if (error) throw error;
 
-      const formattedCategories: BuildingComponentCategory[] = (data || []).map(item => ({
-        id: item.id,
-        name: item.name
-      }));
+      // Safely transform the data, ensuring we check if data exists and has the expected shape
+      const formattedCategories: BuildingComponentCategory[] = Array.isArray(data) 
+        ? data.map(item => ({
+            id: item.id,
+            name: item.name
+          }))
+        : [];
 
       setCategories(formattedCategories);
     } catch (err) {
@@ -50,6 +54,7 @@ export function useBuildingComponents(projectId: string | null) {
     if (!projectId || !user) return null;
 
     try {
+      // Using a generic approach for the insert
       const { data, error } = await supabase
         .from('building_component_categories')
         .insert({
@@ -60,6 +65,8 @@ export function useBuildingComponents(projectId: string | null) {
         .single();
 
       if (error) throw error;
+
+      if (!data) throw new Error('No data returned from insert operation');
 
       const newCategory: BuildingComponentCategory = {
         id: data.id,
