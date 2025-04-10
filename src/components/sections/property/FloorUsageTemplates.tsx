@@ -52,9 +52,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 export interface FloorUsageTemplate {
   id: string;
   name: string;
-  templateId: string;
-  projectId: string;
-  createdAt: string;
+  template_id: string | null;
+  project_id: string;
+  created_at: string;
 }
 
 interface FloorUsageTemplatesProps {
@@ -83,15 +83,7 @@ const FloorUsageTemplates = ({
     setIsLoading(true);
     try {
       const templates = await fetchFloorUsageTemplates(projectId);
-      // Transform the API response to match our FloorUsageTemplate interface
-      const transformedTemplates: FloorUsageTemplate[] = templates.map(template => ({
-        id: template.id,
-        name: template.name,
-        templateId: template.template_id || "",
-        projectId: template.project_id,
-        createdAt: template.created_at
-      }));
-      setUsageTemplates(transformedTemplates);
+      setUsageTemplates(templates);
     } catch (error) {
       console.error("Error loading floor usage templates:", error);
       toast.error("Failed to load floor templates");
@@ -104,7 +96,7 @@ const FloorUsageTemplates = ({
     loadTemplates();
   }, [projectId]);
 
-  const getTemplateName = (templateId: string | undefined) => {
+  const getTemplateName = (templateId: string | undefined | null) => {
     if (!templateId) return "Unknown Template";
     const template = templates.find(t => t.id === templateId);
     return template ? template.name : "Unknown Template";
@@ -203,7 +195,7 @@ const FloorUsageTemplates = ({
                   usageTemplates.map(template => (
                     <TableRow key={template.id}>
                       <TableCell>{template.name}</TableCell>
-                      <TableCell>{getTemplateName(template.templateId)}</TableCell>
+                      <TableCell>{getTemplateName(template.template_id)}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
