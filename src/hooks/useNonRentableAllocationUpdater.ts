@@ -35,12 +35,13 @@ export const useNonRentableAllocationUpdater = ({
       const updatedIds: string[] = [];
       
       try {
-        // Process each non-rentable type that uses percentage-based or uniform allocation
+        // Process each non-rentable type that uses percentage-based allocation
         for (const nonRentableType of nonRentableTypes) {
-          if (nonRentableType.allocationMethod === 'specific') continue;
+          // Skip types that need to be manually allocated (fixed square footage without percentage)
+          if (nonRentableType.allocationMethod === 'fixed') continue;
 
           // For percentage-based allocations
-          if (nonRentableType.isPercentageBased && nonRentableType.percentage !== undefined) {
+          if (nonRentableType.allocationMethod === 'percentage' && nonRentableType.percentage !== undefined) {
             for (const floor of floors) {
               const template = getFloorTemplateById(floor.templateId);
               if (!template) continue;
@@ -70,43 +71,6 @@ export const useNonRentableAllocationUpdater = ({
                 });
                 if (newAllocation) {
                   updatedIds.push(newAllocation.id);
-                }
-              }
-            }
-          }
-          
-          // For uniform allocations (distribute evenly across floors)
-          else if (nonRentableType.allocationMethod === 'uniform' && !nonRentableType.isPercentageBased) {
-            const totalSquareFootage = nonRentableType.squareFootage;
-            const floorCount = floors.length;
-            
-            if (floorCount > 0) {
-              const squareFootagePerFloor = totalSquareFootage / floorCount;
-              
-              for (const floor of floors) {
-                // Find existing allocation
-                const existingAllocation = nonRentableAllocations.find(
-                  alloc => alloc.floorId === floor.id && alloc.nonRentableTypeId === nonRentableType.id
-                );
-                
-                if (existingAllocation) {
-                  // Update if different
-                  if (Math.abs(existingAllocation.squareFootage - squareFootagePerFloor) > 0.01) {
-                    await updateNonRentableAllocation(existingAllocation.id, {
-                      squareFootage: squareFootagePerFloor
-                    });
-                    updatedIds.push(existingAllocation.id);
-                  }
-                } else {
-                  // Create new allocation
-                  const newAllocation = await addNonRentableAllocation({
-                    floorId: floor.id,
-                    nonRentableTypeId: nonRentableType.id,
-                    squareFootage: squareFootagePerFloor
-                  });
-                  if (newAllocation) {
-                    updatedIds.push(newAllocation.id);
-                  }
                 }
               }
             }

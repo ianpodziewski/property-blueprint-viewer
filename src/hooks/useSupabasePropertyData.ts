@@ -258,15 +258,23 @@ export function useSupabasePropertyData(projectId: string | null) {
         console.log("No non-rentable space types found in database");
         setNonRentableTypes([]);
       } else {
-        const transformedNonRentableTypes = nonRentableData.map((type: NonRentableTypeData) => ({
-          id: type.id,
-          name: type.name,
-          squareFootage: Number(type.square_footage),
-          percentage: type.percentage !== null ? Number(type.percentage) : undefined,
-          allocationMethod: type.allocation_method as 'uniform' | 'specific' | 'percentage',
-          floorConstraints: type.floor_constraints || {},
-          isPercentageBased: type.percentage !== null && (type.allocation_method === 'uniform' || type.allocation_method === 'percentage')
-        }));
+        const transformedNonRentableTypes = nonRentableData.map((type: NonRentableTypeData) => {
+          let allocationMethod: 'percentage' | 'fixed' = 'fixed';
+          
+          if (type.percentage !== null || type.allocation_method === 'percentage') {
+            allocationMethod = 'percentage';
+          }
+          
+          return {
+            id: type.id,
+            name: type.name,
+            squareFootage: Number(type.square_footage),
+            percentage: type.percentage !== null ? Number(type.percentage) : undefined,
+            allocationMethod: allocationMethod,
+            floorConstraints: type.floor_constraints || {},
+            isPercentageBased: type.percentage !== null && (type.allocation_method === 'uniform' || type.allocation_method === 'percentage')
+          };
+        });
         
         console.log("Transformed non-rentable space data:", transformedNonRentableTypes);
         setNonRentableTypes(transformedNonRentableTypes);
@@ -794,12 +802,17 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return null;
     
     try {
+      let dbAllocationMethod = 'specific'; // default for fixed square footage
+      if (nonRentable.allocationMethod === 'percentage') {
+        dbAllocationMethod = 'percentage';
+      }
+      
       const dbNonRentableType = {
         project_id: effectiveProjectId,
         name: nonRentable.name.trim(),
-        square_footage: nonRentable.isPercentageBased ? 0 : nonRentable.squareFootage,
-        percentage: nonRentable.isPercentageBased ? nonRentable.percentage : null,
-        allocation_method: nonRentable.allocationMethod,
+        square_footage: nonRentable.allocationMethod === 'percentage' ? 0 : nonRentable.squareFootage,
+        percentage: nonRentable.allocationMethod === 'percentage' ? nonRentable.percentage : null,
+        allocation_method: dbAllocationMethod,
         floor_constraints: nonRentable.floorConstraints || {}
       };
       
@@ -816,9 +829,9 @@ export function useSupabasePropertyData(projectId: string | null) {
         name: data.name,
         squareFootage: Number(data.square_footage),
         percentage: data.percentage !== null ? Number(data.percentage) : undefined,
-        allocationMethod: data.allocation_method as 'uniform' | 'specific' | 'percentage',
+        allocationMethod: data.percentage !== null ? 'percentage' : 'fixed',
         floorConstraints: data.floor_constraints || {},
-        isPercentageBased: data.percentage !== null && (data.allocation_method === 'uniform' || data.allocation_method === 'percentage')
+        isPercentageBased: data.percentage !== null
       };
       
       setNonRentableTypes(prev => [...prev, newNonRentableType]);
@@ -839,19 +852,18 @@ export function useSupabasePropertyData(projectId: string | null) {
       const dbUpdates: any = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name.trim();
       
-      const isPercentageBased = updates.isPercentageBased !== undefined ? 
-        updates.isPercentageBased : 
-        (updates.allocationMethod === 'percentage');
+      const isPercentageBased = updates.allocationMethod === 'percentage';
       
       if (isPercentageBased) {
         dbUpdates.percentage = updates.percentage;
         dbUpdates.square_footage = 0; // Reset square_footage when using percentage
+        dbUpdates.allocation_method = 'percentage';
       } else {
         dbUpdates.square_footage = updates.squareFootage;
         dbUpdates.percentage = null; // Reset percentage when using fixed area
+        dbUpdates.allocation_method = 'specific'; // Use 'specific' for fixed in database
       }
       
-      if (updates.allocationMethod !== undefined) dbUpdates.allocation_method = updates.allocationMethod;
       if (updates.floorConstraints !== undefined) dbUpdates.floor_constraints = updates.floorConstraints;
       
       const { error } = await supabase
