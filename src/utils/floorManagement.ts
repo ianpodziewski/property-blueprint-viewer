@@ -436,7 +436,7 @@ export async function getNonRentableSpaces(projectId: string) {
   console.log(`Fetching non-rentable spaces for project ${projectId}`);
   
   try {
-    // Use raw SQL query to fetch data from non_rentable_spaces since it's not in the types yet
+    // Use RPC to fetch data from non_rentable_spaces since it's not in the types yet
     const { data, error } = await supabase
       .rpc('get_non_rentable_spaces', { p_project_id: projectId });
     
@@ -467,7 +467,7 @@ export async function createNonRentableSpace(
   try {
     const id = crypto.randomUUID();
     
-    // Use raw SQL to insert into the non_rentable_spaces table
+    // Use RPC to insert into the non_rentable_spaces table
     const { error } = await supabase.rpc('create_non_rentable_space', {
       p_id: id,
       p_project_id: projectId,
@@ -510,7 +510,7 @@ export async function updateNonRentableSpace(
       p_name: updates.name,
       p_square_footage: updates.squareFootage,
       p_allocation_method: updates.allocationMethod,
-      p_specific_floors: updates.specificFloors?.length > 0 ? updates.specificFloors : null
+      p_specific_floors: updates.specificFloors?.length ? updates.specificFloors : null
     });
     
     if (error) {

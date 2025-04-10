@@ -11,7 +11,9 @@ import {
 } from '@/hooks/usePropertyState';
 import { useProject } from '@/context/ProjectContext';
 import { 
-  getNonRentableSpaces 
+  getNonRentableSpaces,
+  createNonRentableSpace,
+  updateNonRentableSpace
 } from '@/utils/floorManagement';
 
 export interface ProjectData {
@@ -224,7 +226,10 @@ export function useSupabasePropertyData(projectId: string | null) {
           id: space.id,
           name: space.name,
           squareFootage: space.square_footage,
-          allocationMethod: space.allocation_method as 'Uniform Across Floors' | 'Specific Floors' | 'Percentage of Floor Area',
+          // Map the database values to our TypeScript enum values
+          allocationMethod: space.allocation_method === 'Uniform Across Floors' ? 'uniform' :
+                           space.allocation_method === 'Specific Floors' ? 'specific' :
+                           space.allocation_method === 'Percentage of Floor Area' ? 'percentage' : 'uniform',
           specificFloors: space.specific_floors || []
         }));
         
@@ -727,12 +732,28 @@ export function useSupabasePropertyData(projectId: string | null) {
     try {
       const { name, squareFootage, allocationMethod, specificFloors = [] } = nonRentable;
       
+      // Map TypeScript enum values to database values
+      const dbAllocationMethod = 
+        allocationMethod === 'uniform' ? 'Uniform Across Floors' :
+        allocationMethod === 'specific' ? 'Specific Floors' :
+        allocationMethod === 'percentage' ? 'Percentage of Floor Area' : 'Uniform Across Floors';
+      
+      const id = await createNonRentableSpace(
+        effectiveProjectId,
+        name,
+        squareFootage,
+        dbAllocationMethod,
+        specificFloors
+      );
+      
+      if (!id) throw new Error("Failed to create non-rentable space");
+      
       const newNonRentable: NonRentableSpace = {
-        id: crypto.randomUUID(),
+        id,
         name,
         squareFootage,
         allocationMethod,
-        specificFloors: specificFloors
+        specificFloors
       };
       
       setNonRentableTypes(prev => [...prev, newNonRentable]);
@@ -751,7 +772,18 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
-      setNonRentableTypes(prev =>
+      // Map TypeScript enum values to database values if allocationMethod is being updated
+      const dbUpdates: any = { ...updates };
+      if (updates.allocationMethod) {
+        dbUpdates.allocationMethod = 
+          updates.allocationMethod === 'uniform' ? 'Uniform Across Floors' :
+          updates.allocationMethod === 'specific' ? 'Specific Floors' :
+          updates.allocationMethod === 'percentage' ? 'Percentage of Floor Area' : 'Uniform Across Floors';
+      }
+      
+      await updateNonRentableSpace(id, dbUpdates);
+      
+      setNonRentableSpaces(prev =>
         prev.map(space => space.id === id ? { ...space, ...updates } : space)
       );
       
