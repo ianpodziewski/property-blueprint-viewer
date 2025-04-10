@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,36 +78,6 @@ const BulkAddFloorsModal = ({
     if (endFloor - startFloor > 100) return false;
     if (!effectiveProjectId) return false;
     return true;
-  };
-  
-  // Handle input changes for floor numbers
-  const handleFloorNumberChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setter: React.Dispatch<React.SetStateAction<number>>
-  ) => {
-    const value = e.target.value;
-    
-    // Allow empty string (for deletion purposes) or valid numbers including negative
-    if (value === '' || value === '-') {
-      // Set to empty string temporarily in the input, but keep the state as a number
-      e.target.value = value;
-      
-      // If user is typing a minus sign, prepare for a negative number
-      // but don't update state yet until they type a digit
-      if (value === '-') {
-        return;
-      }
-      
-      // If field is empty, default to 0
-      setter(0);
-      return;
-    }
-    
-    // Check if the input is a valid number (can be negative)
-    const parsedValue = parseInt(value, 10);
-    if (!isNaN(parsedValue)) {
-      setter(parsedValue);
-    }
   };
   
   // Directly fetch fresh floors from the database
@@ -267,8 +238,9 @@ const BulkAddFloorsModal = ({
               </div>
               <Input
                 id="startFloor"
-                value={startFloor.toString()}
-                onChange={(e) => handleFloorNumberChange(e, setStartFloor)}
+                type="number"
+                value={startFloor}
+                onChange={(e) => setStartFloor(parseInt(e.target.value) || 0)}
                 disabled={isCreating}
               />
             </div>
@@ -277,8 +249,9 @@ const BulkAddFloorsModal = ({
               <Label htmlFor="endFloor">End Floor Number</Label>
               <Input
                 id="endFloor"
-                value={endFloor.toString()}
-                onChange={(e) => handleFloorNumberChange(e, setEndFloor)}
+                type="number"
+                value={endFloor}
+                onChange={(e) => setEndFloor(parseInt(e.target.value) || 0)}
                 disabled={isCreating}
               />
               {endFloor < startFloor && (
@@ -336,7 +309,11 @@ const BulkAddFloorsModal = ({
               Cancel
             </Button>
             <Button 
-              onClick={handleCreateFloors}
+              onClick={() => {
+                console.log("Create floors button clicked");
+                console.log("Form validation status:", isValid());
+                handleCreateFloors();
+              }}
               disabled={!isValid() || isCreating}
             >
               {isCreating ? (
