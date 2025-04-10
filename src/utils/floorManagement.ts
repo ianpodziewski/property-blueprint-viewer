@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -436,7 +437,7 @@ export async function getNonRentableSpaces(projectId: string) {
   console.log(`Fetching non-rentable spaces for project ${projectId}`);
   
   try {
-    // Use RPC to fetch data from non_rentable_spaces since it's not in the types yet
+    // Use RPC to fetch data from non_rentable_spaces
     const { data, error } = await supabase
       .rpc('get_non_rentable_spaces', { p_project_id: projectId });
     
