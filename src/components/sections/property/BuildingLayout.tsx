@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -172,12 +171,18 @@ const SortableFloorRow = ({
   const utilization = floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0;
   const isOverallocated = utilization > 100;
   
-  // Determine the progress bar variant based on utilization
   const getUtilizationVariant = () => {
     if (utilization > 100) return "red"; // Over-allocated (red)
     if (utilization >= 67) return "green"; // High utilization (green)
     if (utilization >= 34) return "yellow"; // Medium utilization (yellow)
     return "red"; // Low utilization (red)
+  };
+  
+  const getUnitAvailability = (unitType) => {
+    const allocated = allocations[unitType.id] || 0;
+    const total = unitType.numberOfUnits;
+    const available = total - allocated;
+    return { available, total };
   };
   
   return (
@@ -271,21 +276,26 @@ const SortableFloorRow = ({
                     <div key={product.id} className="mt-3 first:mt-0">
                       <div className="text-sm font-medium text-gray-700 mb-2">{product.name}</div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {product.unitTypes.map(unitType => (
-                          <div key={unitType.id} className="flex items-center justify-between p-2 bg-white border rounded">
-                            <div className="text-sm mr-2">
-                              <div className="font-medium">{unitType.unitType}</div>
-                              <div className="text-xs text-gray-500">{unitType.grossArea.toLocaleString()} sf</div>
+                        {product.unitTypes.map(unitType => {
+                          const { available, total } = getUnitAvailability(unitType);
+                          return (
+                            <div key={unitType.id} className="flex items-center justify-between p-2 bg-white border rounded">
+                              <div className="text-sm mr-2">
+                                <div className="font-medium">
+                                  {unitType.unitType} <span className="text-gray-500 font-normal">({available} available / {total} total)</span>
+                                </div>
+                                <div className="text-xs text-gray-500">{unitType.grossArea.toLocaleString()} sf</div>
+                              </div>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={allocations[unitType.id] || 0}
+                                onChange={(e) => handleAllocationChange(unitType.id, e.target.value)}
+                                className="w-20 text-right"
+                              />
                             </div>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={allocations[unitType.id] || 0}
-                              onChange={(e) => handleAllocationChange(unitType.id, e.target.value)}
-                              className="w-20 text-right"
-                            />
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
