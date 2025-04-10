@@ -69,15 +69,6 @@ interface NonRentableTypeData {
   updated_at: string;
 }
 
-interface NonRentableAllocationData {
-  id: string;
-  floor_id: string;
-  non_rentable_type_id: string;
-  square_footage: number;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface NonRentableAllocation {
   id: string;
   floorId: string;
@@ -274,13 +265,8 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       console.log("Loading non-rentable allocations for project floors");
       const { data: allocationsData, error: allocationsError } = await supabase
-        .from('non_rentable_allocations')
-        .select(`
-          id, square_footage, non_rentable_type_id,
-          floors!inner(id, project_id)
-        `)
-        .eq('floors.project_id', effectiveProjectId);
-        
+        .rpc('get_non_rentable_allocations_for_project', { project_id: effectiveProjectId });
+      
       if (allocationsError) {
         console.error("Error loading non-rentable allocations:", allocationsError);
         throw allocationsError;
@@ -292,9 +278,9 @@ export function useSupabasePropertyData(projectId: string | null) {
         console.log("No non-rentable allocations found in database");
         setNonRentableAllocations([]);
       } else {
-        const transformedAllocations = allocationsData.map((alloc) => ({
+        const transformedAllocations = allocationsData.map((alloc: any) => ({
           id: alloc.id,
-          floorId: alloc.floors.id,
+          floorId: alloc.floor_id,
           nonRentableTypeId: alloc.non_rentable_type_id,
           squareFootage: Number(alloc.square_footage)
         }));
@@ -908,25 +894,24 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return null;
     
     try {
-      const dbAllocation = {
-        floor_id: allocation.floorId,
-        non_rentable_type_id: allocation.nonRentableTypeId,
-        square_footage: allocation.squareFootage
-      };
-      
       const { data, error } = await supabase
-        .from('non_rentable_allocations')
-        .insert(dbAllocation)
-        .select()
-        .single();
+        .rpc('insert_non_rentable_allocation', {
+          p_floor_id: allocation.floorId,
+          p_non_rentable_type_id: allocation.nonRentableTypeId,
+          p_square_footage: allocation.squareFootage
+        });
         
       if (error) throw error;
       
+      if (!data || !data.id) {
+        throw new Error("Failed to insert non-rentable allocation");
+      }
+      
       const newAllocation: NonRentableAllocation = {
         id: data.id,
-        floorId: data.floor_id,
-        nonRentableTypeId: data.non_rentable_type_id,
-        squareFootage: Number(data.square_footage)
+        floorId: allocation.floorId,
+        nonRentableTypeId: allocation.nonRentableTypeId,
+        squareFootage: allocation.squareFootage
       };
       
       setNonRentableAllocations(prev => [...prev, newAllocation]);
@@ -943,13 +928,11 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
-      const dbUpdates: any = {};
-      if (updates.squareFootage !== undefined) dbUpdates.square_footage = updates.squareFootage;
-      
       const { error } = await supabase
-        .from('non_rentable_allocations')
-        .update(dbUpdates)
-        .eq('id', id);
+        .rpc('update_non_rentable_allocation', {
+          p_id: id,
+          p_square_footage: updates.squareFootage
+        });
         
       if (error) throw error;
       
@@ -973,9 +956,9 @@ export function useSupabasePropertyData(projectId: string | null) {
     
     try {
       const { error } = await supabase
-        .from('non_rentable_allocations')
-        .delete()
-        .eq('id', id);
+        .rpc('delete_non_rentable_allocation', {
+          p_id: id
+        });
         
       if (error) throw error;
       

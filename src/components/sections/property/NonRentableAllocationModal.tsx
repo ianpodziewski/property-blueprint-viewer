@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +14,11 @@ interface NonRentableAllocationModalProps {
   floor: Floor;
   floorArea: number;
   existingAllocationIds?: string[];
+  editingAllocation?: {
+    id: string;
+    typeId: string;
+    squareFootage: number;
+  };
 }
 
 const NonRentableAllocationModal = ({
@@ -24,7 +28,8 @@ const NonRentableAllocationModal = ({
   nonRentableTypes,
   floor,
   floorArea,
-  existingAllocationIds = []
+  existingAllocationIds = [],
+  editingAllocation
 }: NonRentableAllocationModalProps) => {
   const [selectedTypeId, setSelectedTypeId] = useState<string>('');
   const [squareFootage, setSquareFootage] = useState<string>('');
@@ -32,8 +37,21 @@ const NonRentableAllocationModal = ({
   
   // Filter out non-rentable types that are already allocated to this floor
   const availableTypes = nonRentableTypes.filter(type => 
-    !existingAllocationIds.includes(type.id)
+    !existingAllocationIds.includes(type.id) || (editingAllocation && type.id === editingAllocation.typeId)
   );
+
+  useEffect(() => {
+    // If we're editing an existing allocation, populate the form with its values
+    if (editingAllocation) {
+      setSelectedTypeId(editingAllocation.typeId);
+      setSquareFootage(editingAllocation.squareFootage.toString());
+      return;
+    }
+    
+    // Otherwise start with empty values
+    setSelectedTypeId('');
+    setSquareFootage('');
+  }, [editingAllocation, isOpen]);
 
   useEffect(() => {
     if (selectedTypeId) {
@@ -77,7 +95,11 @@ const NonRentableAllocationModal = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Non-Rentable Space to {floor.label}</DialogTitle>
+          <DialogTitle>
+            {editingAllocation 
+              ? `Edit Non-Rentable Space on ${floor.label}` 
+              : `Add Non-Rentable Space to ${floor.label}`}
+          </DialogTitle>
           <DialogDescription>
             Allocate non-rentable space to this floor.
           </DialogDescription>
@@ -89,6 +111,7 @@ const NonRentableAllocationModal = ({
             <Select
               value={selectedTypeId}
               onValueChange={setSelectedTypeId}
+              disabled={!!editingAllocation}
             >
               <SelectTrigger id="non-rentable-type">
                 <SelectValue placeholder="Select a non-rentable space type" />
