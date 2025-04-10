@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +7,7 @@ import { useEffect, useState } from "react";
 import FloorPlateTemplates from "./property/FloorPlateTemplates";
 import UnitMix from "./property/UnitMix";
 import BuildingLayout from "./property/BuildingLayout";
+import BuildingComponents from "./property/BuildingComponents";
 import { useSupabasePropertyData } from "@/hooks/useSupabasePropertyData";
 import { useParams } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -311,6 +311,10 @@ const PropertyBreakdown = () => {
             onAddUnitType={addUnitType}
             onUpdateUnitType={updateUnitType}
             onDeleteUnitType={deleteUnitType}
+          />
+
+          <BuildingComponents 
+            projectId={projectId}
           />
           
           <BuildingLayout 
