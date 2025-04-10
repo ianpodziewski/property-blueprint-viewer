@@ -7,44 +7,6 @@ import { Database } from '@/integrations/supabase/types';
 export interface ExtendedDatabase extends Database {
   public: Database['public'] & {
     Tables: Database['public']['Tables'] & {
-      building_components: {
-        Row: {
-          id: string;
-          project_id: string;
-          name: string;
-          component_type: string;
-          is_percentage: boolean;
-          percentage: number | null;
-          square_footage: number | null;
-          floor_id: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          project_id: string;
-          name: string;
-          component_type: string;
-          is_percentage?: boolean;
-          percentage?: number | null;
-          square_footage?: number | null;
-          floor_id?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          project_id?: string;
-          name?: string;
-          component_type?: string;
-          is_percentage?: boolean;
-          percentage?: number | null;
-          square_footage?: number | null;
-          floor_id?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
       floor_usage_templates: {
         Row: {
           id: string;

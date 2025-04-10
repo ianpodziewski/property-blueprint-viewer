@@ -4,17 +4,13 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
-import { BuildingComponent } from '@/hooks/useBuildingComponents';
 
 interface BuildingSummaryPanelProps {
   floors: Floor[];
   templates: FloorPlateTemplate[];
   products: Product[];
-  buildingComponents: BuildingComponent[];
   getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
   getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
-  getComponentsByFloorId: (floorId: string | null) => BuildingComponent[];
-  calculateComponentArea: (component: BuildingComponent, floorArea: number) => number;
 }
 
 interface TemplateUsage {
@@ -29,18 +25,11 @@ interface UnitTypeSummary {
   count: number;
 }
 
-interface ComponentTypeSummary {
-  componentType: string;
-  area: number;
-  percentage: number;
-}
-
 interface FloorUtilization {
   floorId: string;
   position: number;
   utilization: number;
-  unitAllocated: number;
-  componentAllocated: number;
+  allocated: number;
   capacity: number;
 }
 
@@ -48,15 +37,11 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
   floors,
   templates,
   products,
-  buildingComponents,
   getFloorTemplateById,
-  getUnitAllocation,
-  getComponentsByFloorId,
-  calculateComponentArea
+  getUnitAllocation
 }) => {
   const [floorUtilizations, setFloorUtilizations] = useState<FloorUtilization[]>([]);
   const [unitTypeCounts, setUnitTypeCounts] = useState<UnitTypeSummary[]>([]);
-  const [componentSummary, setComponentSummary] = useState<ComponentTypeSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
@@ -71,30 +56,21 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
           const template = getFloorTemplateById(floor.templateId);
           if (!template) continue;
           
-          let unitAllocated = 0;
+          let allocatedArea = 0;
           
-          // Calculate allocated area for units
+          // Calculate allocated area
           for (const product of products) {
             for (const unitType of product.unitTypes) {
               const quantity = await getUnitAllocation(floor.id, unitType.id);
-              unitAllocated += quantity * unitType.grossArea;
+              allocatedArea += quantity * unitType.grossArea;
             }
           }
-          
-          // Calculate allocated area for building components
-          const floorComponents = getComponentsByFloorId(floor.id);
-          const componentAllocated = floorComponents.reduce((total, component) => {
-            return total + calculateComponentArea(component, template.grossArea);
-          }, 0);
-          
-          const totalAllocated = unitAllocated + componentAllocated;
           
           utilizations.push({
             floorId: floor.id,
             position: floor.position,
-            utilization: template.grossArea > 0 ? (totalAllocated / template.grossArea) * 100 : 0,
-            unitAllocated: unitAllocated,
-            componentAllocated: componentAllocated,
+            utilization: template.grossArea > 0 ? (allocatedArea / template.grossArea) * 100 : 0,
+            allocated: allocatedArea,
             capacity: template.grossArea
           });
         }
@@ -119,53 +95,8 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
           count
         }));
         
-        // Calculate component type summary
-        const componentTypes: Record<string, {area: number, percentage: number}> = {};
-        let totalBuildingArea = 0;
-        
-        // First calculate total building area
-        for (const floor of floors) {
-          const template = getFloorTemplateById(floor.templateId);
-          if (template) {
-            totalBuildingArea += template.grossArea;
-          }
-        }
-        
-        // Then calculate component areas by type
-        for (const floor of floors) {
-          const template = getFloorTemplateById(floor.templateId);
-          if (!template) continue;
-          
-          const floorArea = template.grossArea;
-          const floorComponents = getComponentsByFloorId(floor.id);
-          
-          for (const component of floorComponents) {
-            const area = calculateComponentArea(component, floorArea);
-            
-            if (!componentTypes[component.componentType]) {
-              componentTypes[component.componentType] = { area: 0, percentage: 0 };
-            }
-            
-            componentTypes[component.componentType].area += area;
-          }
-        }
-        
-        // Calculate percentages
-        if (totalBuildingArea > 0) {
-          for (const type in componentTypes) {
-            componentTypes[type].percentage = (componentTypes[type].area / totalBuildingArea) * 100;
-          }
-        }
-        
-        const componentTypeSummary = Object.entries(componentTypes).map(([componentType, data]) => ({
-          componentType,
-          area: data.area,
-          percentage: data.percentage
-        }));
-        
         setFloorUtilizations(utilizations);
         setUnitTypeCounts(unitSummary);
-        setComponentSummary(componentTypeSummary);
         setLastRefreshed(new Date());
       } catch (error) {
         console.error("Error fetching building summary data:", error);
@@ -174,12 +105,12 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
       }
     };
     
-    if (floors.length > 0) {
+    if (floors.length > 0 && products.length > 0) {
       fetchData();
     } else {
       setIsLoading(false);
     }
-  }, [floors, products, buildingComponents, getFloorTemplateById, getUnitAllocation, getComponentsByFloorId, calculateComponentArea]);
+  }, [floors, products, getFloorTemplateById, getUnitAllocation]);
   
   // Template usage stats
   const templateUsage = useMemo(() => {
@@ -211,32 +142,23 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
     
     const totalArea = floorUtilizations.reduce((sum, floor) => sum + floor.capacity, 0);
     
-    const totalUnitArea = floorUtilizations.reduce((sum, floor) => sum + floor.unitAllocated, 0);
-    
-    const totalComponentArea = floorUtilizations.reduce((sum, floor) => sum + floor.componentAllocated, 0);
-    
-    const totalAllocated = totalUnitArea + totalComponentArea;
+    const totalAllocated = floorUtilizations.reduce((sum, floor) => sum + floor.allocated, 0);
     
     const utilizationPercentage = totalArea > 0 ? (totalAllocated / totalArea) * 100 : 0;
-    
-    const efficiencyRatio = totalArea > 0 ? (totalUnitArea / totalArea) * 100 : 0;
     
     const overallocatedFloors = floorUtilizations
       .filter(floor => floor.utilization > 100)
       .sort((a, b) => a.position - b.position);
     
     const emptyFloors = floorUtilizations
-      .filter(floor => floor.unitAllocated === 0 && floor.componentAllocated === 0)
+      .filter(floor => floor.allocated === 0)
       .sort((a, b) => a.position - b.position);
     
     return {
       totalFloors,
       totalArea,
-      totalUnitArea,
-      totalComponentArea,
       totalAllocated,
       utilizationPercentage,
-      efficiencyRatio,
       overallocatedFloors,
       emptyFloors
     };
@@ -277,15 +199,6 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
       .map(unit => `${unit.count} ${unit.unitType}`)
       .join(', ');
   }, [unitTypeCounts]);
-
-  // Component type summary as text
-  const componentSummaryText = useMemo(() => {
-    if (componentSummary.length === 0) return "No building components allocated";
-    
-    return componentSummary
-      .map(comp => `${formatNumber(comp.area)} sf ${comp.componentType} (${comp.percentage.toFixed(1)}%)`)
-      .join(', ');
-  }, [componentSummary]);
   
   return (
     <Card>
@@ -324,12 +237,6 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
                     ({buildingStats.utilizationPercentage.toFixed(1)}%)
                   </span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Rentable: {formatNumber(buildingStats.totalUnitArea)} sf ({buildingStats.efficiencyRatio.toFixed(1)}%)
-                </div>
-                <div className="text-xs text-gray-500">
-                  Non-rentable: {formatNumber(buildingStats.totalComponentArea)} sf
-                </div>
               </div>
               
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -338,27 +245,10 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <div className="text-sm font-medium mb-2">Template Breakdown</div>
-                <div className="text-sm">{templateBreakdownText}</div>
-              </div>
-              
-              <div>
-                <div className="text-sm font-medium mb-2">Building Efficiency</div>
-                <div className="text-sm font-semibold">
-                  {buildingStats.efficiencyRatio.toFixed(1)}% 
-                  <span className="font-normal text-gray-500 ml-1">(rentable ÷ total)</span>
-                </div>
-              </div>
+            <div>
+              <div className="text-sm font-medium mb-2">Template Breakdown</div>
+              <div className="text-sm">{templateBreakdownText}</div>
             </div>
-            
-            {componentSummary.length > 0 && (
-              <div>
-                <div className="text-sm font-medium mb-2">Building Components</div>
-                <div className="text-sm">{componentSummaryText}</div>
-              </div>
-            )}
             
             {buildingStats.overallocatedFloors.length > 0 && (
               <Alert variant="warning">
@@ -375,7 +265,7 @@ const BuildingSummaryPanel: React.FC<BuildingSummaryPanelProps> = ({
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Empty Floors</AlertTitle>
                 <AlertDescription>
-                  Floors {buildingStats.emptyFloors.map(f => f.position).join(', ')} have no unit or component allocations
+                  Floors {buildingStats.emptyFloors.map(f => f.position).join(', ')} have no unit allocations
                 </AlertDescription>
               </Alert>
             )}

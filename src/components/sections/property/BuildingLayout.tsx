@@ -12,7 +12,6 @@ import BuildingSummaryPanel from './BuildingSummaryPanel';
 import BulkAddFloorsModal from './BulkAddFloorsModal';
 import FloorUsageTemplates from './FloorUsageTemplates';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { BuildingComponent } from '@/hooks/useBuildingComponents';
 import {
   DndContext,
   closestCenter,
@@ -40,15 +39,12 @@ interface BuildingLayoutProps {
   floors: Floor[];
   templates: FloorPlateTemplate[];
   products: Product[];
-  buildingComponents: BuildingComponent[];
   onAddFloor: () => Promise<Floor>;
   onUpdateFloor: (id: string, updates: Partial<Floor>) => Promise<void>;
   onDeleteFloor: (id: string) => Promise<void>;
   onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<void>;
   getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
   getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
-  getComponentsByFloorId: (floorId: string | null) => BuildingComponent[];
-  calculateComponentArea: (component: BuildingComponent, floorArea: number) => number;
   onRefreshData: () => Promise<void>;
 }
 
@@ -56,7 +52,6 @@ interface SortableFloorRowProps {
   floor: Floor;
   templates: FloorPlateTemplate[];
   products: Product[];
-  buildingComponents: BuildingComponent[];
   isExpanded: boolean;
   onToggleExpand: () => void;
   onDeleteFloor: (id: string) => Promise<void>;
@@ -64,17 +59,13 @@ interface SortableFloorRowProps {
   onUpdateUnitAllocation: (floorId: string, unitTypeId: string, quantity: number) => Promise<void>;
   getUnitAllocation: (floorId: string, unitTypeId: string) => Promise<number>;
   getFloorTemplateById: (id: string) => FloorPlateTemplate | undefined;
-  getComponentsByFloorId: (floorId: string | null) => BuildingComponent[];
-  calculateComponentArea: (component: BuildingComponent, floorArea: number) => number;
   globalAllocations: Record<string, number>;
   onAllocationChange: (unitTypeId: string, quantity: number) => void;
-  floorAllocationData?: FloorAllocationData;
 }
 
 interface FloorAllocationData {
   floorId: string;
   allocatedArea: number;
-  componentArea: number;
   utilization: number;
 }
 
@@ -82,7 +73,6 @@ const SortableFloorRow = ({
   floor,
   templates,
   products,
-  buildingComponents,
   isExpanded,
   onToggleExpand,
   onDeleteFloor,
@@ -90,12 +80,10 @@ const SortableFloorRow = ({
   onUpdateUnitAllocation,
   getUnitAllocation,
   getFloorTemplateById,
-  getComponentsByFloorId,
-  calculateComponentArea,
   globalAllocations,
   onAllocationChange,
   floorAllocationData
-}: SortableFloorRowProps) => {
+}: SortableFloorRowProps & { floorAllocationData?: FloorAllocationData }) => {
   const {
     attributes,
     listeners,
@@ -202,14 +190,6 @@ const SortableFloorRow = ({
   const floorTemplate = getFloorTemplateById(floor.templateId);
   const floorArea = floorTemplate?.grossArea || 0;
   
-  const floorComponents = getComponentsByFloorId(floor.id);
-  
-  const componentTotalArea = useMemo(() => {
-    return floorComponents.reduce((total, component) => {
-      return total + calculateComponentArea(component, floorArea);
-    }, 0);
-  }, [floorComponents, floorArea, calculateComponentArea]);
-  
   const allocatedArea = floorAllocationData ? floorAllocationData.allocatedArea : useMemo(() => {
     let total = 0;
     for (const product of products) {
@@ -221,11 +201,9 @@ const SortableFloorRow = ({
     return total;
   }, [products, allocations, floorAllocationData]);
   
-  const totalAllocated = allocatedArea + (floorAllocationData ? floorAllocationData.componentArea : componentTotalArea);
-  
   const utilization = floorAllocationData 
     ? floorAllocationData.utilization 
-    : (floorArea > 0 ? (totalAllocated / floorArea) * 100 : 0);
+    : (floorArea > 0 ? (allocatedArea / floorArea) * 100 : 0);
     
   const isOverallocated = utilization > 100;
   
@@ -293,11 +271,6 @@ const SortableFloorRow = ({
         </TableCell>
         <TableCell className="text-right">
           {allocatedArea.toLocaleString()} sf
-          {componentTotalArea > 0 && (
-            <span className="text-xs text-gray-500 block">
-              +{componentTotalArea.toLocaleString()} sf (components)
-            </span>
-          )}
         </TableCell>
         <TableCell className="w-32">
           <Progress 
@@ -392,42 +365,6 @@ const SortableFloorRow = ({
                       </div>
                     </div>
                   ))}
-                  
-                  {floorComponents.length > 0 && (
-                    <div className="mt-8 border-t pt-4">
-                      <div className="text-sm font-medium text-gray-700 mb-3">Building Components</div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {floorComponents.map(component => {
-                          const componentArea = calculateComponentArea(component, floorArea);
-                          const percentOfFloor = floorArea > 0 ? (componentArea / floorArea) * 100 : 0;
-                          
-                          return (
-                            <div key={component.id} className="flex flex-col h-full p-3 bg-white border rounded shadow-sm">
-                              <div className="mb-2">
-                                <div className="font-medium text-sm">
-                                  {component.name}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {component.componentType}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {component.isPercentage 
-                                    ? `${component.percentage}% of floor`
-                                    : `${component.squareFootage.toLocaleString()} sf fixed`}
-                                </div>
-                              </div>
-                              <div className="mt-auto pt-2 text-sm font-semibold">
-                                {componentArea.toLocaleString()} sf 
-                                <span className="ml-1 text-xs font-normal text-gray-500">
-                                  ({percentOfFloor.toFixed(1)}%)
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -442,15 +379,12 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   floors,
   templates,
   products,
-  buildingComponents,
   onAddFloor,
   onUpdateFloor,
   onDeleteFloor,
   onUpdateUnitAllocation,
   getUnitAllocation,
   getFloorTemplateById,
-  getComponentsByFloorId,
-  calculateComponentArea,
   onRefreshData
 }) => {
   const [expandedFloors, setExpandedFloors] = useState<Set<string>>(new Set());
@@ -502,30 +436,22 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
         const allocData: Record<string, FloorAllocationData> = {};
         
         for (const floor of floors) {
-          let totalUnitAllocated = 0;
+          let totalAllocated = 0;
           
           for (const product of products) {
             for (const unitType of product.unitTypes) {
               const quantity = await getUnitAllocation(floor.id, unitType.id);
-              totalUnitAllocated += quantity * unitType.grossArea;
+              totalAllocated += quantity * unitType.grossArea;
             }
           }
           
           const floorTemplate = getFloorTemplateById(floor.templateId);
           const floorArea = floorTemplate?.grossArea || 0;
-          
-          const floorComponents = getComponentsByFloorId(floor.id);
-          const componentArea = floorComponents.reduce((total, component) => {
-            return total + calculateComponentArea(component, floorArea);
-          }, 0);
-          
-          const totalAllocated = totalUnitAllocated + componentArea;
           const utilizationPercentage = floorArea > 0 ? (totalAllocated / floorArea) * 100 : 0;
           
           allocData[floor.id] = {
             floorId: floor.id,
-            allocatedArea: totalUnitAllocated,
-            componentArea: componentArea,
+            allocatedArea: totalAllocated,
             utilization: utilizationPercentage
           };
         }
@@ -539,7 +465,7 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     };
     
     calculateAllFloorAllocations();
-  }, [floors, products, buildingComponents, getUnitAllocation, getFloorTemplateById, getComponentsByFloorId, calculateComponentArea]);
+  }, [floors, products, getUnitAllocation, getFloorTemplateById]);
   
   const handleAllocationChange = useCallback((unitTypeId: string, difference: number) => {
     setGlobalAllocations(prev => ({
@@ -704,7 +630,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
                           floor={floor}
                           templates={templates}
                           products={products}
-                          buildingComponents={buildingComponents}
                           isExpanded={expandedFloors.has(floor.id)}
                           onToggleExpand={() => toggleFloorExpand(floor.id)}
                           onDeleteFloor={onDeleteFloor}
@@ -712,8 +637,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
                           onUpdateUnitAllocation={onUpdateUnitAllocation}
                           getUnitAllocation={getUnitAllocation}
                           getFloorTemplateById={getFloorTemplateById}
-                          getComponentsByFloorId={getComponentsByFloorId}
-                          calculateComponentArea={calculateComponentArea}
                           globalAllocations={globalAllocations}
                           onAllocationChange={handleAllocationChange}
                           floorAllocationData={floorAllocations[floor.id]}
@@ -732,11 +655,8 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
         floors={floors}
         templates={templates}
         products={products}
-        buildingComponents={buildingComponents}
         getFloorTemplateById={getFloorTemplateById}
         getUnitAllocation={getUnitAllocation}
-        getComponentsByFloorId={getComponentsByFloorId}
-        calculateComponentArea={calculateComponentArea}
       />
       
       {showBulkAddModal && (
