@@ -10,6 +10,7 @@ import { Floor, FloorPlateTemplate, Product } from '@/hooks/usePropertyState';
 import { toast } from 'sonner';
 import BuildingSummaryPanel from './BuildingSummaryPanel';
 import BulkAddFloorsModal from './BulkAddFloorsModal';
+import FloorUsageTemplates from './FloorUsageTemplates';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DndContext,
