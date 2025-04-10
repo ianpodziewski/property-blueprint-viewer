@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -33,6 +32,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToParentElement } from '@dnd-kit/modifiers';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface UnitAllocation {
   unitTypeId: string;
@@ -140,7 +140,6 @@ const SortableFloorRow = ({
     const currentQuantity = allocations[unitTypeId] || 0;
     const difference = quantity - currentQuantity;
     
-    // Get unit type details
     let unitType;
     for (const product of products) {
       const found = product.unitTypes.find(u => u.id === unitTypeId);
@@ -152,7 +151,6 @@ const SortableFloorRow = ({
     
     if (!unitType) return;
     
-    // Check if we're exceeding global availability
     const totalAllocated = globalAllocations[unitTypeId] || 0;
     const totalAvailable = unitType.numberOfUnits;
     
@@ -168,7 +166,6 @@ const SortableFloorRow = ({
         [unitTypeId]: quantity
       }));
       
-      // Update global allocation state
       onAllocationChange(unitTypeId, difference);
       
     } catch (error) {
@@ -205,17 +202,20 @@ const SortableFloorRow = ({
   const isOverallocated = utilization > 100;
   
   const getUtilizationVariant = () => {
-    if (utilization > 100) return "red"; // Over-allocated (red)
-    if (utilization >= 67) return "green"; // High utilization (green)
-    if (utilization >= 34) return "yellow"; // Medium utilization (yellow)
-    return "red"; // Low utilization (red)
+    if (utilization > 100) return "red";
+    if (utilization >= 67) return "green";
+    if (utilization >= 34) return "yellow";
+    return "red";
   };
   
   const getUnitAvailability = (unitType) => {
     const globallyAllocated = globalAllocations[unitType.id] || 0;
     const total = unitType.numberOfUnits;
     const available = total - globallyAllocated;
-    return { available, total };
+    
+    const hasAllocationOnThisFloor = (allocations[unitType.id] || 0) > 0;
+    
+    return { available, total, hasAllocationOnThisFloor };
   };
   
   return (
@@ -310,16 +310,17 @@ const SortableFloorRow = ({
                       <div className="text-sm font-medium text-gray-700 mb-2">{product.name}</div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {product.unitTypes.map(unitType => {
-                          const { available, total } = getUnitAvailability(unitType);
+                          const { available, total, hasAllocationOnThisFloor } = getUnitAvailability(unitType);
                           const isFullyAllocated = available <= 0;
+                          const shouldDisableInput = isFullyAllocated && !hasAllocationOnThisFloor;
+                          
                           return (
-                            <div key={unitType.id} className={`flex flex-col h-full p-3 bg-white border rounded shadow-sm ${isFullyAllocated ? 'border-red-300' : ''}`}>
+                            <div key={unitType.id} className="flex flex-col h-full p-3 bg-white border rounded shadow-sm">
                               <div className="mb-2">
                                 <div className="font-medium text-sm">
                                   {unitType.unitType}
                                 </div>
-                                <div className={`text-xs ${isFullyAllocated ? 'text-red-500 font-medium' : 'text-gray-500'} mt-1 flex items-center`}>
-                                  {isFullyAllocated && <AlertTriangle className="h-3 w-3 mr-1" />}
+                                <div className="text-xs text-gray-500 mt-1">
                                   {available} available / {total} total
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1">
@@ -327,14 +328,28 @@ const SortableFloorRow = ({
                                 </div>
                               </div>
                               <div className="mt-auto pt-2">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max={total}
-                                  value={allocations[unitType.id] || 0}
-                                  onChange={(e) => handleAllocationChange(unitType.id, e.target.value)}
-                                  className={`w-full text-right ${isFullyAllocated ? 'border-red-300' : ''}`}
-                                />
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max={shouldDisableInput ? "0" : total}
+                                          value={allocations[unitType.id] || 0}
+                                          onChange={(e) => handleAllocationChange(unitType.id, e.target.value)}
+                                          className={`w-full text-right ${shouldDisableInput ? 'bg-gray-100 opacity-60' : ''}`}
+                                          disabled={shouldDisableInput}
+                                        />
+                                      </div>
+                                    </TooltipTrigger>
+                                    {shouldDisableInput && (
+                                      <TooltipContent>
+                                        <p className="text-xs">This unit type is fully allocated across the building. Modify existing allocations on other floors to make units available.</p>
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
                             </div>
                           );
@@ -374,7 +389,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
   const [isDuplicatingFloor, setIsDuplicatingFloor] = useState(false);
   const [globalAllocations, setGlobalAllocations] = useState<Record<string, number>>({});
   
-  // Initialize and calculate global allocations on mount and after data refresh
   useEffect(() => {
     const calculateGlobalAllocations = async () => {
       if (floors.length === 0 || products.length === 0) return;
@@ -382,7 +396,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
       try {
         const allocs: Record<string, number> = {};
         
-        // For each unit type, calculate total allocations across all floors
         for (const product of products) {
           for (const unitType of product.unitTypes) {
             let totalAllocated = 0;
@@ -406,7 +419,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     calculateGlobalAllocations();
   }, [floors, products, getUnitAllocation]);
   
-  // Handle global allocation updates
   const handleAllocationChange = useCallback((unitTypeId: string, difference: number) => {
     setGlobalAllocations(prev => ({
       ...prev,
@@ -474,8 +486,6 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
     
     setIsDuplicatingFloor(true);
     try {
-      // In a real implementation, this would duplicate the floor
-      // For now, we'll just refresh the data
       await onRefreshData();
       toast.success(`Floor duplicated successfully`);
       setShowDuplicateModal(false);
