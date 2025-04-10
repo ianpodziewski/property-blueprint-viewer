@@ -928,6 +928,10 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
+      if (updates.squareFootage === undefined) {
+        throw new Error("Square footage is required for updating non-rentable allocation");
+      }
+      
       const { error } = await supabase
         .rpc('update_non_rentable_allocation', {
           p_id: id,
@@ -946,79 +950,4 @@ export function useSupabasePropertyData(projectId: string | null) {
       
     } catch (error) {
       console.error("Error updating non-rentable allocation:", error);
-      toast.error("Failed to update non-rentable space allocation");
-      return false;
-    }
-  };
-
-  const deleteNonRentableAllocation = async (id: string) => {
-    if (!effectiveProjectId || !user) return false;
-    
-    try {
-      const { error } = await supabase
-        .rpc('delete_non_rentable_allocation', {
-          p_id: id
-        });
-        
-      if (error) throw error;
-      
-      setNonRentableAllocations(prev => prev.filter(alloc => alloc.id !== id));
-      
-      return true;
-      
-    } catch (error) {
-      console.error("Error deleting non-rentable allocation:", error);
-      toast.error("Failed to delete non-rentable space allocation");
-      return false;
-    }
-  };
-
-  const getNonRentableAllocationsForFloor = (floorId: string) => {
-    return nonRentableAllocations.filter(alloc => alloc.floorId === floorId);
-  };
-
-  const returnVal = {
-    loading,
-    saving,
-    error,
-    projectData,
-    floorPlateTemplates,
-    products,
-    floors,
-    nonRentableTypes,
-    nonRentableAllocations,
-    updateProjectInfo,
-    addFloorPlateTemplate,
-    updateFloorPlateTemplate,
-    deleteFloorPlateTemplate,
-    addProduct,
-    updateProduct,
-    deleteProduct,
-    addUnitType,
-    updateUnitType,
-    deleteUnitType,
-    addFloor,
-    updateFloor,
-    deleteFloor,
-    updateUnitAllocation,
-    getUnitAllocation,
-    addNonRentableType,
-    updateNonRentableType,
-    deleteNonRentableType,
-    addNonRentableAllocation,
-    updateNonRentableAllocation,
-    deleteNonRentableAllocation,
-    getNonRentableAllocationsForFloor,
-    reloadProjectData,
-    
-    getFloorTemplateById: (templateId: string) => {
-      return floorPlateTemplates.find(template => template.id === templateId);
-    }
-  };
-  
-  useEffect(() => {
-    console.log("Current state of nonRentableTypes:", nonRentableTypes);
-  }, [nonRentableTypes]);
-  
-  return returnVal;
-}
+      toast
