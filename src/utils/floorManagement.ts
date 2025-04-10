@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -272,7 +273,7 @@ export async function createFloorUsageTemplate(
     }
     
     // Get the unit allocations from the source floor
-    const { data: allocations, error: fetchError } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('unit_allocations')
       .select('unit_type_id, quantity')
       .eq('floor_id', sourceFloorId);
@@ -282,9 +283,9 @@ export async function createFloorUsageTemplate(
       throw fetchError;
     }
     
-    if (allocations && allocations.length > 0) {
+    if (data && data.length > 0) {
       // Create allocation records for the template
-      const templateAllocations = allocations.map(alloc => ({
+      const templateAllocations = data.map(alloc => ({
         template_id: templateId,
         unit_type_id: alloc.unit_type_id,
         quantity: alloc.quantity
@@ -343,7 +344,7 @@ export async function applyTemplateToFloors(
   
   try {
     // Get template allocations
-    const { data: templateAllocations, error: fetchError } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('floor_usage_template_allocations')
       .select('unit_type_id, quantity')
       .eq('template_id', templateId);
@@ -353,7 +354,7 @@ export async function applyTemplateToFloors(
       throw fetchError;
     }
     
-    if (!templateAllocations || templateAllocations.length === 0) {
+    if (!data || data.length === 0) {
       console.log("No allocations found for this template");
       return;
     }
@@ -374,7 +375,7 @@ export async function applyTemplateToFloors(
       }
       
       // Create new allocations based on template
-      const newAllocations = templateAllocations.map(alloc => ({
+      const newAllocations = data.map(alloc => ({
         floor_id: floorId,
         unit_type_id: alloc.unit_type_id,
         quantity: alloc.quantity

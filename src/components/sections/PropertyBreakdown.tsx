@@ -52,6 +52,10 @@ const PropertyBreakdown = () => {
     deleteNonRentableType
   } = useSupabasePropertyData(projectId || null);
   
+  useEffect(() => {
+    console.log("PropertyBreakdown: nonRentableTypes from useSupabasePropertyData:", nonRentableTypes);
+  }, [nonRentableTypes]);
+  
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
   
   useEffect(() => {

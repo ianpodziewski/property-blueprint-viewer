@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FloorPlateTemplates from "./FloorPlateTemplates";
@@ -43,6 +43,11 @@ const PlanningCard = ({
   onDeleteNonRentableType
 }: PlanningCardProps) => {
   const [activeTab, setActiveTab] = useState("floor-plate-templates");
+
+  // Add a console log to verify nonRentableTypes is being passed correctly
+  useEffect(() => {
+    console.log("PlanningCard received nonRentableTypes:", nonRentableTypes);
+  }, [nonRentableTypes]);
 
   return (
     <Card className="mb-6">

@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -71,6 +71,11 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+
+  // Add console logs to trace the component rendering and data processing
+  useEffect(() => {
+    console.log("NonRentableSpace component received nonRentableTypes:", nonRentableTypes);
+  }, [nonRentableTypes]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -249,7 +254,7 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
       )}
 
       {/* List of non-rentable space types */}
-      {nonRentableTypes.length > 0 ? (
+      {nonRentableTypes && nonRentableTypes.length > 0 ? (
         <div className="space-y-4">
           {nonRentableTypes.map((type) => (
             <Card key={type.id} className={editingId === type.id ? "border-blue-400" : ""}>

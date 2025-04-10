@@ -76,12 +76,15 @@ export interface Product {
   unitTypes: UnitType[];
 }
 
+// Define AllocationMethod as an enum for type safety
+export type AllocationMethod = 'uniform' | 'specific' | 'percentage';
+
 // Interface for non-rentable space type
 export interface NonRentableType {
   id: string;
   name: string;
   squareFootage: number;
-  allocationMethod: 'uniform' | 'specific' | 'percentage';
+  allocationMethod: AllocationMethod;
 }
 
 // Interface for floor - updated to include floorType property
@@ -113,7 +116,9 @@ export const usePropertyState = () => {
   const [products, setProducts] = useState<Product[]>([]);
   
   // Project Configuration - Non-Rentable Space Types
-  const [nonRentableTypes, setNonRentableTypes] = useState<NonRentableType[]>([]);
+  const [nonRentableTypes, setNonRentableTypes] = useState<NonRentableType[]>(
+    getSavedArrayValue('nonRentableTypes', [])
+  );
   
   // Project Configuration - Building Layout
   const [floors, setFloors] = useState<Floor[]>([]);
@@ -357,6 +362,10 @@ export const usePropertyState = () => {
       floors
     });
   }, [projectName, projectLocation, projectType, farAllowance, lotSize, maxBuildableArea, floorPlateTemplates, products, nonRentableTypes, floors]);
+  
+  useEffect(() => {
+    console.log("NonRentableTypes updated in usePropertyState:", nonRentableTypes);
+  }, [nonRentableTypes]);
   
   return {
     // Project Information

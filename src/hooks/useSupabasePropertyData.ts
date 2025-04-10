@@ -235,15 +235,21 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       console.log("Raw non-rentable space data loaded:", nonRentableData);
       
-      const transformedNonRentableTypes = (nonRentableData || []).map((type: NonRentableTypeData) => ({
-        id: type.id,
-        name: type.name,
-        squareFootage: Number(type.square_footage),
-        allocationMethod: type.allocation_method as 'uniform' | 'specific' | 'percentage'
-      }));
-      
-      console.log("Transformed non-rentable space data:", transformedNonRentableTypes);
-      setNonRentableTypes(transformedNonRentableTypes);
+      // Check if we actually have data
+      if (!nonRentableData || nonRentableData.length === 0) {
+        console.log("No non-rentable space types found in database");
+        setNonRentableTypes([]);
+      } else {
+        const transformedNonRentableTypes = nonRentableData.map((type: NonRentableTypeData) => ({
+          id: type.id,
+          name: type.name,
+          squareFootage: Number(type.square_footage),
+          allocationMethod: type.allocation_method as 'uniform' | 'specific' | 'percentage'
+        }));
+        
+        console.log("Transformed non-rentable space data:", transformedNonRentableTypes);
+        setNonRentableTypes(transformedNonRentableTypes);
+      }
       
       console.log("Project data loaded successfully");
       console.log("========= LOADING PROJECT DATA END =========");
@@ -822,7 +828,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     }
   };
 
-  return {
+  const returnVal = {
     loading,
     saving,
     error,
@@ -855,4 +861,10 @@ export function useSupabasePropertyData(projectId: string | null) {
       return floorPlateTemplates.find(template => template.id === templateId);
     }
   };
+  
+  useEffect(() => {
+    console.log("Current state of nonRentableTypes:", nonRentableTypes);
+  }, [nonRentableTypes]);
+  
+  return returnVal;
 }

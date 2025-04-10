@@ -52,34 +52,30 @@ export type Database = {
       }
       floor_usage_template_allocations: {
         Row: {
-          created_at: string | null
-          floor_id: string | null
-          floor_usage_template_id: string | null
+          created_at: string
+          floor_usage_template_id: string
           id: string
-          updated_at: string | null
+          quantity: number
+          unit_type_id: string
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
-          floor_id?: string | null
-          floor_usage_template_id?: string | null
+          created_at?: string
+          floor_usage_template_id: string
           id?: string
-          updated_at?: string | null
+          quantity?: number
+          unit_type_id: string
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
-          floor_id?: string | null
-          floor_usage_template_id?: string | null
+          created_at?: string
+          floor_usage_template_id?: string
           id?: string
-          updated_at?: string | null
+          quantity?: number
+          unit_type_id?: string
+          updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "floor_usage_template_allocations_floor_id_fkey"
-            columns: ["floor_id"]
-            isOneToOne: false
-            referencedRelation: "floors"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "floor_usage_template_allocations_floor_usage_template_id_fkey"
             columns: ["floor_usage_template_id"]
@@ -87,29 +83,39 @@ export type Database = {
             referencedRelation: "floor_usage_templates"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "floor_usage_template_allocations_unit_type_id_fkey"
+            columns: ["unit_type_id"]
+            isOneToOne: false
+            referencedRelation: "unit_types"
+            referencedColumns: ["id"]
+          },
         ]
       }
       floor_usage_templates: {
         Row: {
-          created_at: string | null
+          created_at: string
           id: string
           name: string
           project_id: string
-          updated_at: string | null
+          template_id: string | null
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           name: string
           project_id: string
-          updated_at?: string | null
+          template_id?: string | null
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           id?: string
           name?: string
           project_id?: string
-          updated_at?: string | null
+          template_id?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -117,6 +123,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_usage_templates_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plate_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -169,33 +182,74 @@ export type Database = {
           },
         ]
       }
-      non_rentable_types: {
+      non_rentable_spaces: {
         Row: {
-          id: string
-          project_id: string
-          name: string
-          square_footage: number
           allocation_method: string
           created_at: string
+          id: string
+          name: string
+          project_id: string
+          specific_floors: number[] | null
+          square_footage: number
           updated_at: string
         }
         Insert: {
-          id?: string
-          project_id: string
-          name: string
-          square_footage?: number
-          allocation_method?: string
+          allocation_method: string
           created_at?: string
+          id?: string
+          name: string
+          project_id: string
+          specific_floors?: number[] | null
+          square_footage: number
           updated_at?: string
         }
         Update: {
-          id?: string
-          project_id?: string
-          name?: string
-          square_footage?: number
           allocation_method?: string
           created_at?: string
+          id?: string
+          name?: string
+          project_id?: string
+          specific_floors?: number[] | null
+          square_footage?: number
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "non_rentable_spaces_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      non_rentable_types: {
+        Row: {
+          allocation_method: string
+          created_at: string | null
+          id: string
+          name: string
+          project_id: string
+          square_footage: number
+          updated_at: string | null
+        }
+        Insert: {
+          allocation_method?: string
+          created_at?: string | null
+          id?: string
+          name: string
+          project_id: string
+          square_footage?: number
+          updated_at?: string | null
+        }
+        Update: {
+          allocation_method?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          square_footage?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -204,7 +258,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       profiles: {
