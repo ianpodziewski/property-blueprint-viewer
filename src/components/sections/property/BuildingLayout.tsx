@@ -398,7 +398,7 @@ const BulkAddFloorsModal: React.FC<BulkAddFloorsModalProps> = ({ isOpen, onClose
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(templates.length > 0 ? templates[0].id : null);
   const [floorType, setFloorType] = useState<"aboveground" | "underground">("aboveground");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { addFloor } = useProject();
+  const { currentProjectId } = useProject();
 
   const handleBulkAdd = async () => {
     if (!selectedTemplateId) {
@@ -411,7 +411,7 @@ const BulkAddFloorsModal: React.FC<BulkAddFloorsModalProps> = ({ isOpen, onClose
     try {
       for (let i = 0; i < numberOfFloors; i++) {
         const floorNumber = startingFloorNumber + i;
-        const newFloor = await addFloor();
+        const newFloor = await onAddFloor();
 
         if (newFloor) {
           await onUpdateFloor(newFloor.id, {
