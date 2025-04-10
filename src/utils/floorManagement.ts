@@ -1,6 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AllocationMethod } from "@/hooks/usePropertyState";
 
 export async function createBulkFloors(
   projectId: string,
@@ -433,13 +433,22 @@ export async function deleteFloorUsageTemplate(templateId: string): Promise<void
   }
 }
 
+interface NonRentableSpaceData {
+  id: string;
+  name: string;
+  square_footage: number;
+  allocation_method: string;
+  specific_floors?: number[];
+  project_id: string;
+}
+
 export async function getNonRentableSpaces(projectId: string) {
   console.log(`Fetching non-rentable spaces for project ${projectId}`);
   
   try {
     // Use RPC to fetch data from non_rentable_spaces
     const { data, error } = await supabase
-      .rpc('get_non_rentable_spaces', { p_project_id: projectId });
+      .rpc<NonRentableSpaceData[]>('get_non_rentable_spaces', { p_project_id: projectId });
     
     if (error) {
       console.error("Error fetching non-rentable spaces:", error);
@@ -469,7 +478,7 @@ export async function createNonRentableSpace(
     const id = crypto.randomUUID();
     
     // Use RPC to insert into the non_rentable_spaces table
-    const { error } = await supabase.rpc('create_non_rentable_space', {
+    const { error } = await supabase.rpc<string>('create_non_rentable_space', {
       p_id: id,
       p_project_id: projectId,
       p_name: name,
@@ -506,7 +515,7 @@ export async function updateNonRentableSpace(
   
   try {
     // Use RPC to update the non_rentable_spaces table
-    const { error } = await supabase.rpc('update_non_rentable_space', {
+    const { error } = await supabase.rpc<void>('update_non_rentable_space', {
       p_id: id,
       p_name: updates.name,
       p_square_footage: updates.squareFootage,
@@ -532,7 +541,7 @@ export async function deleteNonRentableSpace(id: string): Promise<void> {
   
   try {
     // Use RPC to delete from the non_rentable_spaces table
-    const { error } = await supabase.rpc('delete_non_rentable_space', {
+    const { error } = await supabase.rpc<void>('delete_non_rentable_space', {
       p_id: id
     });
     
