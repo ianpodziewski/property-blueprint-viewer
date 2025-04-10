@@ -45,6 +45,17 @@ interface UnitTypeData {
   length: number | null;
 }
 
+interface FloorData {
+  created_at: string;
+  id: string;
+  label: string;
+  position: number;
+  project_id: string;
+  template_id: string | null;
+  updated_at: string;
+  floor_type: string;
+}
+
 export function useSupabasePropertyData(projectId: string | null) {
   const { user } = useAuth();
   const { currentProjectId } = useProject();
@@ -175,7 +186,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       
       console.log("Raw floor data loaded from database:", floorData);
       
-      const transformedFloors = (floorData || []).map(floor => ({
+      const transformedFloors = (floorData || []).map((floor: FloorData) => ({
         id: floor.id,
         label: floor.label,
         position: floor.position,
@@ -561,7 +572,8 @@ export function useSupabasePropertyData(projectId: string | null) {
         label: data.label,
         position: data.position,
         templateId: data.template_id || "",
-        floorType: data.floor_type || 'aboveground'
+        floorType: data.floor_type || 'aboveground',
+        projectId: data.project_id
       };
       
       setFloors(prev => [...prev, newFloor]);

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { safeNumberConversion } from "@/utils/modelValidation";
 
@@ -76,7 +77,7 @@ export interface Product {
   unitTypes: UnitType[];
 }
 
-// Interface for floor
+// Interface for floor - updated to include floorType property
 export interface Floor {
   id: string;
   label: string;
