@@ -9,7 +9,6 @@ import {
   Floor 
 } from '@/hooks/usePropertyState';
 import { useProject } from '@/context/ProjectContext';
-import { ComponentCategory } from '@/components/sections/property/BuildingComponents';
 
 export interface ProjectData {
   id: string;
@@ -69,7 +68,6 @@ export function useSupabasePropertyData(projectId: string | null) {
   const [unitAllocations, setUnitAllocations] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState<number>(0);
-  const [componentCategories, setComponentCategories] = useState<ComponentCategory[]>([]);
 
   const effectiveProjectId = projectId || currentProjectId;
 
@@ -211,22 +209,6 @@ export function useSupabasePropertyData(projectId: string | null) {
       if (unitAllocError) throw unitAllocError;
       
       setUnitAllocations(unitAllocData || []);
-      
-      // Load building component categories
-      const { data: componentCategoriesData, error: componentCategoriesError } = await supabase
-        .from('building_component_categories')
-        .select('*')
-        .eq('project_id', effectiveProjectId);
-        
-      if (componentCategoriesError) throw componentCategoriesError;
-      
-      const transformedComponentCategories = (componentCategoriesData || []).map((category: any) => ({
-        id: category.id,
-        name: category.name
-      }));
-      
-      setComponentCategories(transformedComponentCategories);
-      
       console.log("Project data loaded successfully");
       console.log("========= LOADING PROJECT DATA END =========");
     } catch (error) {
@@ -714,85 +696,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     return Promise.resolve(allocation ? allocation.quantity : 0);
   };
 
-  const addComponentCategory = async (name: string) => {
-    if (!effectiveProjectId || !user) return null;
-    
-    try {
-      const dbCategory = {
-        project_id: effectiveProjectId,
-        name: name.trim()
-      };
-      
-      const { data, error } = await supabase
-        .from('building_component_categories')
-        .insert(dbCategory)
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      const newCategory: ComponentCategory = {
-        id: data.id,
-        name: data.name
-      };
-      
-      setComponentCategories(prev => [...prev, newCategory]);
-      return newCategory;
-      
-    } catch (error) {
-      console.error("Error adding building component category:", error);
-      toast.error("Failed to add building component category");
-      return null;
-    }
-  };
-
-  const updateComponentCategory = async (id: string, name: string) => {
-    if (!effectiveProjectId || !user) return false;
-    
-    try {
-      const { error } = await supabase
-        .from('building_component_categories')
-        .update({ name: name.trim() })
-        .eq('id', id);
-        
-      if (error) throw error;
-      
-      setComponentCategories(prev => 
-        prev.map(category => 
-          category.id === id ? { ...category, name: name.trim() } : category
-        )
-      );
-      
-      return true;
-      
-    } catch (error) {
-      console.error("Error updating building component category:", error);
-      toast.error("Failed to update building component category");
-      return false;
-    }
-  };
-
-  const deleteComponentCategory = async (id: string) => {
-    if (!effectiveProjectId || !user) return false;
-    
-    try {
-      const { error } = await supabase
-        .from('building_component_categories')
-        .delete()
-        .eq('id', id);
-        
-      if (error) throw error;
-      
-      setComponentCategories(prev => prev.filter(category => category.id !== id));
-      return true;
-      
-    } catch (error) {
-      console.error("Error deleting building component category:", error);
-      toast.error("Failed to delete building component category");
-      return false;
-    }
-  };
-
   return {
     loading,
     saving,
@@ -817,10 +720,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     updateUnitAllocation,
     getUnitAllocation,
     reloadProjectData,
-    componentCategories,
-    addComponentCategory,
-    updateComponentCategory,
-    deleteComponentCategory,
     
     getFloorTemplateById: (templateId: string) => {
       return floorPlateTemplates.find(template => template.id === templateId);

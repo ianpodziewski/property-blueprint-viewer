@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,7 +7,6 @@ import { Info, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import FloorPlateTemplates from "./property/FloorPlateTemplates";
 import UnitMix from "./property/UnitMix";
-import BuildingComponents from "./property/BuildingComponents";
 import BuildingLayout from "./property/BuildingLayout";
 import { useSupabasePropertyData } from "@/hooks/useSupabasePropertyData";
 import { useParams } from "react-router-dom";
@@ -47,11 +47,7 @@ const PropertyBreakdown = () => {
     updateUnitAllocation,
     getUnitAllocation,
     getFloorTemplateById,
-    reloadProjectData,
-    componentCategories,
-    addComponentCategory,
-    updateComponentCategory,
-    deleteComponentCategory
+    reloadProjectData
   } = useSupabasePropertyData(projectId || null);
   
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
@@ -315,14 +311,6 @@ const PropertyBreakdown = () => {
             onAddUnitType={addUnitType}
             onUpdateUnitType={updateUnitType}
             onDeleteUnitType={deleteUnitType}
-          />
-          
-          <BuildingComponents
-            projectId={projectId || ""}
-            componentCategories={componentCategories}
-            onAddComponentCategory={addComponentCategory}
-            onUpdateComponentCategory={updateComponentCategory}
-            onDeleteComponentCategory={deleteComponentCategory}
           />
           
           <BuildingLayout 
