@@ -39,16 +39,15 @@ export interface UnitAllocation {
   quantity: number;
 }
 
+export type AllocationMethod = 'uniform' | 'specific' | 'percentage';
+
 export interface NonRentableSpace {
   id: string;
   name: string;
   squareFootage: number;
-  allocationMethod: 'uniform' | 'specific' | 'percentage';
+  allocationMethod: AllocationMethod;
   specificFloors?: number[];
 }
-
-// Alias for backward compatibility
-export type NonRentableType = NonRentableSpace;
 
 export function usePropertyState() {
   const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>([]);

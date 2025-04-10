@@ -7,13 +7,15 @@ import {
   UnitType, 
   Product, 
   Floor,
-  NonRentableSpace
+  NonRentableSpace,
+  AllocationMethod
 } from '@/hooks/usePropertyState';
 import { useProject } from '@/context/ProjectContext';
 import { 
   getNonRentableSpaces,
   createNonRentableSpace,
-  updateNonRentableSpace
+  updateNonRentableSpace,
+  deleteNonRentableSpace
 } from '@/utils/floorManagement';
 
 export interface ProjectData {
@@ -222,18 +224,29 @@ export function useSupabasePropertyData(projectId: string | null) {
       try {
         const nonRentableData = await getNonRentableSpaces(effectiveProjectId);
         
-        const transformedNonRentable = (nonRentableData || []).map((space: any) => ({
-          id: space.id,
-          name: space.name,
-          squareFootage: space.square_footage,
-          // Map the database values to our TypeScript enum values
-          allocationMethod: space.allocation_method === 'Uniform Across Floors' ? 'uniform' :
-                           space.allocation_method === 'Specific Floors' ? 'specific' :
-                           space.allocation_method === 'Percentage of Floor Area' ? 'percentage' : 'uniform',
-          specificFloors: space.specific_floors || []
-        }));
+        const transformedNonRentable = (nonRentableData || []).map((space: any) => {
+          // Map database allocation method string to our enum type
+          let allocationMethod: AllocationMethod = 'uniform';
+          
+          if (space.allocation_method === 'Uniform Across Floors') {
+            allocationMethod = 'uniform';
+          } else if (space.allocation_method === 'Specific Floors') {
+            allocationMethod = 'specific';
+          } else if (space.allocation_method === 'Percentage of Floor Area') {
+            allocationMethod = 'percentage';
+          }
+          
+          return {
+            id: space.id,
+            name: space.name,
+            squareFootage: space.square_footage,
+            allocationMethod,
+            specificFloors: space.specific_floors || []
+          };
+        });
         
         setNonRentableSpaces(transformedNonRentable);
+        setNonRentableTypes(transformedNonRentable);
       } catch (nonRentableError) {
         console.error("Error loading non-rentable spaces:", nonRentableError);
         // Don't throw here, continue loading other data
@@ -757,6 +770,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       };
       
       setNonRentableTypes(prev => [...prev, newNonRentable]);
+      setNonRentableSpaces(prev => [...prev, newNonRentable]);
       return newNonRentable;
     } catch (error) {
       console.error("Error adding non-rentable space:", error);
@@ -787,6 +801,10 @@ export function useSupabasePropertyData(projectId: string | null) {
         prev.map(space => space.id === id ? { ...space, ...updates } : space)
       );
       
+      setNonRentableTypes(prev =>
+        prev.map(space => space.id === id ? { ...space, ...updates } : space)
+      );
+      
       return true;
     } catch (error) {
       console.error("Error updating non-rentable space:", error);
@@ -799,6 +817,9 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
+      await deleteNonRentableSpace(id);
+      
+      setNonRentableSpaces(prev => prev.filter(space => space.id !== id));
       setNonRentableTypes(prev => prev.filter(space => space.id !== id));
       
       return true;

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,7 @@ import {
   LayoutGrid, 
   Percent 
 } from "lucide-react";
-import { NonRentableSpace as NonRentableSpaceType } from "@/hooks/usePropertyState";
+import { NonRentableSpace as NonRentableSpaceType, AllocationMethod } from "@/hooks/usePropertyState";
 
 interface NonRentableSpaceProps {
   nonRentableTypes: NonRentableSpaceType[];
@@ -42,13 +43,13 @@ interface NonRentableSpaceProps {
   onDeleteNonRentableType: (id: string) => Promise<boolean>;
 }
 
-const allocationMethodLabels = {
+const allocationMethodLabels: Record<AllocationMethod, string> = {
   'uniform': 'Uniform Across Floors',
   'specific': 'Specific Floors',
   'percentage': 'Percentage of Floor Area'
 };
 
-const allocationMethodIcons = {
+const allocationMethodIcons: Record<AllocationMethod, React.ReactNode> = {
   'uniform': <LayoutGrid className="mr-2 h-4 w-4" />,
   'specific': <Building2 className="mr-2 h-4 w-4" />,
   'percentage': <Percent className="mr-2 h-4 w-4" />
@@ -57,7 +58,7 @@ const allocationMethodIcons = {
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
   squareFootage: z.number().min(0, "Must be a positive number"),
-  allocationMethod: z.enum(["uniform", "specific", "percentage"])
+  allocationMethod: z.enum(["uniform", "specific", "percentage"] as const)
 });
 
 type FormValues = z.infer<typeof formSchema>;
