@@ -817,4 +817,104 @@ const BuildingLayout: React.FC<BuildingLayoutProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Floor</TableHead>
+                    <TableHead>Template</TableHead>
+                    <TableHead className="text-right">Area (sf)</TableHead>
+                    <TableHead className="text-right">Allocated (sf)</TableHead>
+                    <TableHead>Utilization</TableHead>
+                    <TableHead className="w-16"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                
+                <TableBody>
+                  {sortedFloors.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                        No floors added yet. Click "Add Floor" to get started.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                      modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                    >
+                      <SortableContext
+                        items={floorIds}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {sortedFloors.map((floor) => (
+                          <SortableFloorRow
+                            key={floor.id}
+                            floor={floor}
+                            templates={templates}
+                            products={products}
+                            nonRentableTypes={nonRentableTypes}
+                            isExpanded={expandedFloors.has(floor.id)}
+                            onToggleExpand={() => toggleFloorExpand(floor.id)}
+                            onDeleteFloor={onDeleteFloor}
+                            onUpdateFloor={onUpdateFloor}
+                            onUpdateUnitAllocation={onUpdateUnitAllocation}
+                            getUnitAllocation={getUnitAllocation}
+                            getFloorTemplateById={getFloorTemplateById}
+                            globalAllocations={globalAllocations}
+                            onAllocationChange={handleAllocationChange}
+                            floorAllocationData={floorAllocations[floor.id]}
+                            nonRentableAllocations={
+                              getNonRentableAllocationsForFloor(floor.id)
+                            }
+                            addNonRentableAllocation={addNonRentableAllocation}
+                            updateNonRentableAllocation={updateNonRentableAllocation}
+                            deleteNonRentableAllocation={deleteNonRentableAllocation}
+                            highlightedAllocations={highlightedAllocations}
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      
+      {showBulkAddModal && (
+        <BulkAddFloorsModal
+          isOpen={showBulkAddModal}
+          onClose={() => setShowBulkAddModal(false)}
+          templates={templates}
+          onAddFloors={async (count, templateId, startingNumber, prefix, suffix, floorType) => {
+            try {
+              for (let i = 0; i < count; i++) {
+                const floorNumber = startingNumber + i;
+                const floorLabel = `${prefix}${floorNumber}${suffix}`;
+                
+                await onAddFloor();
+                
+                const newFloor = floors[floors.length - 1];
+                
+                await onUpdateFloor(newFloor.id, {
+                  label: floorLabel,
+                  templateId,
+                  floorType
+                });
+              }
+              
+              toast.success(`Added ${count} floors successfully`);
+              onRefreshData();
+              setShowBulkAddModal(false);
+            } catch (error) {
+              console.error("Error adding multiple floors:", error);
+              toast.error("Failed to add floors");
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+export default BuildingLayout;
