@@ -778,7 +778,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       return null;
     }
   };
-  
+
   const updateNonRentableType = async (
     id: string,
     updates: Partial<Omit<NonRentableSpace, 'id'>>
@@ -812,7 +812,7 @@ export function useSupabasePropertyData(projectId: string | null) {
       return false;
     }
   };
-  
+
   const deleteNonRentableType = async (id: string) => {
     if (!effectiveProjectId || !user) return false;
     

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AllocationMethod } from "@/hooks/usePropertyState";
@@ -440,15 +441,17 @@ interface NonRentableSpaceData {
   allocation_method: string;
   specific_floors?: number[];
   project_id: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export async function getNonRentableSpaces(projectId: string) {
+export async function getNonRentableSpaces(projectId: string): Promise<NonRentableSpaceData[]> {
   console.log(`Fetching non-rentable spaces for project ${projectId}`);
   
   try {
     // Use RPC to fetch data from non_rentable_spaces
     const { data, error } = await supabase
-      .rpc<NonRentableSpaceData[]>('get_non_rentable_spaces', { p_project_id: projectId });
+      .rpc('get_non_rentable_spaces', { p_project_id: projectId });
     
     if (error) {
       console.error("Error fetching non-rentable spaces:", error);
@@ -478,7 +481,7 @@ export async function createNonRentableSpace(
     const id = crypto.randomUUID();
     
     // Use RPC to insert into the non_rentable_spaces table
-    const { error } = await supabase.rpc<string>('create_non_rentable_space', {
+    const { error } = await supabase.rpc('create_non_rentable_space', {
       p_id: id,
       p_project_id: projectId,
       p_name: name,
@@ -515,7 +518,7 @@ export async function updateNonRentableSpace(
   
   try {
     // Use RPC to update the non_rentable_spaces table
-    const { error } = await supabase.rpc<void>('update_non_rentable_space', {
+    const { error } = await supabase.rpc('update_non_rentable_space', {
       p_id: id,
       p_name: updates.name,
       p_square_footage: updates.squareFootage,
@@ -541,7 +544,7 @@ export async function deleteNonRentableSpace(id: string): Promise<void> {
   
   try {
     // Use RPC to delete from the non_rentable_spaces table
-    const { error } = await supabase.rpc<void>('delete_non_rentable_space', {
+    const { error } = await supabase.rpc('delete_non_rentable_space', {
       p_id: id
     });
     
