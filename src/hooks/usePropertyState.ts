@@ -43,9 +43,12 @@ export interface NonRentableSpace {
   id: string;
   name: string;
   squareFootage: number;
-  allocationMethod: 'Uniform Across Floors' | 'Specific Floors' | 'Percentage of Floor Area';
+  allocationMethod: 'uniform' | 'specific' | 'percentage';
   specificFloors?: number[];
 }
+
+// Alias for backward compatibility
+export type NonRentableType = NonRentableSpace;
 
 export function usePropertyState() {
   const [floorPlateTemplates, setFloorPlateTemplates] = useState<FloorPlateTemplate[]>([]);

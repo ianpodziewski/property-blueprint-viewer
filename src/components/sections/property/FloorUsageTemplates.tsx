@@ -52,9 +52,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 export interface FloorUsageTemplate {
   id: string;
   name: string;
-  template_id: string | null;
+  template_id?: string | null;
   project_id: string;
-  created_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface FloorUsageTemplatesProps {
@@ -83,7 +84,16 @@ const FloorUsageTemplates = ({
     setIsLoading(true);
     try {
       const templates = await fetchFloorUsageTemplates(projectId);
-      setUsageTemplates(templates);
+      // Ensure we map the response to match our FloorUsageTemplate interface
+      const mappedTemplates: FloorUsageTemplate[] = templates.map((template: any) => ({
+        id: template.id,
+        name: template.name,
+        template_id: template.template_id || null,
+        project_id: template.project_id,
+        created_at: template.created_at,
+        updated_at: template.updated_at
+      }));
+      setUsageTemplates(mappedTemplates);
     } catch (error) {
       console.error("Error loading floor usage templates:", error);
       toast.error("Failed to load floor templates");

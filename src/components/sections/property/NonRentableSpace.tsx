@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,12 +33,12 @@ import {
   LayoutGrid, 
   Percent 
 } from "lucide-react";
-import { NonRentableType } from "@/hooks/usePropertyState";
+import { NonRentableSpace as NonRentableSpaceType } from "@/hooks/usePropertyState";
 
 interface NonRentableSpaceProps {
-  nonRentableTypes: NonRentableType[];
-  onAddNonRentableType: (nonRentable: Omit<NonRentableType, 'id'>) => Promise<NonRentableType | null>;
-  onUpdateNonRentableType: (id: string, updates: Partial<Omit<NonRentableType, 'id'>>) => Promise<boolean>;
+  nonRentableTypes: NonRentableSpaceType[];
+  onAddNonRentableType: (nonRentable: Omit<NonRentableSpaceType, 'id'>) => Promise<NonRentableSpaceType | null>;
+  onUpdateNonRentableType: (id: string, updates: Partial<Omit<NonRentableSpaceType, 'id'>>) => Promise<boolean>;
   onDeleteNonRentableType: (id: string) => Promise<boolean>;
 }
 
@@ -90,7 +89,7 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
     });
   };
 
-  const handleEditClick = (type: NonRentableType) => {
+  const handleEditClick = (type: NonRentableSpaceType) => {
     setEditingId(type.id);
     form.reset({
       name: type.name,
@@ -113,7 +112,6 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
 
   const onSubmit = async (values: FormValues) => {
     if (editingId) {
-      // Make sure all required fields are included
       await onUpdateNonRentableType(editingId, {
         name: values.name,
         squareFootage: values.squareFootage,
@@ -121,7 +119,6 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
       });
       setEditingId(null);
     } else if (isAdding) {
-      // Make sure all required fields are included
       await onAddNonRentableType({
         name: values.name,
         squareFootage: values.squareFootage,
@@ -134,14 +131,12 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Add new type button */}
       {!isAdding && !editingId && (
         <Button onClick={handleAddClick} className="mb-4">
           <Plus className="mr-2 h-4 w-4" /> Add Non-Rentable Type
         </Button>
       )}
 
-      {/* Add/Edit form */}
       {(isAdding || editingId) && (
         <Card className="mb-6">
           <CardHeader>
@@ -248,7 +243,6 @@ const NonRentableSpace: React.FC<NonRentableSpaceProps> = ({
         </Card>
       )}
 
-      {/* List of non-rentable space types */}
       {nonRentableTypes.length > 0 ? (
         <div className="space-y-4">
           {nonRentableTypes.map((type) => (

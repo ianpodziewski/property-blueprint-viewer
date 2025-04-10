@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { usePropertyState } from '@/hooks/usePropertyState';
 import { useDevelopmentCosts } from '@/hooks/useDevelopmentCosts';
@@ -102,13 +101,11 @@ export const ModelProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       console.log("Marked as having unsaved changes");
     }
   }, [
-    property.projectName, 
-    property.projectLocation,
-    property.projectType,
-    property.farAllowance,
-    property.lotSize,
     property.floorPlateTemplates,
     property.products,
+    property.floors,
+    property.unitAllocations,
+    property.nonRentableSpaces,
     expenses.expenseGrowthRate,
     expenses.operatingExpenseRatio,
     expenses.expenseCategories,

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -437,11 +436,9 @@ export async function getNonRentableSpaces(projectId: string) {
   console.log(`Fetching non-rentable spaces for project ${projectId}`);
   
   try {
+    // Use raw SQL query to fetch data from non_rentable_spaces since it's not in the types yet
     const { data, error } = await supabase
-      .from('non_rentable_spaces')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('name');
+      .rpc('get_non_rentable_spaces', { p_project_id: projectId });
     
     if (error) {
       console.error("Error fetching non-rentable spaces:", error);
@@ -470,16 +467,15 @@ export async function createNonRentableSpace(
   try {
     const id = crypto.randomUUID();
     
-    const { error } = await supabase
-      .from('non_rentable_spaces')
-      .insert({
-        id,
-        project_id: projectId,
-        name,
-        square_footage: squareFootage,
-        allocation_method: allocationMethod,
-        specific_floors: specificFloors.length > 0 ? specificFloors : null
-      });
+    // Use raw SQL to insert into the non_rentable_spaces table
+    const { error } = await supabase.rpc('create_non_rentable_space', {
+      p_id: id,
+      p_project_id: projectId,
+      p_name: name,
+      p_square_footage: squareFootage,
+      p_allocation_method: allocationMethod,
+      p_specific_floors: specificFloors.length > 0 ? specificFloors : null
+    });
     
     if (error) {
       console.error("Error creating non-rentable space:", error);
@@ -508,20 +504,14 @@ export async function updateNonRentableSpace(
   console.log(`Updating non-rentable space ${id}`);
   
   try {
-    const updateData: any = {};
-    if (updates.name !== undefined) updateData.name = updates.name;
-    if (updates.squareFootage !== undefined) updateData.square_footage = updates.squareFootage;
-    if (updates.allocationMethod !== undefined) updateData.allocation_method = updates.allocationMethod;
-    if (updates.specificFloors !== undefined) {
-      updateData.specific_floors = updates.specificFloors.length > 0 
-        ? updates.specificFloors 
-        : null;
-    }
-    
-    const { error } = await supabase
-      .from('non_rentable_spaces')
-      .update(updateData)
-      .eq('id', id);
+    // Use RPC to update the non_rentable_spaces table
+    const { error } = await supabase.rpc('update_non_rentable_space', {
+      p_id: id,
+      p_name: updates.name,
+      p_square_footage: updates.squareFootage,
+      p_allocation_method: updates.allocationMethod,
+      p_specific_floors: updates.specificFloors?.length > 0 ? updates.specificFloors : null
+    });
     
     if (error) {
       console.error("Error updating non-rentable space:", error);
@@ -540,10 +530,10 @@ export async function deleteNonRentableSpace(id: string): Promise<void> {
   console.log(`Deleting non-rentable space ${id}`);
   
   try {
-    const { error } = await supabase
-      .from('non_rentable_spaces')
-      .delete()
-      .eq('id', id);
+    // Use RPC to delete from the non_rentable_spaces table
+    const { error } = await supabase.rpc('delete_non_rentable_space', {
+      p_id: id
+    });
     
     if (error) {
       console.error("Error deleting non-rentable space:", error);

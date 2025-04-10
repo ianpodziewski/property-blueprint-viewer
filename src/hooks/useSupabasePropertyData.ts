@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -12,10 +11,7 @@ import {
 } from '@/hooks/usePropertyState';
 import { useProject } from '@/context/ProjectContext';
 import { 
-  getNonRentableSpaces, 
-  createNonRentableSpace, 
-  updateNonRentableSpace, 
-  deleteNonRentableSpace 
+  getNonRentableSpaces 
 } from '@/utils/floorManagement';
 
 export interface ProjectData {
@@ -75,6 +71,7 @@ export function useSupabasePropertyData(projectId: string | null) {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [unitAllocations, setUnitAllocations] = useState<any[]>([]);
   const [nonRentableSpaces, setNonRentableSpaces] = useState<NonRentableSpace[]>([]);
+  const [nonRentableTypes, setNonRentableTypes] = useState<NonRentableSpace[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState<number>(0);
 
@@ -724,33 +721,21 @@ export function useSupabasePropertyData(projectId: string | null) {
     return Promise.resolve(allocation ? allocation.quantity : 0);
   };
 
-  // Non-rentable space methods
-  const addNonRentableType = async (
-    name: string,
-    squareFootage: number,
-    allocationMethod: 'Uniform Across Floors' | 'Specific Floors' | 'Percentage of Floor Area',
-    specificFloors: number[] = []
-  ) => {
+  const addNonRentableType = async (nonRentable: Omit<NonRentableSpace, 'id'>) => {
     if (!effectiveProjectId || !user) return null;
     
     try {
-      const id = await createNonRentableSpace(
-        effectiveProjectId,
-        name,
-        squareFootage,
-        allocationMethod,
-        specificFloors
-      );
+      const { name, squareFootage, allocationMethod, specificFloors = [] } = nonRentable;
       
       const newNonRentable: NonRentableSpace = {
-        id,
+        id: crypto.randomUUID(),
         name,
         squareFootage,
         allocationMethod,
-        specificFloors: specificFloors.length > 0 ? specificFloors : undefined
+        specificFloors: specificFloors
       };
       
-      setNonRentableSpaces(prev => [...prev, newNonRentable]);
+      setNonRentableTypes(prev => [...prev, newNonRentable]);
       return newNonRentable;
     } catch (error) {
       console.error("Error adding non-rentable space:", error);
@@ -766,14 +751,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
-      await updateNonRentableSpace(id, {
-        name: updates.name,
-        squareFootage: updates.squareFootage,
-        allocationMethod: updates.allocationMethod as any,
-        specificFloors: updates.specificFloors
-      });
-      
-      setNonRentableSpaces(prev =>
+      setNonRentableTypes(prev =>
         prev.map(space => space.id === id ? { ...space, ...updates } : space)
       );
       
@@ -789,9 +767,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     if (!effectiveProjectId || !user) return false;
     
     try {
-      await deleteNonRentableSpace(id);
-      
-      setNonRentableSpaces(prev => prev.filter(space => space.id !== id));
+      setNonRentableTypes(prev => prev.filter(space => space.id !== id));
       
       return true;
     } catch (error) {
@@ -809,7 +785,7 @@ export function useSupabasePropertyData(projectId: string | null) {
     floorPlateTemplates,
     products,
     floors,
-    nonRentableSpaces,
+    nonRentableTypes,
     updateProjectInfo,
     addFloorPlateTemplate,
     updateFloorPlateTemplate,
@@ -827,7 +803,6 @@ export function useSupabasePropertyData(projectId: string | null) {
     getUnitAllocation,
     reloadProjectData,
     
-    // Non-rentable space methods
     addNonRentableType,
     updateNonRentableType,
     deleteNonRentableType,
