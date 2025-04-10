@@ -1,12 +1,9 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
-import FloorPlateTemplates from "./property/FloorPlateTemplates";
-import UnitMix from "./property/UnitMix";
 import BuildingLayout from "./property/BuildingLayout";
 import { useSupabasePropertyData } from "@/hooks/useSupabasePropertyData";
 import { useParams } from "react-router-dom";
@@ -14,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useModel } from "@/context/ModelContext";
 import { toast } from "sonner";
+import PlanningCard from "./property/PlanningCard";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
@@ -290,29 +288,26 @@ const PropertyBreakdown = () => {
         </CardContent>
       </Card>
       
+      <PlanningCard
+        floorPlateTemplates={floorPlateTemplates}
+        products={products}
+        onAddTemplate={addFloorPlateTemplate}
+        onUpdateTemplate={updateFloorPlateTemplate}
+        onDeleteTemplate={deleteFloorPlateTemplate}
+        onAddProduct={addProduct}
+        onUpdateProduct={updateProduct}
+        onDeleteProduct={deleteProduct}
+        onAddUnitType={addUnitType}
+        onUpdateUnitType={updateUnitType}
+        onDeleteUnitType={deleteUnitType}
+      />
+      
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Project Configuration</CardTitle>
           <CardDescription>Define the building elements of your development</CardDescription>
         </CardHeader>
         <CardContent className="pb-8 space-y-6">
-          <FloorPlateTemplates 
-            templates={floorPlateTemplates}
-            onAddTemplate={addFloorPlateTemplate}
-            onUpdateTemplate={updateFloorPlateTemplate}
-            onDeleteTemplate={deleteFloorPlateTemplate}
-          />
-          
-          <UnitMix 
-            products={products}
-            onAddProduct={addProduct}
-            onUpdateProduct={updateProduct}
-            onDeleteProduct={deleteProduct}
-            onAddUnitType={addUnitType}
-            onUpdateUnitType={updateUnitType}
-            onDeleteUnitType={deleteUnitType}
-          />
-          
           <BuildingLayout 
             floors={floors}
             templates={floorPlateTemplates}

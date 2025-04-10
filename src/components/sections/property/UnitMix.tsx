@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { PlusCircle, Pencil, Trash2, X, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Product, UnitType } from "@/hooks/usePropertyState";
 
 const formatNumber = (num: number | undefined): string => {
@@ -51,7 +49,6 @@ const UnitMix = ({
   onUpdateUnitType,
   onDeleteUnitType
 }: UnitMixProps) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -347,34 +344,19 @@ const UnitMix = ({
   
   return (
     <>
-      <Collapsible
-        open={!isCollapsed}
-        onOpenChange={setIsCollapsed}
-        className="w-full space-y-2"
-      >
+      <div className="w-full space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">Unit Mix</h3>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleAddProduct}
-            >
-              <PlusCircle className="h-4 w-4 mr-1" /> Add Product
-            </Button>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
-                {isCollapsed ? "+" : "-"}
-              </Button>
-            </CollapsibleTrigger>
-          </div>
+          <div className="flex-1"></div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleAddProduct}
+          >
+            <PlusCircle className="h-4 w-4 mr-1" /> Add Product
+          </Button>
         </div>
         
-        <CollapsibleContent className="pt-2">
-          <div className="text-sm text-gray-500 mb-4">
-            Define the types of units for your development
-          </div>
-          
+        <div className="pt-2">
           {products.length === 0 ? (
             <Card className="bg-gray-50 border border-dashed border-gray-200">
               <CardContent className="py-6 flex flex-col items-center justify-center text-center">
@@ -599,8 +581,8 @@ const UnitMix = ({
               })}
             </div>
           )}
-        </CollapsibleContent>
-      </Collapsible>
+        </div>
+      </div>
       
       {/* Add/Edit Product Dialog */}
       <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>

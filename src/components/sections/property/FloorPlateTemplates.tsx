@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { PlusCircle, Pencil, Trash2, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { FloorPlateTemplate } from "@/hooks/usePropertyState";
 
 const formatNumber = (num: number | undefined): string => {
@@ -44,7 +42,6 @@ const FloorPlateTemplates = ({
   onUpdateTemplate, 
   onDeleteTemplate 
 }: FloorPlateTemplatesProps) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<FloorPlateTemplate | null>(null);
@@ -211,34 +208,19 @@ const FloorPlateTemplates = ({
   
   return (
     <>
-      <Collapsible
-        open={!isCollapsed}
-        onOpenChange={setIsCollapsed}
-        className="w-full space-y-2"
-      >
+      <div className="w-full space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">Floor Plate Templates</h3>
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleAddTemplate}
-            >
-              <PlusCircle className="h-4 w-4 mr-1" /> Add Template
-            </Button>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-1 h-8 w-8">
-                {isCollapsed ? "+" : "-"}
-              </Button>
-            </CollapsibleTrigger>
-          </div>
+          <div className="flex-1"></div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleAddTemplate}
+          >
+            <PlusCircle className="h-4 w-4 mr-1" /> Add Template
+          </Button>
         </div>
         
-        <CollapsibleContent className="pt-2">
-          <div className="text-sm text-gray-500 mb-4">
-            Create templates for recurring floor configurations
-          </div>
-          
+        <div className="pt-2">
           {templates.length === 0 ? (
             <Card className="bg-gray-50 border border-dashed border-gray-200">
               <CardContent className="py-6 flex flex-col items-center justify-center text-center">
@@ -284,8 +266,8 @@ const FloorPlateTemplates = ({
               ))}
             </div>
           )}
-        </CollapsibleContent>
-      </Collapsible>
+        </div>
+      </div>
       
       {/* Add/Edit Template Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
