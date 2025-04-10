@@ -9,6 +9,60 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      building_components: {
+        Row: {
+          component_type: string
+          created_at: string
+          floor_id: string | null
+          id: string
+          is_percentage: boolean
+          name: string
+          percentage: number | null
+          project_id: string
+          square_footage: number | null
+          updated_at: string
+        }
+        Insert: {
+          component_type: string
+          created_at?: string
+          floor_id?: string | null
+          id?: string
+          is_percentage?: boolean
+          name: string
+          percentage?: number | null
+          project_id: string
+          square_footage?: number | null
+          updated_at?: string
+        }
+        Update: {
+          component_type?: string
+          created_at?: string
+          floor_id?: string | null
+          id?: string
+          is_percentage?: boolean
+          name?: string
+          percentage?: number | null
+          project_id?: string
+          square_footage?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_components_floor_id_fkey"
+            columns: ["floor_id"]
+            isOneToOne: false
+            referencedRelation: "floors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_components_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       floor_plate_templates: {
         Row: {
           area: number

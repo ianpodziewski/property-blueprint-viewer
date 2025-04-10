@@ -7,6 +7,7 @@ import { Info, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import FloorPlateTemplates from "./property/FloorPlateTemplates";
 import UnitMix from "./property/UnitMix";
+import BuildingComponents from "./property/BuildingComponents";
 import BuildingLayout from "./property/BuildingLayout";
 import { useSupabasePropertyData } from "@/hooks/useSupabasePropertyData";
 import { useParams } from "react-router-dom";
@@ -14,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useModel } from "@/context/ModelContext";
 import { toast } from "sonner";
+import { useBuildingComponents } from "@/hooks/useBuildingComponents";
 
 const formatNumber = (num: number): string => {
   return isNaN(num) ? "" : num.toLocaleString('en-US');
@@ -50,11 +52,28 @@ const PropertyBreakdown = () => {
     reloadProjectData
   } = useSupabasePropertyData(projectId || null);
   
+  const {
+    buildingComponents,
+    loading: componentsLoading,
+    fetchBuildingComponents,
+    addBuildingComponent,
+    updateBuildingComponent,
+    deleteBuildingComponent,
+    getComponentsByFloorId,
+    calculateComponentArea
+  } = useBuildingComponents(projectId || null);
+
   const [formattedLotSize, setFormattedLotSize] = useState<string>("");
   
   useEffect(() => {
     console.log("PropertyBreakdown: Floors data updated:", floors);
   }, [floors]);
+
+  useEffect(() => {
+    if (projectId) {
+      fetchBuildingComponents();
+    }
+  }, [projectId, fetchBuildingComponents]);
   
   useEffect(() => {
     if (projectData) {
@@ -96,6 +115,7 @@ const PropertyBreakdown = () => {
     console.log("PropertyBreakdown: Manual data refresh requested");
     try {
       await reloadProjectData();
+      await fetchBuildingComponents();
       console.log("PropertyBreakdown: Manual data refresh completed");
       toast.success("Data refreshed successfully");
     } catch (error) {
@@ -313,16 +333,27 @@ const PropertyBreakdown = () => {
             onDeleteUnitType={deleteUnitType}
           />
           
+          <BuildingComponents
+            components={buildingComponents}
+            floors={floors}
+            onAddComponent={addBuildingComponent}
+            onUpdateComponent={updateBuildingComponent}
+            onDeleteComponent={deleteBuildingComponent}
+          />
+          
           <BuildingLayout 
             floors={floors}
             templates={floorPlateTemplates}
             products={products}
+            buildingComponents={buildingComponents}
             onAddFloor={addFloor}
             onUpdateFloor={updateFloor}
             onDeleteFloor={deleteFloor}
             onUpdateUnitAllocation={updateUnitAllocation}
             getUnitAllocation={getUnitAllocation}
             getFloorTemplateById={getFloorTemplateById}
+            getComponentsByFloorId={getComponentsByFloorId}
+            calculateComponentArea={calculateComponentArea}
             onRefreshData={handleDataRefresh}
           />
         </CardContent>
