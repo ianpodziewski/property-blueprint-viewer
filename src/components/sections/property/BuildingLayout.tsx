@@ -271,28 +271,35 @@ const SortableFloorRow = ({
                   <p className="text-sm text-gray-500 mt-1">Loading allocations...</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {products.map(product => (
                     <div key={product.id} className="mt-3 first:mt-0">
                       <div className="text-sm font-medium text-gray-700 mb-2">{product.name}</div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {product.unitTypes.map(unitType => {
                           const { available, total } = getUnitAvailability(unitType);
                           return (
-                            <div key={unitType.id} className="flex items-center justify-between p-2 bg-white border rounded">
-                              <div className="text-sm mr-2">
-                                <div className="font-medium">
-                                  {unitType.unitType} <span className="text-gray-500 font-normal">({available} available / {total} total)</span>
+                            <div key={unitType.id} className="flex flex-col h-full p-3 bg-white border rounded shadow-sm">
+                              <div className="mb-2">
+                                <div className="font-medium text-sm">
+                                  {unitType.unitType}
                                 </div>
-                                <div className="text-xs text-gray-500">{unitType.grossArea.toLocaleString()} sf</div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {available} available / {total} total
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {unitType.grossArea.toLocaleString()} sf
+                                </div>
                               </div>
-                              <Input
-                                type="number"
-                                min="0"
-                                value={allocations[unitType.id] || 0}
-                                onChange={(e) => handleAllocationChange(unitType.id, e.target.value)}
-                                className="w-20 text-right"
-                              />
+                              <div className="mt-auto pt-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={allocations[unitType.id] || 0}
+                                  onChange={(e) => handleAllocationChange(unitType.id, e.target.value)}
+                                  className="w-full text-right"
+                                />
+                              </div>
                             </div>
                           );
                         })}
