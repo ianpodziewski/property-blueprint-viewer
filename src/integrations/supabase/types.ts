@@ -188,10 +188,12 @@ export type Database = {
           cost_category: string
           created_at: string
           id: string
+          notes: string | null
           project_id: string
           property_type: string
           rate: number | null
           total: number | null
+          unit_type_id: string | null
           updated_at: string
         }
         Insert: {
@@ -199,10 +201,12 @@ export type Database = {
           cost_category: string
           created_at?: string
           id?: string
+          notes?: string | null
           project_id: string
           property_type: string
           rate?: number | null
           total?: number | null
+          unit_type_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -210,10 +214,12 @@ export type Database = {
           cost_category?: string
           created_at?: string
           id?: string
+          notes?: string | null
           project_id?: string
           property_type?: string
           rate?: number | null
           total?: number | null
+          unit_type_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -222,6 +228,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hard_costs_unit_type_id_fkey"
+            columns: ["unit_type_id"]
+            isOneToOne: false
+            referencedRelation: "unit_types"
             referencedColumns: ["id"]
           },
         ]
