@@ -5,12 +5,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { PlusCircle, Trash2, ChevronDown, ChevronRight, Info } from "lucide-react";
 import { HardCost, CalculationMethod, PropertyType } from "@/hooks/useDevelopmentCosts";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface UnitTypeInfo {
   id: string;
@@ -314,7 +315,19 @@ export const PropertyTypeHardCosts = ({
                 <SelectItem value="custom">{getMethodLabel("custom")}</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-500">{getMethodDescription(cost.calculationMethod)}</p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-flex items-center text-xs text-gray-500">
+                    <Info className="h-3 w-3 mr-1 inline" />
+                    <span>Method info</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm">{getMethodDescription(cost.calculationMethod)}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           
           {(cost.calculationMethod.includes('unit_type') && unitTypes.length > 0) && (
@@ -480,6 +493,7 @@ export const PropertyTypeHardCosts = ({
             variant="outline" 
             onClick={() => onAddCost(propertyType, "")} 
             className="mt-4"
+            type="button"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Category Cost
@@ -530,6 +544,7 @@ export const PropertyTypeHardCosts = ({
                       variant="outline" 
                       onClick={() => onAddCost(propertyType, "", unitType.id)} 
                       className="mt-4"
+                      type="button"
                     >
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Add Cost Item for {unitType.name}
