@@ -322,6 +322,8 @@ const DevelopmentCosts = () => {
                 onUpdateCost={developmentCosts.updateHardCost}
                 onDeleteCost={developmentCosts.deleteHardCost}
                 subtotal={developmentCosts.calculatePropertyTypeSubtotal(propertyType)}
+                byUnitType={developmentCosts.isByUnitType(propertyType)}
+                onToggleByUnitType={(value) => developmentCosts.toggleByUnitType(propertyType, value)}
               />
             ))
           )}

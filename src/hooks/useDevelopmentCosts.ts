@@ -23,6 +23,7 @@ export interface HardCost {
   rate: number | null;
   total: number | null;
   notes?: string;
+  unitTypeId?: string;
 }
 
 // Define the hard cost database row structure
@@ -35,6 +36,7 @@ interface HardCostRow {
   rate: number | null;
   total: number | null;
   notes?: string;
+  unit_type_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +58,7 @@ export const useDevelopmentCosts = () => {
   
   // Hard Costs
   const [hardCosts, setHardCosts] = useState<HardCost[]>([]);
+  const [byUnitTypeMap, setByUnitTypeMap] = useState<Record<string, boolean>>({});
   const [shellCost, setShellCost] = useState<string>("");
   const [shellCostMetric, setShellCostMetric] = useState<string>("psf");
   const [tenantImprovementCost, setTenantImprovementCost] = useState<string>("");
@@ -118,6 +121,13 @@ export const useDevelopmentCosts = () => {
         }
         
         setAvailablePropertyTypes(categories);
+        
+        // Initialize byUnitTypeMap for each property type
+        const initialMap: Record<string, boolean> = {};
+        categories.forEach(category => {
+          initialMap[category] = false; // Default to category view
+        });
+        setByUnitTypeMap(initialMap);
       } catch (err) {
         console.error("Error fetching property types:", err);
         setError("Failed to load property types");
@@ -207,10 +217,20 @@ export const useDevelopmentCosts = () => {
             calculationMethod: item.calculation_method as CalculationMethod,
             rate: item.rate,
             total: item.total,
-            notes: item.notes
+            notes: item.notes,
+            unitTypeId: item.unit_type_id
           }));
           
           setHardCosts(formattedData);
+          
+          // Look for costs with unit_type_id to determine if a property type is in unit type mode
+          const unitTypeMap: Record<string, boolean> = { ...byUnitTypeMap };
+          formattedData.forEach(cost => {
+            if (cost.unitTypeId) {
+              unitTypeMap[cost.propertyType] = true;
+            }
+          });
+          setByUnitTypeMap(unitTypeMap);
         } else {
           // Initialize with default hard costs for each property type once we have availablePropertyTypes
           const defaultCosts: HardCost[] = [];
@@ -261,19 +281,41 @@ export const useDevelopmentCosts = () => {
   const calculateHardCostTotal = (
     propertyType: PropertyType,
     rate: number | null,
-    calculationMethod: CalculationMethod
+    calculationMethod: CalculationMethod,
+    unitTypeId?: string
   ): number | null => {
     if (rate === null) return null;
     
-    switch (calculationMethod) {
-      case "area_based":
-        return rate * (propertyAreas[propertyType] || 0);
-      case "unit_based":
-        return rate * (propertyUnits[propertyType] || 0);
-      case "custom":
-        return rate; // For custom, we just use the rate as the total
-      default:
-        return null;
+    // If unit type specific, get the area and units for that specific unit type
+    if (unitTypeId) {
+      // Fetch unit type details
+      const unitType = products.find(product => product.id === unitTypeId);
+      if (!unitType) return null;
+      
+      const unitTypeArea = unitType.area * unitType.units;
+      
+      switch (calculationMethod) {
+        case "area_based":
+          return rate * unitTypeArea;
+        case "unit_based":
+          return rate * unitType.units;
+        case "custom":
+          return rate;
+        default:
+          return null;
+      }
+    } else {
+      // Regular property type calculation
+      switch (calculationMethod) {
+        case "area_based":
+          return rate * (propertyAreas[propertyType] || 0);
+        case "unit_based":
+          return rate * (propertyUnits[propertyType] || 0);
+        case "custom":
+          return rate; // For custom, we just use the rate as the total
+        default:
+          return null;
+      }
     }
   };
 
@@ -284,7 +326,12 @@ export const useDevelopmentCosts = () => {
     try {
       // Calculate total based on method and rate
       const calculatedTotal = hardCost.calculationMethod !== 'custom' && hardCost.rate !== null 
-        ? calculateHardCostTotal(hardCost.propertyType, hardCost.rate, hardCost.calculationMethod)
+        ? calculateHardCostTotal(
+            hardCost.propertyType, 
+            hardCost.rate, 
+            hardCost.calculationMethod, 
+            hardCost.unitTypeId
+          )
         : hardCost.total;
       
       // Check if the hard cost already exists
@@ -300,7 +347,8 @@ export const useDevelopmentCosts = () => {
             calculation_method: hardCost.calculationMethod,
             rate: hardCost.rate,
             total: calculatedTotal,
-            notes: hardCost.notes
+            notes: hardCost.notes,
+            unit_type_id: hardCost.unitTypeId
           })
           .eq('id', hardCost.id);
           
@@ -323,7 +371,8 @@ export const useDevelopmentCosts = () => {
             calculation_method: hardCost.calculationMethod,
             rate: hardCost.rate,
             total: calculatedTotal,
-            notes: hardCost.notes
+            notes: hardCost.notes,
+            unit_type_id: hardCost.unitTypeId
           })
           .select();
           
@@ -348,7 +397,7 @@ export const useDevelopmentCosts = () => {
   };
 
   // Add a new hard cost
-  const addHardCost = (propertyType: PropertyType, costCategory: string) => {
+  const addHardCost = (propertyType: PropertyType, costCategory: string, unitTypeId?: string) => {
     const newHardCost: HardCost = {
       id: crypto.randomUUID(),
       projectId: currentProjectId || "",
@@ -356,7 +405,8 @@ export const useDevelopmentCosts = () => {
       costCategory,
       calculationMethod: "area_based",
       rate: null,
-      total: null
+      total: null,
+      unitTypeId
     };
     
     setHardCosts(prevCosts => [...prevCosts, newHardCost]);
@@ -382,7 +432,8 @@ export const useDevelopmentCosts = () => {
         newTotal = calculateHardCostTotal(
           existingCost.propertyType, 
           rate, 
-          method as CalculationMethod
+          method as CalculationMethod,
+          existingCost.unitTypeId
         );
       }
     }
@@ -424,6 +475,22 @@ export const useDevelopmentCosts = () => {
     }
   };
   
+  // Toggle between unit type specific view and category view
+  const toggleByUnitType = (propertyType: string, value: boolean) => {
+    setByUnitTypeMap(prev => ({
+      ...prev,
+      [propertyType]: value
+    }));
+    
+    // If switching to category view, we should keep the existing unit type specific costs,
+    // but just not show them until the user switches back
+  };
+  
+  // Check if a property type is using unit type specific costs
+  const isByUnitType = (propertyType: string) => {
+    return byUnitTypeMap[propertyType] || false;
+  };
+
   // Original code for custom costs
   const addCustomCost = (category: string) => {
     switch (category) {
@@ -601,6 +668,10 @@ export const useDevelopmentCosts = () => {
     siteWorkCost, setSiteWorkCost,
     contingencyPercentage, setContingencyPercentage,
     hardCustomCosts,
+    
+    // New unit type specific cost functions
+    toggleByUnitType,
+    isByUnitType,
     
     // New Hard Costs functionality
     addHardCost,
