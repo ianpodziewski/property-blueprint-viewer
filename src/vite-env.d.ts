@@ -13,6 +13,7 @@ declare namespace Database {
       rate: number | null;
       total: number | null;
       notes?: string;
+      unit_type_id?: string;
       created_at: string;
       updated_at: string;
     }

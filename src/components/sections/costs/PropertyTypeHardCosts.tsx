@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,7 +48,6 @@ export const PropertyTypeHardCosts = ({
   const [isUnitTypesOpen, setIsUnitTypesOpen] = useState(false);
   const [selectedUnitTypes, setSelectedUnitTypes] = useState<Record<string, boolean>>({});
   
-  // Fetch unit types for this property category
   useEffect(() => {
     const fetchUnitTypes = async () => {
       if (propertyType.toLowerCase() === "common") return; // Skip for common areas
@@ -67,7 +65,6 @@ export const PropertyTypeHardCosts = ({
       
       setUnitTypes(data || []);
       
-      // Initialize selected unit types
       const selected: Record<string, boolean> = {};
       (data || []).forEach(unitType => {
         selected[unitType.id] = true; // Default to all selected
@@ -78,7 +75,6 @@ export const PropertyTypeHardCosts = ({
     fetchUnitTypes();
   }, [propertyType]);
 
-  // Helper to format currency
   const formatCurrency = (amount: number | null) => {
     if (amount === null) return "$0";
     return new Intl.NumberFormat('en-US', { 
@@ -88,23 +84,19 @@ export const PropertyTypeHardCosts = ({
     }).format(amount);
   };
   
-  // Format numbers with commas
   const formatNumber = (num: number) => {
     return num.toLocaleString();
   };
   
-  // Get property type display name with proper capitalization
   const getPropertyTypeDisplay = (type: PropertyType) => {
     if (!type) return "Unknown";
     
-    // Split by spaces, hyphens or underscores, capitalize each word, join with spaces
     return type
       .split(/[\s-_]+/)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
   };
   
-  // Calculate total based on rate and area/units
   const calculateTotal = (rate: number | null, calculationMethod: CalculationMethod) => {
     if (rate === null) return null;
     
@@ -120,7 +112,6 @@ export const PropertyTypeHardCosts = ({
     }
   };
   
-  // Calculate total for unit type specific cost
   const calculateUnitTypeTotal = (unitType: UnitTypeInfo, rate: number | null, calculationMethod: CalculationMethod) => {
     if (rate === null) return null;
     
@@ -136,11 +127,9 @@ export const PropertyTypeHardCosts = ({
     }
   };
   
-  // Get calculation display text
   const getCalculationDisplay = (cost: HardCost) => {
     if (cost.rate === null) return "Enter a rate to calculate";
     
-    // If this is a unit type specific cost, use different calculation
     if (cost.unitTypeId) {
       const unitType = unitTypes.find(ut => ut.id === cost.unitTypeId);
       if (!unitType) return "";
@@ -158,7 +147,6 @@ export const PropertyTypeHardCosts = ({
           return "";
       }
     } else {
-      // Regular property type calculation
       switch (cost.calculationMethod) {
         case "area_based":
           return `${formatCurrency(cost.rate)}/SF × ${formatNumber(propertyArea)} SF = ${formatCurrency(cost.total)}`;
@@ -172,7 +160,6 @@ export const PropertyTypeHardCosts = ({
     }
   };
   
-  // When rate or calculation method changes, update the total
   const handleRateChange = (id: string, newRate: string, calculationMethod: CalculationMethod, unitTypeId?: string) => {
     const rate = newRate === "" ? null : parseFloat(newRate);
     onUpdateCost(id, { rate });
@@ -191,24 +178,20 @@ export const PropertyTypeHardCosts = ({
     onUpdateCost(id, { notes });
   };
 
-  // Calculate subtotal for a specific unit type
   const calculateUnitTypeSubtotal = (unitTypeId: string) => {
     return costs
       .filter(cost => cost.unitTypeId === unitTypeId)
       .reduce((sum, cost) => sum + (cost.total || 0), 0);
   };
 
-  // Get costs for a specific unit type
   const getCostsByUnitType = (unitTypeId: string) => {
     return costs.filter(cost => cost.unitTypeId === unitTypeId);
   };
 
-  // Get category-level costs (no unit type specified)
   const getCategoryLevelCosts = () => {
     return costs.filter(cost => !cost.unitTypeId);
   };
 
-  // Check if a unit type has any costs defined
   const hasUnitTypeCosts = (unitTypeId: string) => {
     return costs.some(cost => cost.unitTypeId === unitTypeId);
   };
@@ -241,7 +224,6 @@ export const PropertyTypeHardCosts = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Unit Types Breakdown */}
         {propertyType.toLowerCase() !== "common" && (
           <Collapsible 
             open={isUnitTypesOpen} 
@@ -282,7 +264,6 @@ export const PropertyTypeHardCosts = ({
           </Collapsible>
         )}
       
-        {/* Category-wide costs (when not using unit type specific costs) */}
         {(!byUnitType || propertyType.toLowerCase() === "common") && (
           <>
             {costs.length === 0 ? (
@@ -416,7 +397,6 @@ export const PropertyTypeHardCosts = ({
           </>
         )}
         
-        {/* Unit type specific costs */}
         {byUnitType && propertyType.toLowerCase() !== "common" && (
           <>
             {unitTypes.length === 0 ? (

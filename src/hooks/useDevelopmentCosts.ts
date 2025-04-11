@@ -288,17 +288,26 @@ export const useDevelopmentCosts = () => {
     
     // If unit type specific, get the area and units for that specific unit type
     if (unitTypeId) {
-      // Fetch unit type details
-      const unitType = products.find(product => product.id === unitTypeId);
+      // Find the unit type in our products
+      // First find all unitType objects across all products
+      let unitType = null;
+      for (const product of products) {
+        const foundUnitType = product.unitTypes.find(ut => ut.id === unitTypeId);
+        if (foundUnitType) {
+          unitType = foundUnitType;
+          break;
+        }
+      }
+      
       if (!unitType) return null;
       
-      const unitTypeArea = unitType.area * unitType.units;
+      const unitTypeArea = unitType.grossArea * unitType.numberOfUnits;
       
       switch (calculationMethod) {
         case "area_based":
           return rate * unitTypeArea;
         case "unit_based":
-          return rate * unitType.units;
+          return rate * unitType.numberOfUnits;
         case "custom":
           return rate;
         default:
